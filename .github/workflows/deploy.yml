@@ -1,0 +1,35 @@
+name: Deploy BreadApp to Bluehost
+
+on:
+  push:
+    branches:
+      - main  # This triggers the script every time you push to the 'main' branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies and Build
+        run: |
+          npm install
+          npm run build -- --configuration production
+
+      - name: Deploy to Bluehost via SSH
+        uses: appleboy/scp-action@master
+        with:
+          host: thedailydough.site  # Replace with your domain or IP
+          username: meganmuirhead@gmail.com  # Replace with your Bluehost username
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: "dist/bread-app/*" # Make sure this matches your Angular build folder name
+          target: "public_html/"
+          strip_components: 2 # This prevents creating 'dist/bread-app' folders on the server
