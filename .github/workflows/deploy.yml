@@ -31,8 +31,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           # This targets the specific 'browser' folder created by newer Angular versions
-          source: "dist/the-daily-dough/browser/*"
+          source: "dist/BreadApp/*"
           target: "public_html/"
           # Strip 3 levels (dist/, the-daily-dough/, and browser/)
           # so the files land directly in public_html
-          strip_components: 3
+          strip_components: 2
