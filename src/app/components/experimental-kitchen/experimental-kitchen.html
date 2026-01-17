@@ -13,6 +13,8 @@
               @for (img of product.images; track img) {
                 <img [src]="img" [alt]="product.name" class="main-image">
               }
+
+
             </div>
           } @else if (product.imageUrl) {
             <img [src]="product.imageUrl" [alt]="product.name" class="main-image">
