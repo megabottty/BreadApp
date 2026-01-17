@@ -31,6 +31,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
+          timeout: 2m
           # This targets the specific 'browser' folder created by newer Angular versions
           source: "dist/BreadApp/browser/*"
           target: "public_html/"
