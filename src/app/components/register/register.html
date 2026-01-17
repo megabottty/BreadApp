@@ -1,0 +1,43 @@
+<div class="register-container">
+  <div class="register-card">
+    <header>
+      <span class="logo-icon">🥖</span>
+      <h1>Join the Community</h1>
+      <p class="subtitle">Start your artisan bread journey today</p>
+    </header>
+
+    <form (submit)="register()">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" [(ngModel)]="name" name="name" placeholder="Megan Muirhead" required>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" [(ngModel)]="email" name="email" placeholder="hello@dailydough.com" required>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" [(ngModel)]="password" name="password" placeholder="••••••••" required>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input type="password" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
+      </div>
+
+      <button type="submit" class="btn-register">
+        Create Account
+      </button>
+    </form>
+
+    <div class="privacy-note">
+      <p>By joining, you agree to receive occasional flour-dusted updates and secret sourdough tips.</p>
+    </div>
+
+    <footer>
+      <p>Already have an account? <a routerLink="/login">Login here</a></p>
+    </footer>
+  </div>
+</div>

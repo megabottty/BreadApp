@@ -1,0 +1,118 @@
+<div class="profile-container">
+  <header>
+    <h1>Welcome, {{authService.user()?.name}}</h1>
+    <p class="subtitle">Your Artisanal Bread Journey</p>
+  </header>
+
+  <div class="profile-grid">
+    <div class="card">
+      <h2>Your Past Orders</h2>
+      <div class="order-list">
+        @for (order of userOrders(); track order.id) {
+          <div class="order-item">
+            <div class="order-info">
+              <span class="date">{{order.createdAt | date}}</span>
+              <span class="status-badge" [attr.data-status]="order.status">{{order.status}}</span>
+              <div class="items">
+                @for (item of order.items; track item.name) {
+                  <span>{{item.quantity}}x {{item.name}}</span>
+                }
+              </div>
+              @if (order.notes) {
+                <p class="order-notes"><strong>Note:</strong> {{order.notes}}</p>
+              }
+              <span class="total">{{order.totalPrice | currency}}</span>
+
+              <div class="review-actions">
+                @for (item of order.items; track item.recipeId) {
+                  <button class="btn-review" (click)="startReview(order.id, item.recipeId)">
+                    Review {{item.name}}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="actions-group">
+              <button class="btn-reorder" (click)="reorder(order)">Repeat Order</button>
+            </div>
+          </div>
+
+          <!-- Inline Review Form -->
+          @if (reviewingOrderId() === order.id) {
+            <div class="review-form card">
+              <h3>Leave a Review</h3>
+              <div class="rating-input">
+                @for (star of [1,2,3,4,5]; track star) {
+                  <span class="star-btn"
+                        [class.active]="reviewRating() >= star"
+                        (click)="reviewRating.set(star)">★</span>
+                }
+              </div>
+              <textarea [(ngModel)]="reviewComment" placeholder="How was your bread?"></textarea>
+              <div class="btn-group">
+                <button class="btn-primary" (click)="submitReview()">Submit</button>
+                <button class="btn-outline" (click)="cancelReview()">Cancel</button>
+              </div>
+            </div>
+          }
+        } @empty {
+          <p class="empty-msg">You haven't placed any orders yet. Fresh bread is waiting!</p>
+          <button class="btn-primary" routerLink="/store">Visit Storefront</button>
+        }
+      </div>
+    </div>
+
+    <div class="card subscriptions">
+      <h2>Your Perks & Loyalty</h2>
+      <div class="perk-item">
+        <div class="perk-info">
+          <span class="perk-name">Reviewer Badge</span>
+          <span class="perk-desc">10 reviews = 1 Free Loaf</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="reviewPerkProgress()"></div>
+        </div>
+        <span class="progress-text">{{reviewsCount() % 10}} / 10 Reviews</span>
+      </div>
+
+      <div class="perk-item">
+        <div class="perk-info">
+          <span class="perk-name">Bread Addict</span>
+          <span class="perk-desc">Every 10 loaves = $8 Off</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill bread" [style.width.%]="loafPerkProgress()"></div>
+        </div>
+        <span class="progress-text">{{loavesPurchased() % 10}} / 10 Loaves</span>
+      </div>
+
+      <div class="subscription-section">
+        <h3>Your Weekly Subscriptions</h3>
+        @for (sub of userSubscriptions(); track sub.id) {
+          <div class="subscription-card" [attr.data-status]="sub.status">
+            <div class="sub-header">
+              <span class="sub-name">{{sub.recipeName}}</span>
+              <span class="sub-status">{{sub.status}}</span>
+            </div>
+            <div class="sub-details">
+              <span>{{sub.quantity}}x per week</span>
+              <span>Next Bake: {{sub.nextBakeDate | date:'shortDate'}}</span>
+            </div>
+            <div class="sub-actions">
+              @if (sub.status === 'ACTIVE') {
+                <button class="btn-small" (click)="pauseSubscription(sub.id)">Pause</button>
+              } @else if (sub.status === 'PAUSED') {
+                <button class="btn-small btn-primary" (click)="resumeSubscription(sub.id)">Resume</button>
+              }
+              @if (sub.status !== 'CANCELLED') {
+                <button class="btn-small btn-danger" (click)="cancelSubscription(sub.id)">Cancel</button>
+              }
+            </div>
+          </div>
+        } @empty {
+          <p>You don't have any active subscriptions. Subscribe to your favorite loaves in the shopping bag!</p>
+        }
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,137 @@
+<div class="cart-container">
+  <h1>Your Shopping Bag</h1>
+
+  @if (items().length === 0) {
+    <div class="empty-cart">
+      <p>Your bag is empty. Head to the storefront to find something delicious!</p>
+      <button class="btn-primary" routerLink="/store">Back to Store</button>
+    </div>
+  } @else {
+    <div class="cart-grid">
+      <div class="cart-items">
+        <div class="card fulfillment-options">
+          <h3>Fulfillment</h3>
+          <div class="toggle-group">
+            <button [class.active]="fulfillmentType() === 'PICKUP'" (click)="setFulfillment('PICKUP')">Local Pickup</button>
+            <button [class.active]="fulfillmentType() === 'SHIPPING'" (click)="setFulfillment('SHIPPING')">Nationwide Shipping</button>
+          </div>
+
+          @if (fulfillmentType() === 'SHIPPING') {
+            <div class="shipping-details">
+              <div class="form-group">
+                <label>Destination Zip Code</label>
+                <input type="text" [value]="zipCode()" (input)="onZipChange($event)" placeholder="e.g. 90210">
+              </div>
+              <div class="form-group">
+                <label>Dispatch Date (Mon/Tue Only)</label>
+                <input type="date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="!isDispatchDateValid(dispatchDate())">
+                @if (!isDispatchDateValid(dispatchDate())) {
+                  <small class="error-text">Bread only ships on Mondays and Tuesdays, with a 48-hour lead time.</small>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="pickup-details">
+              <div class="form-group">
+                <label>Pickup Date</label>
+                <input type="date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="!isPickupDateValid(pickupDate())">
+                @if (!isPickupDateValid(pickupDate())) {
+                  <small class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
+                }
+              </div>
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="payAtPickup"> Pay at Pickup
+              </label>
+            </div>
+          }
+          <div class="lead-time-notice">
+            <p>🥐 <strong>Artisan Takes Time:</strong> Most of our recipes involve a slow, 48-hour cold fermentation to bring out the best flavor and texture. We really appreciate your patience and understanding!</p>
+          </div>
+        </div>
+
+        <div class="card notes-section">
+          <h3>Special Requests / Notes</h3>
+          <textarea
+            class="notes-textarea"
+            [ngModel]="notes()"
+            (ngModelChange)="cartService.setNotes($event)"
+            placeholder="Any allergies, doorstep instructions, or flavor preferences? Let us know here!"></textarea>
+        </div>
+
+        @if (!authService.isAuthenticated()) {
+          <div class="card guest-checkout-section">
+            <h3>Guest Checkout Details</h3>
+            <p class="section-hint">No account? No problem. Just let us know who you are!</p>
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" [(ngModel)]="guestName" placeholder="Your full name">
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" [(ngModel)]="guestPhone" placeholder="For order updates via SMS">
+            </div>
+          </div>
+        }
+
+        <div class="card subscription-promo">
+          <h3>🔄 Artisan Subscriptions</h3>
+          <p>Subscribing ensures your favorite loaves are baked and ready for you every week. We dispatch subscription orders every Monday and Tuesday to guarantee peak freshness.</p>
+          <p class="section-hint">You can manage or cancel your subscriptions anytime in your profile.</p>
+        </div>
+
+        <div class="card">
+          @for (item of items(); track item.product.id) {
+            <div class="cart-item">
+              <div class="item-info">
+                <h3>{{item.product.name}}</h3>
+                <p>{{item.product.trueHydration | percent:'1.0-0'}} Hydration Loaf</p>
+
+                <label class="subscription-toggle">
+                  <input type="checkbox" [checked]="item.isSubscription" (change)="toggleSubscription(item)">
+                  Weekly Subscription
+                </label>
+              </div>
+              <div class="item-actions">
+                <div class="quantity-controls">
+                  <button (click)="updateQuantity(item, -1)">-</button>
+                  <span>{{item.quantity}}</span>
+                  <button (click)="updateQuantity(item, 1)">+</button>
+                </div>
+                <span class="price">{{(item.product.price || 12) | currency}}</span>
+                <button class="btn-remove" (click)="removeItem(item)">×</button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="cart-summary card">
+        <h2>Order Summary</h2>
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span>{{totalPrice() | currency}}</span>
+        </div>
+        <div class="summary-row">
+          <span>{{ fulfillmentType() === 'PICKUP' ? 'Pickup' : 'Shipping' }}</span>
+          <span>{{ shippingCost() === 0 ? 'Free' : (shippingCost() | currency) }}</span>
+        </div>
+        @if (cartService.loyaltyDiscount() > 0) {
+          <div class="summary-row discount">
+            <span>Loyalty Discount ($8 Off!)</span>
+            <span>-{{cartService.loyaltyDiscount() | currency}}</span>
+          </div>
+        }
+        <div class="summary-row total">
+          <span>Total</span>
+          <span>{{totalPrice() | currency}}</span>
+        </div>
+        <button class="btn-checkout"
+                [disabled]="(fulfillmentType() === 'SHIPPING' && !isDispatchDateValid(dispatchDate())) ||
+                           (!authService.isAuthenticated() && (!guestName() || !guestPhone()))"
+                (click)="checkout()">
+          Checkout
+        </button>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,193 @@
+import { Component, inject, signal, computed } from '@angular/core';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { AuthService } from '../../services/auth.service';
+import { Order, CalculatedRecipe, Review } from '../../logic/bakers-math';
+import { CartService } from '../../services/cart.service';
+import { ReviewService } from '../../services/review.service';
+import { SubscriptionService, Subscription } from '../../services/subscription.service';
+import { FormsModule } from '@angular/forms';
+
+@Component({
+  selector: 'app-profile',
+  standalone: true,
+  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule],
+  templateUrl: './profile.html',
+  styleUrls: ['./profile.css']
+})
+export class ProfileComponent {
+  authService = inject(AuthService);
+  cartService = inject(CartService);
+  reviewService = inject(ReviewService);
+  subscriptionService = inject(SubscriptionService);
+
+  pastOrders = signal<Order[]>([]);
+
+  // Review Form state
+  reviewingOrderId = signal<string | null>(null);
+  reviewingRecipeId = signal<string | null>(null);
+  reviewRating = signal<number>(5);
+  reviewComment = signal<string>('');
+
+  userOrders = computed(() => {
+    const user = this.authService.user();
+    if (!user) return [];
+    // Sort by date descending
+    return this.pastOrders()
+      .filter(o => o.customerId === user.id)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  });
+
+  userSubscriptions = computed(() => {
+    const user = this.authService.user();
+    if (!user) return [];
+    return this.subscriptionService.getSubscriptionsForUser(user.id)();
+  });
+
+  reviewsCount = this.reviewService.getUserReviewsCount(this.authService.user()?.id || '');
+  loavesPurchased = this.cartService.totalLoavesPurchased;
+
+  reviewPerkProgress = computed(() => {
+    return Math.min(100, (this.reviewsCount() % 10) * 10);
+  });
+
+  loafPerkProgress = computed(() => {
+    return Math.min(100, (this.loavesPurchased() % 10) * 10);
+  });
+
+  constructor() {
+    this.loadOrders();
+
+    // Listen for storage changes in case an order is placed in another tab or after redirect
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'bakery_orders') {
+        this.loadOrders();
+      }
+    });
+  }
+
+  loadOrders() {
+    // Check local storage for actual orders first
+    const savedOrders = localStorage.getItem('bakery_orders');
+    let orders: Order[] = [];
+    if (savedOrders) {
+      try {
+        orders = JSON.parse(savedOrders);
+      } catch (e) {
+        console.error('Error parsing saved orders', e);
+      }
+    }
+
+    if (orders.length === 0) {
+      // Mocking past orders
+      const today = new Date().toISOString().split('T')[0];
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 7);
+      const lastWeekStr = lastWeek.toISOString().split('T')[0];
+
+      orders = [
+        {
+          id: 'old-1',
+          customerId: 'c1',
+          customerName: 'Bread Lover',
+          customerPhone: '555-0123',
+          type: 'PICKUP',
+          status: 'COMPLETED',
+          pickupDate: lastWeekStr,
+          items: [{ recipeId: 'r1', name: 'Country Loaf', quantity: 2, weightGrams: 900 }],
+          notes: 'Please leave on the porch chair.',
+          totalPrice: 24,
+          shippingCost: 0,
+          createdAt: lastWeekStr
+        }
+      ];
+    }
+
+    this.pastOrders.set(orders);
+
+    // Update total loaves purchased based on completed orders
+    const total = orders
+      .filter(o => o.status === 'COMPLETED')
+      .reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + i.quantity, 0), 0);
+    this.cartService.saveLoyalty(total);
+  }
+
+  reorder(order: Order) {
+    // Get current products to ensure we have the latest prices/details
+    const productsStr = localStorage.getItem('bakery_recipes');
+    const allProducts: CalculatedRecipe[] = productsStr ? JSON.parse(productsStr) : [];
+
+    order.items.forEach(item => {
+       const existingProduct = allProducts.find(p => p.id === item.recipeId || p.name === item.name);
+       const mockProduct: CalculatedRecipe = existingProduct || {
+         id: item.recipeId,
+         name: item.name,
+         category: 'BREAD',
+         price: 12,
+         ingredients: [],
+         totalFlour: 500,
+         totalWater: 350,
+         trueHydration: 0.7,
+         totalNutrition: { calories: 1500, protein: 50, carbs: 300, fat: 10 }
+       };
+       for(let i=0; i<item.quantity; i++) {
+         this.cartService.addToCart(mockProduct);
+       }
+    });
+    alert('Items from your past order have been added to your bag!');
+  }
+
+  startReview(orderId: string, recipeId: string) {
+    this.reviewingOrderId.set(orderId);
+    this.reviewingRecipeId.set(recipeId);
+    this.reviewRating.set(5);
+    this.reviewComment.set('');
+  }
+
+  submitReview() {
+    const user = this.authService.user();
+    const recipeId = this.reviewingRecipeId();
+    if (!user || !recipeId) return;
+
+    const review: Review = {
+      id: Date.now().toString(),
+      recipeId: recipeId,
+      customerId: user.id,
+      customerName: user.name,
+      rating: this.reviewRating(),
+      comment: this.reviewComment(),
+      date: new Date().toISOString()
+    };
+
+    this.reviewService.addReview(review);
+    this.reviewingOrderId.set(null);
+    this.reviewingRecipeId.set(null);
+
+    // Refresh reviews count or perks if necessary
+    // this.reviewsCount() is already a computed from reviewService.getUserReviewsCount
+
+    if (this.reviewService.getUserReviewsCount(user.id)() % 10 === 0 && this.reviewService.getUserReviewsCount(user.id)() > 0) {
+      alert('Congratulations! You\'ve earned a FREE LOAF for leaving 10 reviews! (Contact baker to claim)');
+    } else {
+      alert('Thank you for your review!');
+    }
+  }
+
+  cancelReview() {
+    this.reviewingOrderId.set(null);
+    this.reviewingRecipeId.set(null);
+  }
+
+  cancelSubscription(id: string) {
+    if (confirm('Are you sure you want to cancel this subscription?')) {
+      this.subscriptionService.cancelSubscription(id);
+    }
+  }
+
+  pauseSubscription(id: string) {
+    this.subscriptionService.pauseSubscription(id);
+  }
+
+  resumeSubscription(id: string) {
+    this.subscriptionService.resumeSubscription(id);
+  }
+}

@@ -1,0 +1,54 @@
+<div class="about-container">
+  <section class="hero-section">
+    <h1>Our Story</h1>
+    <p class="subtitle">Baking with Love and Tradition</p>
+  </section>
+
+  <section class="bio-section card">
+    <div class="bio-content">
+      <div class="bio-text">
+        <h2>{{ bioTitle }}</h2>
+        <p>{{ bioText }}</p>
+
+        <h3>Why I Do What I Do</h3>
+        <p>{{ whyIDoIt }}</p>
+      </div>
+      <div class="bio-image">
+        <img src="https://images.unsplash.com/photo-1517433367423-c7e5b0f35086?q=80&w=800" alt="Megan baking">
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery-section">
+    <h2>From Our Kitchen</h2>
+    <div class="photo-grid">
+      @for (photo of photos; track photo.url) {
+        <div class="photo-card card">
+          <img [src]="photo.url" [alt]="photo.alt">
+          <div class="photo-caption">{{ photo.alt }}</div>
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="values-section card">
+    <h2>Our Values</h2>
+    <div class="values-grid">
+      <div class="value-item">
+        <span class="icon">🌾</span>
+        <h4>Quality Ingredients</h4>
+        <p>We source the finest organic flours and local ingredients.</p>
+      </div>
+      <div class="value-item">
+        <span class="icon">⏳</span>
+        <h4>Patience</h4>
+        <p>Slow fermentation is the key to our deep, complex flavors.</p>
+      </div>
+      <div class="value-item">
+        <span class="icon">🤝</span>
+        <h4>Community</h4>
+        <p>Connecting people through the simple joy of sharing bread.</p>
+      </div>
+    </div>
+  </section>
+</div>

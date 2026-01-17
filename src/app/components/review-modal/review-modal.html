@@ -1,0 +1,39 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <button class="btn-close" (click)="close.emit()">×</button>
+
+    <header>
+      <h2>Review {{product.name}}</h2>
+      <p>Share your thoughts with the community!</p>
+    </header>
+
+    <div class="rating-selector">
+      <label>Rating</label>
+      <div class="stars">
+        @for (star of [1,2,3,4,5]; track star) {
+          <button
+            type="button"
+            class="star-btn"
+            [class.filled]="rating() >= star"
+            (click)="setRating(star)">
+            ★
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="review-comment">Your Review</label>
+      <textarea
+        id="review-comment"
+        [(ngModel)]="comment"
+        rows="4"
+        placeholder="What did you love about this loaf?"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="close.emit()">Cancel</button>
+      <button class="btn-submit" (click)="submitReview()" [disabled]="!comment()">Submit Review</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,359 @@
+<div class="calculator-container">
+  <h1>Recipe Calculator</h1>
+
+  <div class="grid">
+    <!-- Production Brain (Phase 3) -->
+    <div class="card production-brain">
+      <div class="header-with-badge">
+        <h2>Production Brain</h2>
+        @if (notificationService.logs().length > 0) {
+          <div class="notification-count" (click)="showNotifications.set(!showNotifications())">
+            🔔 {{notificationService.logs().length}}
+          </div>
+        }
+      </div>
+
+      @if (showNotifications()) {
+        <div class="notification-dropdown card">
+          <h3>Recent Alerts</h3>
+          @for (log of notificationService.logs(); track log.id) {
+            <div class="log-item">
+              <small>{{log.timestamp | date:'shortTime'}}</small>
+              <p>{{log.message}}</p>
+            </div>
+          } @empty {
+            <p>No new alerts.</p>
+          }
+          <button class="btn-small" (click)="showNotifications.set(false)">Close</button>
+        </div>
+      }
+      <div class="form-group">
+        <label>Bake Date</label>
+        <input type="date" [(ngModel)]="bakeDate" (change)="onBakeDateChange()">
+      </div>
+
+      @if (aggregatedOrders(); as orders) {
+        <h3>Orders for {{bakeDate()}}</h3>
+
+        <div class="status-summary-bar">
+          <div class="summary-item">
+            <span class="dot pending"></span>
+            {{statusSummary().pending}} Pending
+          </div>
+          <div class="summary-item">
+            <span class="dot ready"></span>
+            {{statusSummary().ready}} Ready/Shipped
+          </div>
+          <div class="summary-item">
+            <span class="dot completed"></span>
+            {{statusSummary().completed}} Done
+          </div>
+        </div>
+
+        <div class="aggregation-list">
+          @for (order of filteredOrders(); track order.id) {
+            <div class="aggregation-item order-card">
+              <div class="order-main">
+                <span class="type">{{order.type}}</span>
+                <span class="name">{{order.customerName}}</span>
+                <div class="items">
+                  @for (item of order.items; track item.name) {
+                    <span>{{item.quantity}}x {{item.name}} <small>({{getRecipeCategory(item.name)}})</small></span>
+                  }
+                </div>
+                @if (order.notes) {
+                  <p class="order-notes"><strong>Note:</strong> {{order.notes}}</p>
+                }
+              </div>
+              <div class="order-status-actions">
+                <span class="status-badge" [attr.data-status]="order.status">{{order.status}}</span>
+                <div class="btn-group">
+                  @if (order.status === 'PENDING') {
+                    <button class="btn-small" (click)="updateOrderStatus(order.id, order.type === 'PICKUP' ? 'READY' : 'SHIPPED')">
+                      Mark {{order.type === 'PICKUP' ? 'Ready' : 'Shipped'}}
+                    </button>
+                  }
+                  @if (order.status !== 'COMPLETED' && order.status !== 'CANCELLED') {
+                    <button class="btn-small btn-outline" (click)="updateOrderStatus(order.id, 'COMPLETED')">Complete</button>
+                  }
+                </div>
+              </div>
+            </div>
+          } @empty {
+            <p>No orders for this date.</p>
+          }
+        </div>
+
+        @if ((subscriptionOrders() | keyvalue).length > 0) {
+          <h3>Subscription Fulfillments</h3>
+          <div class="aggregation-list">
+            @for (sub of subscriptionOrders() | keyvalue; track sub.key) {
+              <div class="aggregation-item order-card subscription-highlight">
+                <div class="order-main">
+                  <span class="type">SUBSCRIPTION</span>
+                  <span class="name">{{sub.key}}</span>
+                  <div class="items">
+                    <span>{{sub.value}}x Recurring Total</span>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (masterDough(); as ingredients) {
+          <h3>Master Dough Requirements</h3>
+          <div class="stats-grid">
+            @for (ing of ingredients | keyvalue; track ing.key) {
+              <div class="stat-box">
+                <span class="label">{{ing.key}}</span>
+                <span class="value">{{ing.value.weight | number:'1.0-0'}}g</span>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+
+    <!-- Form Side -->
+    <div class="card" [formGroup]="recipeForm">
+      <h2>Recipe Details</h2>
+
+      <div class="form-group">
+        <label for="recipe-name">Recipe Name</label>
+        <input id="recipe-name" type="text" formControlName="name" placeholder="e.g. Country Loaf">
+      </div>
+
+      <div class="form-group">
+        <label for="recipe-category">Category</label>
+        <select id="recipe-category" formControlName="category">
+          @for (cat of recipeCategories; track cat) {
+            <option [value]="cat">{{cat}}</option>
+          }
+        </select>
+      </div>
+
+      @if (recipeForm.get('category')?.value === 'BREAD') {
+        <div class="form-group">
+          <label for="flavor-profile">Flavor Profile</label>
+          <select id="flavor-profile" formControlName="flavorProfile">
+            <option [ngValue]="null">Select Profile (Optional)</option>
+            @for (profile of flavorProfiles; track profile) {
+              <option [value]="profile">{{profile}}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <div class="form-group">
+        <label for="recipe-price">Price ($)</label>
+        <input id="recipe-price" type="number" formControlName="price" placeholder="e.g. 12">
+      </div>
+
+      <div class="form-group">
+        <label for="recipe-description">Description</label>
+        <textarea id="recipe-description" formControlName="description" rows="3" placeholder="Tell customers about this item..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Recipe Photos</label>
+        <div class="image-upload-wrapper">
+          <div class="image-grid-edit">
+            @for (img of recipeForm.get('images')?.value; track img; let i = $index) {
+              <div class="image-preview-mini">
+                <img [src]="img" alt="Preview">
+                <button type="button" class="btn-remove-image" (click)="removeImage(i)">×</button>
+              </div>
+            }
+            <div class="upload-placeholder-mini" (click)="fileInput.click()">
+              <span class="icon">📸</span>
+              <span>Add Photo</span>
+            </div>
+          </div>
+          <input #fileInput type="file" (change)="onFileSelected($event)" accept="image/*" multiple style="display: none">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="levain-hydration">Levain Hydration (%)</label>
+        <input id="levain-hydration" type="number" formControlName="levainHydration">
+      </div>
+
+      <div class="form-group">
+        <label for="serving-size">Serving Size (g)</label>
+        <input id="serving-size" type="number" formControlName="servingSizeGrams" placeholder="e.g. 50">
+      </div>
+
+      <div class="scaling-grid">
+        <div class="form-group">
+          <label for="current-units">Current Units</label>
+          <input id="current-units" type="number" formControlName="currentUnits">
+        </div>
+        <div class="form-group">
+          <label for="target-units">Target Units (Scaling)</label>
+          <input id="target-units" type="number" formControlName="targetUnits">
+        </div>
+      </div>
+
+      <h3>Ingredients</h3>
+      <div formArrayName="ingredients">
+        @for (ingredient of ingredients.controls; track ingredient; let i = $index) {
+          <div [formGroupName]="i" class="ingredient-row">
+            <div class="search-container">
+              <input type="text" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" autocomplete="off">
+              @if (activeSearchIndex() === i && searchResults().length > 0) {
+                <ul class="search-results">
+                  @for (item of searchResults(); track item.name) {
+                    <li (click)="selectIngredient(item, i)">{{item.name}}</li>
+                  }
+                </ul>
+              }
+            </div>
+            <input type="number" formControlName="weight" placeholder="Grams">
+            <select formControlName="type">
+              @for (type of ingredientTypes; track type) {
+                <option [value]="type">{{type}}</option>
+              }
+            </select>
+            <button type="button" class="btn-danger" (click)="removeIngredient(i)">×</button>
+          </div>
+        }
+      </div>
+
+
+      <button type="button" class="btn-primary" (click)="addIngredient()">Add Ingredient</button>
+
+      <div class="save-section">
+        <button type="button" class="btn-save" (click)="saveRecipe()">Save This Recipe</button>
+      </div>
+    </div>
+
+    <!-- Results Side -->
+    <div class="results-column">
+      @if (calculatedRecipe(); as recipe) {
+        <div class="card results">
+          <h2>Baker's Math Results</h2>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="label">Total Flour</span>
+              <span class="value">{{recipe.totalFlour | number:'1.0-2'}}g</span>
+            </div>
+            <div class="stat-box">
+              <span class="label">Total Water</span>
+              <span class="value">{{recipe.totalWater | number:'1.0-2'}}g</span>
+            </div>
+            <div class="stat-box highlight">
+              <span class="label">True Hydration</span>
+              <span class="value">{{recipe.trueHydration | percent:'1.1-1'}}</span>
+            </div>
+          </div>
+
+          <h3>Ingredient Breakdown</h3>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Weight</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (ing of recipe.ingredients; track ing.name) {
+                  <tr>
+                    <td>{{ing.name}}</td>
+                    <td>{{ing.weight}}g</td>
+                    <td>{{ing.percentage | number:'1.1-1'}}%</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="nutrition-card">
+            <h3>Nutrition Facts</h3>
+            <div class="nutrition-header">
+              <p>Amount Per Serving ({{recipe.servingSizeGrams}}g)</p>
+            </div>
+
+            @if (recipe.nutritionPerServing; as serving) {
+              <div class="nutrition-row main">
+                <span class="label">Calories</span>
+                <span class="value">{{serving.calories | number:'1.0-0'}}</span>
+              </div>
+              <div class="nutrition-divider"></div>
+              <div class="nutrition-row">
+                <span class="label">Total Fat</span>
+                <span class="value">{{serving.fat | number:'1.0-1'}}g</span>
+              </div>
+              <div class="nutrition-row">
+                <span class="label">Total Carbohydrate</span>
+                <span class="value">{{serving.carbs | number:'1.0-1'}}g</span>
+              </div>
+              <div class="nutrition-row">
+                <span class="label">Protein</span>
+                <span class="value">{{serving.protein | number:'1.0-1'}}g</span>
+              </div>
+            } @else {
+              <p class="meta">Set a serving size to see per-serving nutrition.</p>
+            }
+
+            <div class="nutrition-footer">
+              <div class="custom-calorie-calc">
+                <h4>Calorie Calculator</h4>
+                <div class="calc-inputs">
+                  <div class="form-group inline">
+                    <label>Weight (g)</label>
+                    <input type="number" [(ngModel)]="customWeight" placeholder="Grams">
+                  </div>
+                  <div class="stat-box highlight">
+                    <span class="label">Calories</span>
+                    <span class="value">{{customCalories() | number:'1.0-0'}}</span>
+                  </div>
+                </div>
+              </div>
+
+              <h4>Full Batch Totals</h4>
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <span class="label">Calories</span>
+                  <span class="value">{{recipe.totalNutrition.calories | number:'1.0-0'}}</span>
+                </div>
+                <div class="stat-box">
+                  <span class="label">Fat</span>
+                  <span class="value">{{recipe.totalNutrition.fat | number:'1.0-1'}}g</span>
+                </div>
+                <div class="stat-box">
+                  <span class="label">Carbs</span>
+                  <span class="value">{{recipe.totalNutrition.carbs | number:'1.0-1'}}g</span>
+                </div>
+                <div class="stat-box">
+                  <span class="label">Protein</span>
+                  <span class="value">{{recipe.totalNutrition.protein | number:'1.0-1'}}g</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (savedRecipes().length > 0) {
+        <div class="card saved-recipes">
+          <h2>Your Library</h2>
+          <div class="recipe-list">
+            @for (saved of savedRecipes(); track saved.id) {
+              <div class="recipe-item">
+                <div class="recipe-info" (click)="loadRecipe(saved)">
+                  <span class="recipe-name">{{saved.name}}</span>
+                  <span class="recipe-meta">{{saved.trueHydration | percent:'1.0-0'}} hydration</span>
+                </div>
+                <button class="btn-delete" (click)="deleteRecipe(saved.id)">×</button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

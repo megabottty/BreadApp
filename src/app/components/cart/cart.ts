@@ -1,0 +1,145 @@
+import { Component, inject, signal, computed } from '@angular/core';
+import { CommonModule, CurrencyPipe, PercentPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { CartService, CartItem, FulfillmentType } from '../../services/cart.service';
+import { NotificationService } from '../../services/notification.service';
+import { AuthService } from '../../services/auth.service';
+import { Order, OrderItem } from '../../logic/bakers-math';
+
+@Component({
+  selector: 'app-cart',
+  standalone: true,
+  imports: [CommonModule, CurrencyPipe, PercentPipe, FormsModule],
+  templateUrl: './cart.html',
+  styleUrls: ['./cart.css']
+})
+export class CartComponent {
+  cartService = inject(CartService);
+  notificationService = inject(NotificationService);
+  authService = inject(AuthService);
+
+  items = this.cartService.items;
+  totalPrice = this.cartService.totalPrice;
+  shippingCost = this.cartService.shippingCost;
+  fulfillmentType = this.cartService.fulfillmentType;
+  zipCode = this.cartService.zipCode;
+  notes = this.cartService.notes;
+
+  dispatchDate = signal<string>('');
+  pickupDate = signal<string>('');
+  payAtPickup = signal<boolean>(false);
+
+  guestName = signal<string>('');
+  guestPhone = signal<string>('');
+
+  minDate = computed(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2); // 48 hour buffer
+    return d.toISOString().split('T')[0];
+  });
+
+  // Monday = 1, Tuesday = 2
+  isDispatchDateValid = (date: string) => {
+    if (!date) return true;
+
+    const selected = new Date(date);
+    const min = new Date(this.minDate());
+    if (selected < min) return false;
+
+    const day = selected.getUTCDay();
+    return day === 1 || day === 2;
+  };
+
+  isPickupDateValid = (date: string) => {
+    if (!date) return true;
+    const selected = new Date(date);
+    const min = new Date(this.minDate());
+    return selected >= min;
+  };
+
+  updateQuantity(item: CartItem, change: number) {
+    if (item.product.id) {
+      this.cartService.updateQuantity(item.product.id, item.quantity + change);
+    }
+  }
+
+  setFulfillment(type: FulfillmentType) {
+    this.cartService.setFulfillment(type);
+    if (type === 'SHIPPING') {
+      this.payAtPickup.set(false);
+    }
+  }
+
+  onZipChange(event: Event) {
+    const val = (event.target as HTMLInputElement).value;
+    this.cartService.setZipCode(val);
+  }
+
+  removeItem(item: CartItem) {
+    if (item.product.id) {
+      this.cartService.removeFromCart(item.product.id);
+    }
+  }
+
+  toggleSubscription(item: CartItem) {
+    if (item.product.id) {
+      this.cartService.toggleSubscription(item.product.id);
+    }
+  }
+
+  checkout() {
+    if (this.fulfillmentType() === 'SHIPPING' && !this.isDispatchDateValid(this.dispatchDate())) {
+      alert('For shipping, please select a Monday or Tuesday dispatch date at least 48 hours from now.');
+      return;
+    }
+
+    if (this.fulfillmentType() === 'PICKUP' && !this.isPickupDateValid(this.pickupDate())) {
+      alert('Please select a pickup date at least 48 hours from now.');
+      return;
+    }
+
+    const isGuest = !this.authService.isAuthenticated();
+    if (isGuest && (!this.guestName() || !this.guestPhone())) {
+      alert('Please provide your name and phone number for guest checkout.');
+      return;
+    }
+
+    // Simulate Order Creation & Confirmation
+    const orderId = Math.random().toString(36).substring(7).toUpperCase();
+    const customerName = isGuest ? this.guestName() : (this.authService.user()?.name || 'Valued Customer');
+    const customerPhone = isGuest ? this.guestPhone() : '555-0123';
+
+    console.log('Order created with notes:', this.notes());
+    this.notificationService.sendOrderConfirmation(customerName, customerPhone, orderId);
+    this.notificationService.sendBakerOrderAlert(orderId, customerName);
+
+    // Save order to history
+    const newOrder: Order = {
+      id: orderId,
+      customerId: isGuest ? 'guest' : (this.authService.user()?.id || 'unknown'),
+      customerName: customerName,
+      customerPhone: customerPhone,
+      type: this.fulfillmentType(),
+      status: 'PENDING',
+      pickupDate: this.fulfillmentType() === 'PICKUP' ? this.pickupDate() : this.dispatchDate(),
+      items: this.items().map(item => ({
+        recipeId: item.product.id || '',
+        name: item.product.name,
+        quantity: item.quantity,
+        weightGrams: item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0)
+      })),
+      notes: this.notes(),
+      totalPrice: this.totalPrice(),
+      shippingCost: this.shippingCost(),
+      createdAt: new Date().toISOString()
+    };
+
+    const savedOrders = localStorage.getItem('bakery_orders');
+    let allOrders: Order[] = savedOrders ? JSON.parse(savedOrders) : [];
+    allOrders.push(newOrder);
+    localStorage.setItem('bakery_orders', JSON.stringify(allOrders));
+
+    alert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS. (Stripe integration coming soon)`);
+    this.cartService.clearCart();
+  }
+}

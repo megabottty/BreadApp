@@ -1,0 +1,119 @@
+.about-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.hero-section {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.hero-section h1 {
+  font-size: 3rem;
+  color: #3d2b1f;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  color: #8c6d46;
+  font-style: italic;
+}
+
+.bio-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.bio-text h2 {
+  color: #3d2b1f;
+  margin-bottom: 1rem;
+}
+
+.bio-text h3 {
+  color: #8c6d46;
+  margin-top: 1.5rem;
+}
+
+.bio-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.gallery-section {
+  margin: 4rem 0;
+}
+
+.gallery-section h2 {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #3d2b1f;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.photo-card {
+  padding: 0;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.photo-card:hover {
+  transform: translateY(-5px);
+}
+
+.photo-card img {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-caption {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.values-section {
+  background-color: #fdf8f4;
+  text-align: center;
+}
+
+.values-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.value-item .icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.value-item h4 {
+  margin-bottom: 0.5rem;
+  color: #3d2b1f;
+}
+
+@media (max-width: 768px) {
+  .bio-content {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-section h1 {
+    font-size: 2.5rem;
+  }
+}

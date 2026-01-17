@@ -1,0 +1,56 @@
+<div class="experimental-container">
+  <header>
+    <h1>Experimental Kitchen</h1>
+    <p class="subtitle">Where our wild ideas and sourdough experiments come to life.</p>
+  </header>
+
+  <div class="product-grid">
+    @for (product of experimentalProducts(); track product.id) {
+      <div class="product-card">
+        <div class="product-image">
+          @if (product.images && product.images.length > 0) {
+            <div class="image-scroller">
+              @for (img of product.images; track img) {
+                <img [src]="img" [alt]="product.name" class="main-image">
+              }
+            </div>
+          } @else if (product.imageUrl) {
+            <img [src]="product.imageUrl" [alt]="product.name" class="main-image">
+          } @else {
+            <div class="placeholder-icon">🧪</div>
+          }
+
+          <span class="special-badge">Experimental</span>
+          @if (isTopRated(product)) {
+            <span class="top-rated-badge">Crowd Favorite</span>
+          }
+        </div>
+        <div class="product-info">
+          <h2>{{product.name}}</h2>
+          <p class="meta">{{product.trueHydration | percent:'1.0-0'}} Hydration • Limited Release</p>
+          <p class="description">{{product.description || 'A new creation we are testing in the kitchen. Limited quantities available!'}}</p>
+
+          <div class="product-footer">
+            <span class="price">{{ (product.price || 12) | currency }}</span>
+            <div class="btn-group">
+              @if (authService.isBaker()) {
+                <button class="btn-edit" (click)="editProduct(product)">Edit</button>
+                <button class="btn-delete-product" (click)="deleteProduct(product)" title="Delete Product">×</button>
+              } @else {
+                <button class="btn-subscribe" (click)="subscribe(product)">Subscribe</button>
+              }
+              <button class="btn-add" (click)="addToCart(product)">Add to Bag</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <p>The experimental ovens are currently cooling down. Check back soon for new bakes!</p>
+        @if (authService.isBaker()) {
+          <button class="btn-primary" routerLink="/calculator">Start an Experiment</button>
+        }
+      </div>
+    }
+  </div>
+</div>

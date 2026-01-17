@@ -1,0 +1,137 @@
+<div class="storefront-container">
+  <header>
+    <h1>Our Daily Bakes</h1>
+    <p class="subtitle">Freshly baked in our home kitchen with love and wild yeast.</p>
+  </header>
+
+  <div class="filters-container">
+    <div class="category-filters">
+      <button [class.active]="selectedCategory() === 'ALL'" (click)="setCategory('ALL')">All</button>
+      @for (cat of categories(); track cat) {
+        <button [class.active]="selectedCategory() === cat" (click)="setCategory(cat)">
+          {{cat | titlecase}}
+        </button>
+      }
+    </div>
+
+    <div class="secondary-filters">
+      @if (selectedCategory() === 'BREAD' || selectedCategory() === 'ALL') {
+        <div class="flavor-filters">
+          <button [class.active]="selectedFlavor() === 'ALL'" (click)="setFlavor('ALL')">All Flavors</button>
+          <button [class.active]="selectedFlavor() === 'SWEET'" (click)="setFlavor('SWEET')">Sweet</button>
+          <button [class.active]="selectedFlavor() === 'SAVORY'" (click)="setFlavor('SAVORY')">Savory</button>
+          <button [class.active]="selectedFlavor() === 'PLAIN'" (click)="setFlavor('PLAIN')">Plain</button>
+        </div>
+      }
+      <button class="btn-info-circle" (click)="showSubscriptionInfo.set(true)" title="How Subscriptions Work">
+        How Subscriptions Work 🔄
+      </button>
+    </div>
+  </div>
+
+  @if (showSubscriptionInfo()) {
+    <div class="info-card subscription-explanation card">
+      <button class="btn-close" (click)="showSubscriptionInfo.set(false)">×</button>
+      <h3>🔄 Bread Subscriptions</h3>
+      <p>Never run out of your favorite artisanal bakes! Here's how it works:</p>
+      <ul>
+        <li><strong>Weekly Delivery:</strong> Subscribed items are automatically added to our bake schedule every week.</li>
+        <li><strong>Freshness Guaranteed:</strong> Your subscription bakes are dispatched every Monday or Tuesday to ensure they arrive at peak freshness.</li>
+        <li><strong>Flexible Management:</strong> Pause, resume, or cancel your subscription anytime from your profile.</li>
+        <li><strong>No Hidden Fees:</strong> Pay the standard price per loaf, with simplified recurring checkout.</li>
+      </ul>
+      <p class="hint">Simply click "Subscribe" on any product to get started!</p>
+    </div>
+  }
+
+  <div class="product-grid">
+    @for (product of filteredProducts(); track product.id) {
+      <div class="product-card">
+        <div class="product-image">
+          @if (product.images && product.images.length > 0) {
+            <div class="image-scroller">
+              @for (img of product.images; track img) {
+                <img [src]="img" [alt]="product.name" class="main-image">
+              }
+            </div>
+          } @else if (product.imageUrl) {
+            <img [src]="product.imageUrl" [alt]="product.name" class="main-image">
+          } @else {
+            <div class="placeholder-icon">🍞</div>
+          }
+
+          @if (product.flavorProfile) {
+            <span class="flavor-badge" [attr.data-flavor]="product.flavorProfile">
+              {{product.flavorProfile}}
+            </span>
+          }
+
+          @if (isTopRated(product)) {
+            <span class="top-rated-badge">Most Wanted</span>
+          }
+        </div>
+        <div class="product-info">
+          <h2>{{product.name}}</h2>
+
+          <div class="rating-display" (click)="product.id && toggleReviews(product.id)" [class.clickable]="product.id">
+            <span class="stars">
+              @for (star of [1,2,3,4,5]; track star) {
+                <span class="star" [class.filled]="(product.averageRating || 0) >= star">★</span>
+              }
+            </span>
+            <span class="rating-count">({{product.ratings?.length || 0}})</span>
+            @if (product.id && product.ratings?.length) {
+              <small class="view-reviews-hint">{{ showReviewsForProduct() === product.id ? 'Hide' : 'View' }} Reviews</small>
+            }
+          </div>
+
+          @if (product.id && showReviewsForProduct() === product.id) {
+            <div class="reviews-list">
+              @for (review of getReviews(product.id); track review.id) {
+                <div class="review-item">
+                  <div class="review-header">
+                    <strong>{{review.customerName}}</strong>
+                    <span class="review-stars">
+                      @for (star of [1,2,3,4,5]; track star) {
+                        <span class="star" [class.filled]="review.rating >= star">★</span>
+                      }
+                    </span>
+                  </div>
+                  <p>{{review.comment}}</p>
+                  <small>{{review.date | date:'mediumDate'}}</small>
+                </div>
+              }
+            </div>
+          }
+
+          <p class="meta">{{product.trueHydration | percent:'1.0-0'}} Hydration • {{product.category | titlecase}}</p>
+          <p class="description">{{product.description || 'A handcrafted artisanal creation featuring organic ingredients and long fermentation.'}}</p>
+
+          <div class="product-footer">
+            <span class="price">{{ (product.price || 12) | currency }}</span>
+            <div class="btn-group">
+              @if (authService.isBaker()) {
+                <button class="btn-edit" (click)="editProduct(product)">Edit</button>
+                <button class="btn-delete-product" (click)="deleteProduct(product)" title="Delete Product">×</button>
+              } @else {
+                <button class="btn-subscribe" (click)="subscribe(product)">Subscribe</button>
+                @if (authService.isAuthenticated()) {
+                  <button class="btn-review" (click)="openReviewModal(product)" title="Leave a Review">★</button>
+                }
+              }
+              <button class="btn-add" (click)="addToCart(product)">Add to Bag</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <p>No products available yet. Save some recipes in the calculator to see them here!</p>
+      </div>
+    }
+  </div>
+
+  @if (selectedProductForReview(); as product) {
+    <app-review-modal [product]="product" (close)="selectedProductForReview.set(null)"></app-review-modal>
+  }
+</div>
