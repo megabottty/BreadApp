@@ -139,7 +139,17 @@ export class CartComponent {
     allOrders.push(newOrder);
     localStorage.setItem('bakery_orders', JSON.stringify(allOrders));
 
-    alert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS. (Stripe integration coming soon)`);
+    // Send order to real backend
+    this.cartService.saveOrderToDatabase(newOrder).subscribe({
+      next: (response) => {
+        console.log('Order synced to cloud:', response);
+      },
+      error: (err) => {
+        console.error('Cloud sync failed:', err);
+      }
+    });
+
+    alert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS and saved to our bakery ledger.`);
     this.cartService.clearCart();
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { CalculatedRecipe } from '../logic/bakers-math';
+import { HttpClient } from '@angular/common/http';
+import { CalculatedRecipe, Order } from '../logic/bakers-math';
 import { SubscriptionService } from './subscription.service';
 import { AuthService } from './auth.service';
 
@@ -15,7 +16,10 @@ export interface CartItem {
   providedIn: 'root'
 })
 export class CartService {
+  private http = inject(HttpClient);
   private cartItems = signal<CartItem[]>([]);
+  private apiUrl = 'http://localhost:3000/api/orders'; // Local server for now
+
   fulfillmentType = signal<FulfillmentType>('PICKUP');
   zipCode = signal<string>('');
   notes = signal<string>('');
@@ -67,6 +71,10 @@ export class CartService {
   constructor() {
     this.loadCart();
     this.loadLoyalty();
+  }
+
+  saveOrderToDatabase(order: Order) {
+    return this.http.post(this.apiUrl, order);
   }
 
   private loadLoyalty() {
