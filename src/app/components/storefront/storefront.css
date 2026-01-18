@@ -53,8 +53,31 @@ h1 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
   margin-bottom: 2rem;
+}
+
+.search-bar {
+  width: 100%;
+  max-width: 500px;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  border-radius: 25px;
+  border: 1px solid #E9E5D9;
+  background: white;
+  color: #5F6F52;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(125, 143, 105, 0.05);
+  transition: all 0.2s;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #7D8F69;
+  box-shadow: 0 4px 15px rgba(125, 143, 105, 0.1);
 }
 
 .category-filters, .flavor-filters {

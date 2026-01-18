@@ -17,7 +17,7 @@ export interface Ingredient {
   nutrition?: NutritionData;
 }
 
-export type RecipeCategory = 'BREAD' | 'PASTRY' | 'COOKIE' | 'SPECIAL' | 'OTHER';
+export type RecipeCategory = 'BREAD' | 'PASTRY' | 'COOKIE' | 'BAGEL' | 'MUFFIN' | 'SPECIAL' | 'OTHER';
 export type FlavorProfile = 'SWEET' | 'SAVORY' | 'PLAIN';
 
 export interface Review {

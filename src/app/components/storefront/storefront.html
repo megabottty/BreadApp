@@ -5,6 +5,10 @@
   </header>
 
   <div class="filters-container">
+    <div class="search-bar">
+      <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" placeholder="Search for sourdough, cookies, muffins...">
+    </div>
+
     <div class="category-filters">
       <button [class.active]="selectedCategory() === 'ALL'" (click)="setCategory('ALL')">All</button>
       @for (cat of categories(); track cat) {

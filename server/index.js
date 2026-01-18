@@ -16,7 +16,10 @@ app.get('/', (req, res) => {
 
 // We will add real routes here in a moment
 const orderRoutes = require('./routes/orders');
+const paymentRoutes = require('./routes/payments');
+
 app.use('/api/orders', orderRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is rising on port ${PORT}`);

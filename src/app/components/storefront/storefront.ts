@@ -21,28 +21,32 @@ export class StorefrontComponent implements OnInit {
   private router = inject(Router);
 
   products = signal<CalculatedRecipe[]>([]);
-  categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'OTHER']);
+  categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'OTHER']);
   selectedCategory = signal<RecipeCategory | 'ALL'>('ALL');
   selectedFlavor = signal<FlavorProfile | 'ALL'>('ALL');
 
   selectedProductForReview = signal<CalculatedRecipe | null>(null);
   showReviewsForProduct = signal<string | null>(null);
   showSubscriptionInfo = signal(false);
+  searchTerm = signal('');
 
   filteredProducts = computed(() => {
     const category = this.selectedCategory();
     const flavor = this.selectedFlavor();
+    const search = this.searchTerm().toLowerCase();
 
     return this.products().filter(p => {
       const matchCategory = (category === 'ALL' && p.category !== 'SPECIAL') || p.category === category;
       const matchFlavor = flavor === 'ALL' || p.flavorProfile === flavor;
-      return matchCategory && matchFlavor;
+      const matchSearch = p.name.toLowerCase().includes(search) ||
+                          p.description?.toLowerCase().includes(search);
+      return matchCategory && matchFlavor && matchSearch;
     });
   });
 
   topRatedByCategory = computed(() => {
     const products = this.products();
-    const categories: RecipeCategory[] = ['BREAD', 'PASTRY', 'COOKIE', 'OTHER'];
+    const categories: RecipeCategory[] = ['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'OTHER'];
     const topRated: Record<string, string> = {};
 
     categories.forEach(cat => {

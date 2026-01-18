@@ -7,16 +7,29 @@ import { ExperimentalKitchenComponent } from './components/experimental-kitchen/
 import { LoginComponent } from './components/login/login';
 import { RegisterComponent } from './components/register/register';
 import { AboutComponent } from './components/about/about';
+import { authGuard, bakerGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'store', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'about', component: AboutComponent },
-  { path: 'calculator', component: RecipeCalculatorComponent },
-  { path: 'calculator/:id', component: RecipeCalculatorComponent },
+  {
+    path: 'calculator',
+    component: RecipeCalculatorComponent,
+    canActivate: [bakerGuard]
+  },
+  {
+    path: 'calculator/:id',
+    component: RecipeCalculatorComponent,
+    canActivate: [bakerGuard]
+  },
   { path: 'store', component: StorefrontComponent },
   { path: 'experimental', component: ExperimentalKitchenComponent },
   { path: 'cart', component: CartComponent },
-  { path: 'profile', component: ProfileComponent }
+  {
+    path: 'profile',
+    component: ProfileComponent,
+    canActivate: [authGuard]
+  }
 ];

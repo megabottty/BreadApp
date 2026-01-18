@@ -2,10 +2,11 @@ import { Component, signal, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CartService } from './services/cart.service';
 import { AuthService } from './services/auth.service';
+import { SplashScreenComponent } from './components/splash-screen/splash-screen';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, SplashScreenComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
