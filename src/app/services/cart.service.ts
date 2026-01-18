@@ -18,7 +18,7 @@ export interface CartItem {
 export class CartService {
   private http = inject(HttpClient);
   private cartItems = signal<CartItem[]>([]);
-  private apiUrl = 'http://localhost:3000/api/orders'; // Local server for now
+  private apiUrl = 'https://bread-app-backend.onrender.com/api/orders'; // Live Render backend
 
   fulfillmentType = signal<FulfillmentType>('PICKUP');
   zipCode = signal<string>('');
