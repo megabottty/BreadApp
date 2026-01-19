@@ -19,6 +19,7 @@ export class CartService {
   private http = inject(HttpClient);
   private cartItems = signal<CartItem[]>([]);
   private apiUrl = 'https://bread-app-backend.onrender.com/api/orders'; // Live Render backend
+  private paymentUrl = 'https://bread-app-backend.onrender.com/api/payments';
 
   fulfillmentType = signal<FulfillmentType>('PICKUP');
   zipCode = signal<string>('');
@@ -75,6 +76,19 @@ export class CartService {
 
   saveOrderToDatabase(order: Order) {
     return this.http.post(this.apiUrl, order);
+  }
+
+  createCheckoutSession(items: CartItem[], customerEmail: string, orderId: string) {
+    const payload = {
+      items: items.map(item => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        product: { price: item.product.price }
+      })),
+      customerEmail,
+      orderId
+    };
+    return this.http.post<{ id: string, url: string }>(`${this.paymentUrl}/create-checkout-session`, payload);
   }
 
   private loadLoyalty() {

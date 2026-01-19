@@ -3,13 +3,22 @@ const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase Client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('MISSING SUPABASE CONFIG: Check your environment variables!');
+}
+
+const supabase = (supabaseUrl && supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 // POST: Place a new order
 router.post('/', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
   const orderData = req.body;
 
   try {
@@ -43,6 +52,9 @@ router.post('/', async (req, res) => {
 
 // GET: Retrieve all orders (for the Baker)
 router.get('/', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
   try {
     const { data, error } = await supabase
       .from('bakery_orders')
@@ -60,6 +72,9 @@ router.get('/', async (req, res) => {
 
 // GET: All recipes
 router.get('/recipes', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
   try {
     const { data, error } = await supabase
       .from('bakery_recipes')
@@ -73,6 +88,9 @@ router.get('/recipes', async (req, res) => {
 
 // POST: Save/Update recipe
 router.post('/recipes', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
   const recipe = req.body;
   try {
     const { data, error } = await supabase

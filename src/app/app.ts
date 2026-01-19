@@ -6,7 +6,7 @@ import { SplashScreenComponent } from './components/splash-screen/splash-screen'
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, SplashScreenComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

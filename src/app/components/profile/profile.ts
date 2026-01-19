@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { Order, CalculatedRecipe, Review } from '../../logic/bakers-math';
@@ -6,6 +6,7 @@ import { CartService } from '../../services/cart.service';
 import { ReviewService } from '../../services/review.service';
 import { SubscriptionService, Subscription } from '../../services/subscription.service';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-profile',
@@ -14,11 +15,12 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './profile.html',
   styleUrls: ['./profile.css']
 })
-export class ProfileComponent {
+export class ProfileComponent implements OnInit {
   authService = inject(AuthService);
   cartService = inject(CartService);
   reviewService = inject(ReviewService);
   subscriptionService = inject(SubscriptionService);
+  route = inject(ActivatedRoute);
 
   pastOrders = signal<Order[]>([]);
 
@@ -61,6 +63,16 @@ export class ProfileComponent {
     window.addEventListener('storage', (e) => {
       if (e.key === 'bakery_orders') {
         this.loadOrders();
+      }
+    });
+  }
+
+  ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      if (params['success'] === 'true') {
+        const orderId = params['orderId'];
+        alert(`Payment successful for Order #${orderId}! Your bread is on the way.`);
+        this.cartService.clearCart();
       }
     });
   }

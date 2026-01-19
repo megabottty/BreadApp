@@ -1,10 +1,11 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, PercentPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CartService, CartItem, FulfillmentType } from '../../services/cart.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { Order, OrderItem } from '../../logic/bakers-math';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-cart',
@@ -13,10 +14,11 @@ import { Order, OrderItem } from '../../logic/bakers-math';
   templateUrl: './cart.html',
   styleUrls: ['./cart.css']
 })
-export class CartComponent {
+export class CartComponent implements OnInit {
   cartService = inject(CartService);
   notificationService = inject(NotificationService);
   authService = inject(AuthService);
+  route = inject(ActivatedRoute);
 
   items = this.cartService.items;
   totalPrice = this.cartService.totalPrice;
@@ -31,6 +33,14 @@ export class CartComponent {
 
   guestName = signal<string>('');
   guestPhone = signal<string>('');
+
+  ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      if (params['canceled'] === 'true') {
+        alert('Payment was canceled. You can review your cart and try again.');
+      }
+    });
+  }
 
   minDate = computed(() => {
     const d = new Date();
@@ -143,13 +153,30 @@ export class CartComponent {
     this.cartService.saveOrderToDatabase(newOrder).subscribe({
       next: (response) => {
         console.log('Order synced to cloud:', response);
+
+        if (this.payAtPickup()) {
+          alert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS and saved to our bakery ledger.`);
+          this.cartService.clearCart();
+          return;
+        }
+
+        // After syncing order, initiate Stripe Checkout
+        const email = isGuest ? (this.guestPhone() + '@guest.com') : (this.authService.user()?.email || 'customer@example.com');
+        this.cartService.createCheckoutSession(this.items(), email, orderId).subscribe({
+          next: (session) => {
+            if (session.url) {
+              window.location.href = session.url; // Redirect to Stripe
+            }
+          },
+          error: (err) => {
+            console.error('Stripe session creation failed:', err);
+            alert('Failed to initiate payment. Please try again.');
+          }
+        });
       },
       error: (err) => {
         console.error('Cloud sync failed:', err);
       }
     });
-
-    alert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS and saved to our bakery ledger.`);
-    this.cartService.clearCart();
   }
 }

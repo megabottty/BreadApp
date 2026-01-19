@@ -1,9 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+if (!stripeKey) {
+  console.error('MISSING STRIPE_SECRET_KEY: Check your environment variables!');
+}
+const stripe = stripeKey ? require('stripe')(stripeKey) : null;
 
 // POST: Create a Stripe Checkout Session
 router.post('/create-checkout-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured on the server' });
+  }
   const { items, customerEmail, orderId } = req.body;
 
   try {
@@ -18,12 +25,13 @@ router.post('/create-checkout-session', async (req, res) => {
       quantity: item.quantity,
     }));
 
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL}/profile?success=true&orderId=${orderId}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cart?canceled=true`,
+      success_url: `${frontendUrl}/profile?success=true&orderId=${orderId}`,
+      cancel_url: `${frontendUrl}/cart?canceled=true`,
       customer_email: customerEmail,
       metadata: {
         orderId: orderId

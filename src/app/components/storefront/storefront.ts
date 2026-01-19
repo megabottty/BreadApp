@@ -1,5 +1,6 @@
 import { Component, OnInit, signal, inject, computed } from '@angular/core';
-import { CommonModule, CurrencyPipe, TitleCasePipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
@@ -10,7 +11,7 @@ import { ReviewModalComponent } from '../review-modal/review-modal';
 @Component({
   selector: 'app-storefront',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, ReviewModalComponent],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, ReviewModalComponent],
   templateUrl: './storefront.html',
   styleUrls: ['./storefront.css']
 })

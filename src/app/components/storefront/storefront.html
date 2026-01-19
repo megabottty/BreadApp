@@ -6,7 +6,7 @@
 
   <div class="filters-container">
     <div class="search-bar">
-      <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" placeholder="Search for sourdough, cookies, muffins...">
+      <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($any($event))" placeholder="Search for sourdough, cookies, muffins...">
     </div>
 
     <div class="category-filters">
