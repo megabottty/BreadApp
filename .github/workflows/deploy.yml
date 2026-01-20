@@ -28,7 +28,7 @@ jobs:
           echo "Checking connectivity to 129.121.65.112 on port 22..."
           nc -zv -w 5 129.121.65.112 22 || echo "Port 22 is CLOSED or BLOCKED"
 
-      - name: Deploy to Bluehost via SSH
+      - name: Deploy Frontend to Bluehost via SSH
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -38,9 +38,38 @@ jobs:
           port: 22
           timeout: 5m
           debug: true
-          # This targets the specific 'browser' folder created by newer Angular versions
           source: "dist/BreadApp/browser/*"
           target: "public_html/"
-          # Strip 3 levels (dist/, BreadApp/, and browser/)
-          # so the files land directly in public_html
           strip_components: 3
+
+      - name: Deploy Backend to Bluehost via SSH
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: 22
+          timeout: 5m
+          debug: true
+          source: "server/*,package.json,package-lock.json"
+          target: "api/"
+
+      - name: Install Backend Dependencies and Restart Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: 22
+          script: |
+            cd api
+            npm install --production
+            # Try to restart using PM2 if it exists, otherwise provide a hint
+            if command -v pm2 &> /dev/null
+            then
+                pm2 restart bread-api || pm2 start server/index.js --name bread-api
+            else
+                echo "Backend files uploaded to 'api/' folder. PM2 not found, please start your server manually or install PM2."
+            fi

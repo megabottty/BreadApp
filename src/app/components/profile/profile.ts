@@ -227,6 +227,16 @@ export class ProfileComponent implements OnInit {
     }
   }
 
+  claimReviewPerk() {
+    this.cartService.applyPromoCode('FREELOAF');
+    this.modalService.showAlert('Your Free Loaf reward has been applied to your bag! 🥖', 'Reward Claimed', 'success');
+  }
+
+  claimLoafPerk() {
+    this.cartService.applyPromoCode('DOUGH8');
+    this.modalService.showAlert('Your $8 "Bread Addict" discount has been applied to your bag! 💸', 'Reward Claimed', 'success');
+  }
+
   pauseSubscription(id: string) {
     this.subscriptionService.pauseSubscription(id);
   }

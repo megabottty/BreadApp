@@ -58,6 +58,23 @@
             placeholder="Any allergies, doorstep instructions, or flavor preferences? Let us know here!"></textarea>
         </div>
 
+        <div class="card promo-section">
+          <h3>Promo Code</h3>
+          <div class="promo-input-group">
+            @if (cartService.appliedPromo(); as promo) {
+              <div class="applied-promo">
+                <span class="promo-info">
+                  <strong>{{promo.code}}</strong> - {{promo.description}}
+                </span>
+                <button class="btn-remove-promo" (click)="removePromo()">×</button>
+              </div>
+            } @else {
+              <input type="text" [(ngModel)]="promoCodeInput" placeholder="Enter code">
+              <button class="btn-small" (click)="applyPromo()">Apply</button>
+            }
+          </div>
+        </div>
+
         @if (!authService.isAuthenticated()) {
           <div class="card guest-checkout-section">
             <h3>Guest Checkout Details</h3>
@@ -120,6 +137,12 @@
           <div class="summary-row discount">
             <span>Loyalty Discount ($8 Off!)</span>
             <span>-{{cartService.loyaltyDiscount() | currency}}</span>
+          </div>
+        }
+        @if (cartService.promoDiscount() > 0) {
+          <div class="summary-row discount">
+            <span>Promo Discount ({{cartService.appliedPromo()?.code}})</span>
+            <span>-{{cartService.promoDiscount() | currency}}</span>
           </div>
         }
         <div class="summary-row total">

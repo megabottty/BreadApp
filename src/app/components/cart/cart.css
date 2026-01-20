@@ -412,3 +412,64 @@ h1 {
   font-size: 0.9rem;
   cursor: pointer;
 }
+
+.promo-section {
+  margin-bottom: 2rem;
+}
+
+.promo-section h3 {
+  margin-top: 0;
+  color: #5F6F52;
+  font-family: 'Serif', Georgia, serif;
+}
+
+.promo-input-group {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.promo-input-group input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #E0DCCF;
+  border-radius: 10px;
+}
+
+.applied-promo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: #F1F3EB;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px dashed #7D8F69;
+}
+
+.promo-info {
+  font-size: 0.9rem;
+  color: #5F6F52;
+}
+
+.btn-remove-promo {
+  background: #E5E0D5;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8C8273;
+}
+
+.btn-small {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 8px;
+  border: none;
+  background: #7D8F69;
+  color: white;
+  cursor: pointer;
+}

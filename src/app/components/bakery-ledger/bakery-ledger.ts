@@ -1,8 +1,9 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Order } from '../../logic/bakers-math';
+import { Order, PromoCode } from '../../logic/bakers-math';
 import { FormsModule } from '@angular/forms';
+import { ModalService } from '../../services/modal.service';
 
 @Component({
   selector: 'app-bakery-ledger',
@@ -13,10 +14,24 @@ import { FormsModule } from '@angular/forms';
 })
 export class BakeryLedgerComponent implements OnInit {
   private http = inject(HttpClient);
+  private modalService = inject(ModalService);
 
   allOrders = signal<Order[]>([]);
   searchTerm = signal<string>('');
   statusFilter = signal<string>('ALL');
+
+  // Promo management
+  availablePromos = signal<PromoCode[]>([]);
+  showPromoManager = signal(false);
+
+  // New promo form
+  newPromo = signal<Partial<PromoCode>>({
+    code: '',
+    type: 'FIXED',
+    value: 5,
+    description: '',
+    isActive: true
+  });
 
   // Statistics
   stats = computed(() => {
@@ -57,6 +72,7 @@ export class BakeryLedgerComponent implements OnInit {
 
   ngOnInit() {
     this.loadOrders();
+    this.loadPromos();
   }
 
   loadOrders() {
@@ -64,6 +80,45 @@ export class BakeryLedgerComponent implements OnInit {
       next: (orders) => this.allOrders.set(orders),
       error: (err) => console.error('Failed to load ledger orders:', err)
     });
+  }
+
+  loadPromos() {
+    this.http.get<any[]>('http://localhost:3000/api/orders/promos/all').subscribe({
+      next: (data) => {
+        const mapped: PromoCode[] = data.map(p => ({
+          id: p.id,
+          code: p.code,
+          type: p.type,
+          value: p.value,
+          description: p.description,
+          isActive: p.is_active,
+          usageCount: this.allOrders().filter(o => o.promoCode === p.code).length
+        }));
+        this.availablePromos.set(mapped);
+      },
+      error: (err) => console.error('Failed to load promos', err)
+    });
+  }
+
+  savePromo() {
+    const promo = this.newPromo();
+    if (!promo.code) return;
+
+    this.http.post('http://localhost:3000/api/orders/promos', promo).subscribe({
+      next: () => {
+        this.loadPromos();
+        this.newPromo.set({ code: '', type: 'FIXED', value: 5, description: '', isActive: true });
+        this.modalService.showAlert('Promo code saved! 🎟️', 'Success', 'success');
+      }
+    });
+  }
+
+  deletePromo(id: string) {
+    if (confirm('Are you sure you want to delete this promo code?')) {
+      this.http.delete(`http://localhost:3000/api/orders/promos/${id}`).subscribe({
+        next: () => this.loadPromos()
+      });
+    }
   }
 
   getStatusClass(status: string): string {

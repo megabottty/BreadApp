@@ -1,8 +1,9 @@
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { CalculatedRecipe, Order } from '../logic/bakers-math';
+import { CalculatedRecipe, Order, PromoCode } from '../logic/bakers-math';
 import { SubscriptionService } from './subscription.service';
 import { AuthService } from './auth.service';
+import { ModalService } from './modal.service';
 
 export type FulfillmentType = 'PICKUP' | 'SHIPPING';
 
@@ -17,12 +18,16 @@ export interface CartItem {
 })
 export class CartService {
   private http = inject(HttpClient);
+  private modalService = inject(ModalService);
   private cartItems = signal<CartItem[]>([]);
   private isInitialLoad = true;
   // Use localhost for local development, or your live URL for production
   private apiUrl = 'http://localhost:3000/api/orders';
   private paymentUrl = 'http://localhost:3000/api/payments';
   private recipeUrl = 'http://localhost:3000/api/orders/recipes';
+  private promoUrl = 'http://localhost:3000/api/orders/promos';
+
+  private availablePromos = signal<PromoCode[]>([]);
 
   getOrderById(orderId: string) {
     return this.http.get<Order>(`${this.apiUrl}/${orderId}`);
@@ -31,6 +36,8 @@ export class CartService {
   fulfillmentType = signal<FulfillmentType>('PICKUP');
   zipCode = signal<string>('');
   notes = signal<string>('');
+
+  appliedPromo = signal<PromoCode | null>(null);
 
   // Perks / Loyalty
   totalLoavesPurchased = signal<number>(0);
@@ -43,7 +50,29 @@ export class CartService {
     this.cartItems().reduce((acc, item) => acc + item.quantity, 0)
   );
 
+  promoDiscount = computed(() => {
+    const promo = this.appliedPromo();
+    if (!promo) return 0;
+
+    const subtotal = this.cartItems().reduce((acc, item) => acc + (item.quantity * (item.product.price || 12)), 0);
+
+    if (promo.type === 'FIXED') {
+      return promo.value;
+    } else if (promo.type === 'PERCENT') {
+      return subtotal * (promo.value / 100);
+    } else if (promo.type === 'FREE_LOAF') {
+      // Subtract the price of one loaf (assumed standard price or cheapest loaf in cart)
+      if (this.cartItems().length === 0) return 0;
+      const prices = this.cartItems().map(i => i.product.price || 12);
+      return Math.max(...prices);
+    }
+    return 0;
+  });
+
   loyaltyDiscount = computed(() => {
+    // If a promo is already applied, we might want to disable automatic loyalty discounts
+    // to prevent double dipping, or let them stack. Let's let them stack for now if they are different.
+
     // Every 10 loaves gets $8 off
     const eligibleCount = Math.floor((this.totalLoavesPurchased() + this.totalCount()) / 10);
     const alreadyClaimed = Math.floor(this.totalLoavesPurchased() / 10);
@@ -70,7 +99,8 @@ export class CartService {
 
   totalPrice = computed(() => {
     const itemsTotal = this.cartItems().reduce((acc, item) => acc + (item.quantity * (item.product.price || 12)), 0);
-    return itemsTotal + this.shippingCost() - this.loyaltyDiscount();
+    const total = itemsTotal + this.shippingCost() - this.loyaltyDiscount() - this.promoDiscount();
+    return Math.max(0, total);
   });
 
   private subscriptionService = inject(SubscriptionService);
@@ -79,12 +109,59 @@ export class CartService {
   constructor() {
     this.loadCart();
     this.loadLoyalty();
+    this.loadPromos();
     this.isInitialLoad = false;
 
     // Automatically save cart whenever any relevant signal changes
     effect(() => {
       this.saveCart();
     });
+  }
+
+  loadPromos() {
+    this.http.get<any[]>(`${this.apiUrl}/promos/all`).subscribe({
+      next: (data) => {
+        const mapped: PromoCode[] = data.map(p => ({
+          id: p.id,
+          code: p.code,
+          type: p.type,
+          value: p.value,
+          description: p.description,
+          isActive: p.is_active
+        }));
+        this.availablePromos.set(mapped);
+      },
+      error: (err) => console.error('Failed to load promos', err)
+    });
+  }
+
+  applyPromoCode(code: string): boolean {
+    const normalized = code.toUpperCase().trim();
+
+    const match = this.availablePromos().find(p => p.code === normalized && p.isActive !== false);
+    if (match) {
+      this.appliedPromo.set(match);
+      return true;
+    }
+
+    // Fallback/Legacy codes for loyalty if not in DB yet
+    const fallbackPromos: PromoCode[] = [
+      { code: 'BREADFRIEND', type: 'FIXED', value: 5, description: '$5 Off for Friends' },
+      { code: 'FREELOAF', type: 'FREE_LOAF', value: 0, description: 'One Free Loaf' },
+      { code: 'DOUGH8', type: 'FIXED', value: 8, description: 'Bread Addict Reward' }
+    ];
+
+    const fallbackMatch = fallbackPromos.find(p => p.code === normalized);
+    if (fallbackMatch) {
+      this.appliedPromo.set(fallbackMatch);
+      return true;
+    }
+
+    return false;
+  }
+
+  removePromo() {
+    this.appliedPromo.set(null);
   }
 
   saveOrderToDatabase(order: Order) {
@@ -211,6 +288,7 @@ export class CartService {
 
     this.cartItems.set([]);
     this.notes.set('');
+    this.appliedPromo.set(null);
     this.saveCart();
   }
 }

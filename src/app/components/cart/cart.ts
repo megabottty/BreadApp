@@ -36,6 +36,8 @@ export class CartComponent implements OnInit {
   guestName = signal<string>('');
   guestPhone = signal<string>('');
 
+  promoCodeInput = signal<string>('');
+
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
       if (params['canceled'] === 'true') {
@@ -99,6 +101,21 @@ export class CartComponent implements OnInit {
     }
   }
 
+  applyPromo() {
+    if (!this.promoCodeInput()) return;
+    const success = this.cartService.applyPromoCode(this.promoCodeInput());
+    if (success) {
+      this.modalService.showAlert(`Promo code "${this.promoCodeInput()}" applied!`, 'Success', 'success');
+      this.promoCodeInput.set('');
+    } else {
+      this.modalService.showAlert('Invalid promo code. Please try again.', 'Invalid Code', 'warning');
+    }
+  }
+
+  removePromo() {
+    this.cartService.removePromo();
+  }
+
   checkout() {
     if (this.fulfillmentType() === 'SHIPPING' && !this.isDispatchDateValid(this.dispatchDate())) {
       this.modalService.showAlert('For shipping, please select a Monday or Tuesday dispatch date at least 48 hours from now.', 'Invalid Date', 'warning');
@@ -142,6 +159,8 @@ export class CartComponent implements OnInit {
       })),
       notes: this.notes(),
       totalPrice: this.totalPrice(),
+      promoCode: this.cartService.appliedPromo()?.code,
+      discountApplied: this.cartService.loyaltyDiscount() + this.cartService.promoDiscount(),
       shippingCost: this.shippingCost(),
       createdAt: new Date().toISOString()
     };

@@ -208,9 +208,21 @@ export interface Order {
   items: OrderItem[];
   notes?: string;
   totalPrice: number;
+  promoCode?: string;
   discountApplied?: number;
   shippingCost: number;
   createdAt: string;
+}
+
+export interface PromoCode {
+  id?: string;
+  code: string;
+  type: 'FIXED' | 'PERCENT' | 'FREE_LOAF';
+  value: number;
+  minOrderValue?: number;
+  description: string;
+  isActive?: boolean;
+  usageCount?: number;
 }
 
 /**

@@ -241,6 +241,30 @@ textarea {
   font-weight: 600;
 }
 
+.perk-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.btn-claim {
+  background: #7D8F69;
+  color: white;
+  border: none;
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-claim:hover {
+  background: #5F6F52;
+  transform: translateY(-1px);
+}
+
 .subscription-section {
   margin-top: 2rem;
   padding-top: 1.5rem;

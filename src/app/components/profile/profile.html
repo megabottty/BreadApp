@@ -72,7 +72,12 @@
         <div class="progress-bar">
           <div class="progress-fill" [style.width.%]="reviewPerkProgress()"></div>
         </div>
-        <span class="progress-text">{{reviewsCount() % 10}} / 10 Reviews</span>
+        <div class="perk-footer">
+          <span class="progress-text">{{reviewsCount() % 10}} / 10 Reviews</span>
+          @if (reviewsCount() >= 10 && (reviewsCount() % 10 === 0 || reviewsCount() > 0)) {
+            <button class="btn-claim" (click)="claimReviewPerk()">Claim Free Loaf</button>
+          }
+        </div>
       </div>
 
       <div class="perk-item">
@@ -83,7 +88,12 @@
         <div class="progress-bar">
           <div class="progress-fill bread" [style.width.%]="loafPerkProgress()"></div>
         </div>
-        <span class="progress-text">{{loavesPurchased() % 10}} / 10 Loaves</span>
+        <div class="perk-footer">
+          <span class="progress-text">{{loavesPurchased() % 10}} / 10 Loaves</span>
+          @if (loavesPurchased() >= 10) {
+            <button class="btn-claim" (click)="claimLoafPerk()">Claim $8 Off</button>
+          }
+        </div>
       </div>
 
       <div class="subscription-section">

@@ -36,7 +36,9 @@ router.post('/', async (req, res) => {
           items: orderData.items,
           notes: orderData.notes,
           pickup_date: orderData.pickupDate,
-          status: 'PENDING'
+          status: 'PENDING',
+          promo_code: orderData.promoCode,
+          discount_applied: orderData.discountApplied
         }
       ])
       .select();
@@ -181,6 +183,8 @@ router.get('/:orderId', async (req, res) => {
       notes: data.notes,
       pickupDate: data.pickup_date || null,
       status: data.status,
+      promoCode: data.promo_code,
+      discountApplied: data.discount_applied,
       createdAt: data.created_at
     };
 
@@ -214,6 +218,8 @@ router.get('/', async (req, res) => {
       notes: order.notes,
       pickupDate: order.pickup_date || null,
       status: order.status,
+      promoCode: order.promo_code,
+      discountApplied: order.discount_applied,
       createdAt: order.created_at
     }));
 
@@ -428,6 +434,70 @@ router.patch('/:orderId/status', async (req, res) => {
     res.json(data[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+// --- PROMO CODES ROUTES ---
+
+// GET: All promo codes
+router.get('/promos/all', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  try {
+    const { data, error } = await supabase
+      .from('bakery_promos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch promo codes' });
+  }
+});
+
+// POST: Create or update promo code
+router.post('/promos', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const promo = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_promos')
+      .upsert({
+        id: promo.id,
+        code: promo.code.toUpperCase(),
+        type: promo.type,
+        value: promo.value,
+        description: promo.description,
+        is_active: promo.isActive ?? true
+      })
+      .select();
+
+    if (error) throw error;
+    res.status(201).json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save promo code' });
+  }
+});
+
+// DELETE: Remove a promo code
+router.delete('/promos/:id', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  try {
+    const { error } = await supabase
+      .from('bakery_promos')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete promo code' });
   }
 });
 

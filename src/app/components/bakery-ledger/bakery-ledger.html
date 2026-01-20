@@ -28,72 +28,150 @@
     </div>
   </div>
 
-  <!-- Filters and Search -->
-  <div class="controls-card card">
-    <div class="search-box">
-      <input
-        type="text"
-        placeholder="Search by customer or order ID..."
-        [ngModel]="searchTerm()"
-        (ngModelChange)="searchTerm.set($event)"
-      >
-    </div>
-    <div class="filter-box">
-      <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
-        <option value="ALL">All Statuses</option>
-        <option value="PENDING">Pending</option>
-        <option value="READY">Ready</option>
-        <option value="SHIPPED">Shipped</option>
-        <option value="COMPLETED">Completed</option>
-        <option value="CANCELLED">Cancelled</option>
-      </select>
-    </div>
+  <div class="ledger-actions">
+    <button class="btn-primary" (click)="showPromoManager.set(!showPromoManager())">
+      {{ showPromoManager() ? 'View Order History' : 'Manage Promo Codes' }}
+    </button>
   </div>
 
-  <!-- Orders Table -->
-  <div class="table-card card">
-    <div class="table-responsive">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Order ID</th>
-            <th>Customer</th>
-            <th>Items</th>
-            <th>Total</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (order of filteredOrders(); track order.id) {
-            <tr>
-              <td>{{ order.createdAt | date:'shortDate' }}</td>
-              <td><span class="order-id">#{{ order.id }}</span></td>
-              <td>
-                <div class="customer-info">
-                  <span class="customer-name">{{ order.customerName }}</span>
-                  <span class="customer-phone">{{ order.customerPhone }}</span>
-                </div>
-              </td>
-              <td>
-                <div class="items-summary">
-                  @for (item of order.items; track item.name; let last = $last) {
-                    {{ item.quantity }}x {{ item.name }}{{ last ? '' : ', ' }}
-                  }
-                </div>
-              </td>
-              <td class="total-cell">{{ order.totalPrice | currency }}</td>
-              <td>
-                <span [class]="getStatusClass(order.status)">{{ order.status }}</span>
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="6" class="empty-state">No orders found matching your criteria.</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+  @if (showPromoManager()) {
+    <div class="promo-manager-section">
+      <div class="grid-2-col">
+        <!-- Create Promo -->
+        <div class="card promo-form">
+          <h2>Create New Promo</h2>
+          <div class="form-group">
+            <label>Code</label>
+            <input type="text" [(ngModel)]="newPromo().code" placeholder="E.g. SUMMER24">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Type</label>
+              <select [(ngModel)]="newPromo().type">
+                <option value="FIXED">$ Fixed Amount</option>
+                <option value="PERCENT">% Percentage</option>
+                <option value="FREE_LOAF">Free Loaf</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Value</label>
+              <input type="number" [(ngModel)]="newPromo().value">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" [(ngModel)]="newPromo().description" placeholder="Helpful description for customers">
+          </div>
+          <button class="btn-primary full-width" (click)="savePromo()">Create Promo Code</button>
+        </div>
+
+        <!-- Promo Analytics -->
+        <div class="card promo-list">
+          <h2>Active Promos & Analytics</h2>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Value</th>
+                  <th>Uses</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (promo of availablePromos(); track promo.id) {
+                  <tr>
+                    <td><strong>{{promo.code}}</strong></td>
+                    <td>{{promo.type === 'PERCENT' ? promo.value + '%' : (promo.value | currency)}}</td>
+                    <td><span class="usage-badge">{{promo.usageCount}} uses</span></td>
+                    <td>
+                      <span class="status-dot" [class.active]="promo.isActive"></span>
+                      {{promo.isActive ? 'Active' : 'Paused'}}
+                    </td>
+                    <td>
+                      <button class="btn-icon delete" (click)="deletePromo(promo.id || '')">×</button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5" class="empty-state">No promo codes created yet.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+  } @else {
+    <!-- Filters and Search -->
+    <div class="controls-card card">
+      <div class="search-box">
+        <input
+          type="text"
+          placeholder="Search by customer or order ID..."
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+        >
+      </div>
+      <div class="filter-box">
+        <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+          <option value="ALL">All Statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="READY">Ready</option>
+          <option value="SHIPPED">Shipped</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="table-card card">
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (order of filteredOrders(); track order.id) {
+              <tr>
+                <td>{{ order.createdAt | date:'shortDate' }}</td>
+                <td><span class="order-id">#{{ order.id }}</span></td>
+                <td>
+                  <div class="customer-info">
+                    <span class="customer-name">{{ order.customerName }}</span>
+                    <span class="customer-phone">{{ order.customerPhone }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="items-summary">
+                    @for (item of order.items; track item.name; let last = $last) {
+                      {{ item.quantity }}x {{ item.name }}{{ last ? '' : ', ' }}
+                    }
+                  </div>
+                </td>
+                <td class="total-cell">{{ order.totalPrice | currency }}</td>
+                <td>
+                  <span [class]="getStatusClass(order.status)">{{ order.status }}</span>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="empty-state">No orders found matching your criteria.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
 </div>
