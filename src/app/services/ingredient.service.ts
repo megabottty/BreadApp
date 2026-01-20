@@ -1,5 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { NutritionData, MOCK_INGREDIENTS_DB } from '../logic/bakers-math';
+import { map, Observable, of, catchError } from 'rxjs';
 
 export interface FoodSearchItem {
   name: string;
@@ -10,6 +12,8 @@ export interface FoodSearchItem {
   providedIn: 'root'
 })
 export class IngredientService {
+  private http = inject(HttpClient);
+
   private ingredientsDb = signal<Record<string, NutritionData>>({
     ...MOCK_INGREDIENTS_DB,
     'Milk Chocolate': { caloriesPer100g: 535, proteinPer100g: 7.7, carbsPer100g: 59, fatPer100g: 30 },
@@ -32,13 +36,57 @@ export class IngredientService {
     'Baking Soda': { caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 },
   });
 
-  search(term: string): FoodSearchItem[] {
-    if (!term || term.length < 2) return [];
-    const db = this.ingredientsDb();
-    const normalizedTerm = term.toLowerCase();
-    return Object.keys(db)
+  // Use a public API (USDA FoodData Central)
+  // For demo, we search both our local DB and the API.
+  search(term: string): Observable<FoodSearchItem[]> {
+    if (!term || term.trim().length < 2) return of([]);
+
+    const normalizedTerm = term.toLowerCase().trim();
+    const localResults = Object.keys(this.ingredientsDb())
       .filter(name => name.toLowerCase().includes(normalizedTerm))
-      .map(name => ({ name, nutrition: db[name] }));
+      .map(name => ({ name, nutrition: this.ingredientsDb()[name] }));
+
+    // USDA FoodData Central Search API (using demo key)
+    const apiKey = 'DEMO_KEY';
+    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(normalizedTerm)}&pageSize=10&api_key=${apiKey}`;
+
+    return this.http.get<any>(url).pipe(
+      map(response => {
+        const apiResults = (response.foods || []).map((food: any) => {
+          // Map USDA nutrients to our NutritionData format
+          const getNutrient = (id: number) => {
+            const n = food.foodNutrients.find((nut: any) => nut.nutrientId === id);
+            return n ? n.value : 0;
+          };
+
+          return {
+            name: food.description,
+            nutrition: {
+              caloriesPer100g: getNutrient(1008), // Energy
+              proteinPer100g: getNutrient(1003),  // Protein
+              carbsPer100g: getNutrient(1005),    // Carbohydrate
+              fatPer100g: getNutrient(1004)       // Total lipid (fat)
+            }
+          };
+        });
+
+        // Combine and de-duplicate (prefer local for common items)
+        const combined = [...localResults];
+        apiResults.forEach((apiItem: any) => {
+          // Avoid adding items that are already in local results or duplicates from API
+          const isDuplicate = combined.some(c => c.name.toLowerCase() === apiItem.name.toLowerCase());
+          if (!isDuplicate) {
+            combined.push(apiItem);
+          }
+        });
+
+        return combined.slice(0, 15);
+      }),
+      catchError(err => {
+        console.error('API search failed, falling back to local results', err);
+        return of(localResults);
+      })
+    );
   }
 
   getNutrition(name: string): NutritionData | undefined {

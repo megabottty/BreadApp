@@ -14,12 +14,17 @@
     <form (submit)="login()">
       <div class="form-group">
         <label for="email">Email Address</label>
-        <input type="email" id="email" [(ngModel)]="email" name="email" placeholder="hello@dailydough.com" required>
+        <input type="email" id="email" [ngModel]="email()" (ngModelChange)="email.set($event)" name="email" placeholder="hello@dailydough.com" required>
       </div>
 
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" [(ngModel)]="password" name="password" placeholder="••••••••" required>
+        <div class="password-input-wrapper">
+          <input [type]="showPassword() ? 'text' : 'password'" id="password" [ngModel]="password()" (ngModelChange)="password.set($event)" name="password" placeholder="••••••••" required>
+          <button type="button" class="btn-toggle-password" (click)="togglePassword()" [title]="showPassword() ? 'Hide Password' : 'Show Password'">
+            {{ showPassword() ? '👁️' : '👁️‍🗨️' }}
+          </button>
+        </div>
       </div>
 
       <button type="submit" class="btn-login">

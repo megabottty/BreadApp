@@ -1,0 +1,99 @@
+<div class="ledger-container">
+  <header class="ledger-header">
+    <h1>Bakery Ledger</h1>
+    <p class="subtitle">Financial overview and complete order history.</p>
+  </header>
+
+  <!-- Summary Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span class="label">Total Collected</span>
+      <span class="value">{{ stats().totalRevenue | currency }}</span>
+      <span class="sub-label">{{ stats().completedCount }} completed orders</span>
+    </div>
+    <div class="stat-card">
+      <span class="label">Pending Revenue</span>
+      <span class="value pending">{{ stats().pendingRevenue | currency }}</span>
+      <span class="sub-label">Active orders in production</span>
+    </div>
+    <div class="stat-card">
+      <span class="label">Total Orders</span>
+      <span class="value">{{ stats().totalOrders }}</span>
+      <span class="sub-label">Lifetime order count</span>
+    </div>
+    <div class="stat-card">
+      <span class="label">Avg Order Value</span>
+      <span class="value">{{ stats().averageOrderValue | currency }}</span>
+      <span class="sub-label">Based on completed sales</span>
+    </div>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="controls-card card">
+    <div class="search-box">
+      <input
+        type="text"
+        placeholder="Search by customer or order ID..."
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+      >
+    </div>
+    <div class="filter-box">
+      <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+        <option value="ALL">All Statuses</option>
+        <option value="PENDING">Pending</option>
+        <option value="READY">Ready</option>
+        <option value="SHIPPED">Shipped</option>
+        <option value="COMPLETED">Completed</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Orders Table -->
+  <div class="table-card card">
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (order of filteredOrders(); track order.id) {
+            <tr>
+              <td>{{ order.createdAt | date:'shortDate' }}</td>
+              <td><span class="order-id">#{{ order.id }}</span></td>
+              <td>
+                <div class="customer-info">
+                  <span class="customer-name">{{ order.customerName }}</span>
+                  <span class="customer-phone">{{ order.customerPhone }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="items-summary">
+                  @for (item of order.items; track item.name; let last = $last) {
+                    {{ item.quantity }}x {{ item.name }}{{ last ? '' : ', ' }}
+                  }
+                </div>
+              </td>
+              <td class="total-cell">{{ order.totalPrice | currency }}</td>
+              <td>
+                <span [class]="getStatusClass(order.status)">{{ order.status }}</span>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-state">No orders found matching your criteria.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

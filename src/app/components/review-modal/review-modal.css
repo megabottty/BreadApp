@@ -57,6 +57,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background: #E5E0D5;
+  color: #5F6F52;
 }
 
 header {

@@ -1,0 +1,197 @@
+<div class="orders-container">
+  <div class="header-section">
+    <h1>Order Management</h1>
+    <div class="date-picker">
+      <label>Bake Date</label>
+      <input type="date" [ngModel]="bakeDate()" (ngModelChange)="bakeDate.set($event)">
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Left Column: Orders List -->
+    <div class="card orders-list-card">
+      <div class="header-with-badge">
+        <h2>Production Brain</h2>
+        @if (notificationService.logs().length > 0) {
+          <div class="notification-count" (click)="showNotifications.set(!showNotifications())">
+            🔔 {{notificationService.logs().length}}
+          </div>
+        }
+      </div>
+
+      @if (showNotifications()) {
+        <div class="notification-dropdown card">
+          <h3>Recent Alerts</h3>
+          @for (log of notificationService.logs(); track log.id) {
+            <div class="log-item">
+              <small>{{log.timestamp | date:'shortTime'}}</small>
+              <p>{{log.message}}</p>
+            </div>
+          } @empty {
+            <p>No new alerts.</p>
+          }
+          <button class="btn-small" (click)="showNotifications.set(false)">Close</button>
+        </div>
+      }
+
+      <div class="status-summary-bar">
+        <div class="summary-item">
+          <span class="dot pending"></span>
+          {{statusSummary().pending}} Pending
+        </div>
+        <div class="summary-item">
+          <span class="dot ready"></span>
+          {{statusSummary().ready}} Ready/Shipped
+        </div>
+        <div class="summary-item">
+          <span class="dot completed"></span>
+          {{statusSummary().completed}} Done
+        </div>
+      </div>
+
+      <div class="aggregation-list">
+        @for (order of filteredOrders(); track order.id) {
+          <div class="aggregation-item order-card clickable" (click)="openOrderDetails(order)">
+            <div class="order-main">
+              <div class="customer-tag">
+                <span class="type">{{order.type}}</span>
+                @if (order.customerId === 'guest') {
+                  <span class="guest-badge">GUEST</span>
+                }
+              </div>
+              <span class="name">{{order.customerName}}</span>
+              <span class="phone">{{order.customerPhone}}</span>
+              <div class="items">
+                @for (item of order.items; track item.name) {
+                  <div class="item-with-ingredients">
+                    <span class="item-name">{{item.quantity}}x {{item.name}} <small>({{getRecipeCategory(item.name)}})</small></span>
+                    <div class="item-ingredients-breakdown">
+                      @for (ing of getItemIngredients(item.name, item.quantity); track ing.name) {
+                        <span>{{ing.name}} {{ing.weight | number:'1.0-0'}}g</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+              <div class="order-weight-badge">
+                ⚖️ {{getOrderWeight(order) | number:'1.0-0'}}g total
+              </div>
+              @if (order.notes) {
+                <p class="order-notes"><strong>Note:</strong> {{order.notes}}</p>
+              }
+            </div>
+            <div class="order-status-actions" (click)="$event.stopPropagation()">
+              <span class="status-badge" [attr.data-status]="order.status">{{order.status}}</span>
+              <div class="btn-group">
+                @if (order.status === 'PENDING') {
+                  <button class="btn-small" (click)="updateOrderStatus(order.id, order.type === 'PICKUP' ? 'READY' : 'SHIPPED')">
+                    Mark {{order.type === 'PICKUP' ? 'Ready' : 'Shipped'}}
+                  </button>
+                }
+                @if (order.status !== 'COMPLETED' && order.status !== 'CANCELLED') {
+                  <button class="btn-small btn-outline" (click)="updateOrderStatus(order.id, 'COMPLETED')">Complete</button>
+                }
+              </div>
+            </div>
+          </div>
+        } @empty {
+          <p class="empty-msg">No orders for this date.</p>
+        }
+
+        @if ((subscriptionOrders() | keyvalue).length > 0) {
+          <h3 class="section-title">Subscription Fulfillments</h3>
+          @for (sub of subscriptionOrders() | keyvalue; track sub.key) {
+            <div class="aggregation-item order-card subscription-highlight">
+              <div class="order-main">
+                <span class="type">SUBSCRIPTION</span>
+                <span class="name">{{sub.key}}</span>
+                <div class="items">
+                  <span>{{sub.value}}x Recurring Total</span>
+                </div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- Right Column: Ingredient Aggregation -->
+    <div class="card requirements-card">
+      <h2>Daily Grams Breakdown</h2>
+      <p class="subtitle">Detailed ingredient requirements by loaf type.</p>
+
+      <div class="breakdown-list">
+        @for (item of loafBreakdown() | keyvalue; track item.key) {
+          <div class="loaf-type-breakdown">
+            <div class="loaf-header">
+              <span class="loaf-name">{{item.key}}</span>
+              <span class="loaf-qty">{{item.value.quantity}}x Loaves</span>
+            </div>
+            <div class="loaf-ingredients">
+              @for (ing of item.value.ingredients; track ing.name) {
+                <div class="ing-row">
+                  <span class="ing-name">{{ing.name}}</span>
+                  <span class="ing-weight">{{ing.totalWeight | number:'1.0-0'}}g</span>
+                </div>
+              }
+            </div>
+          </div>
+        } @empty {
+          <p class="empty-msg">No requirements yet. Select a date with orders.</p>
+        }
+      </div>
+
+      @if (masterDough(); as ingredients) {
+        <div class="master-total-section">
+          <h3>Total Master Dough Requirements</h3>
+          <div class="stats-grid">
+            @for (ing of ingredients | keyvalue; track ing.key) {
+              <div class="stat-box">
+                <span class="label">{{ing.key}}</span>
+                <span class="value">{{ing.value.weight | number:'1.0-0'}}g</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Order Details Modal -->
+  @if (selectedOrder(); as order) {
+    <div class="modal-overlay" (click)="closeOrderDetails()">
+      <div class="modal-content card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Order Details #{{order.id}}</h2>
+          <button class="btn-close" (click)="closeOrderDetails()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="info-section">
+            <h3>Customer</h3>
+            <p><strong>Name:</strong> {{order.customerName}}</p>
+            <p><strong>Phone:</strong> {{order.customerPhone}}</p>
+            <p><strong>Status:</strong> {{order.status}}</p>
+            <button class="btn-small btn-outline" (click)="contactCustomer(order)">📲 Send SMS</button>
+          </div>
+
+          <div class="info-section">
+            <h3>Items</h3>
+            @for (item of order.items; track item.name) {
+              <div class="item-detail">
+                <span>{{item.quantity}}x {{item.name}}</span>
+                <span>{{item.weightGrams}}g total</span>
+              </div>
+            }
+          </div>
+
+          <div class="info-section">
+            <h3>Baker Notes</h3>
+            <textarea [(ngModel)]="bakerNotes" rows="4" placeholder="Add private notes about this order..."></textarea>
+            <button class="btn-save btn-small" (click)="saveBakerNotes()">Save Notes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

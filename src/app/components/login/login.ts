@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService, UserRole } from '../../services/auth.service';
+import { ModalService } from '../../services/modal.service';
 import { Router, RouterLink } from '@angular/router';
 
 @Component({
@@ -13,16 +14,24 @@ import { Router, RouterLink } from '@angular/router';
 })
 export class LoginComponent {
   private authService = inject(AuthService);
+  private modalService = inject(ModalService);
   private router = inject(Router);
 
   email = signal('');
   password = signal('');
   selectedRole = signal<UserRole>('CUSTOMER');
+  showPassword = signal(false);
 
-  login() {
-    // In this mock version, we just call the existing login with the selected role
-    // and dummy credentials.
-    this.authService.login(this.selectedRole());
+  async login() {
+    try {
+      await this.authService.login(this.email(), this.password());
+    } catch (error: any) {
+      this.modalService.showAlert(error.message || 'Login failed', 'Login Error', 'error');
+    }
+  }
+
+  togglePassword() {
+    this.showPassword.update(v => !v);
   }
 
   setRole(role: UserRole) {

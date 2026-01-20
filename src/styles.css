@@ -1,1 +1,65 @@
 /* You can add global styles to this file, and also import other style files */
+
+:root {
+  /* Natural Theme (Default) */
+  --bg-color: #FAF9F6;
+  --card-bg: #FFFFFF;
+  --text-primary: #5F6F52;
+  --text-secondary: #8C967D;
+  --text-muted: #A9B388;
+  --accent-sage: #7D8F69;
+  --accent-sage-dark: #5F6F52;
+  --accent-terracotta: #D88569;
+  --accent-terracotta-dark: #A65D45;
+  --border-color: #F0EDE5;
+  --input-bg: #FFFFFF;
+  --shadow-color: rgba(125, 143, 105, 0.08);
+  --nav-bg: #FFFFFF;
+  --btn-secondary: #F1F3EB;
+  --btn-secondary-border: #DDE3D5;
+  --tag-bg: #F1F3EB;
+}
+
+[data-theme="sunset"] {
+  --bg-color: #FEF9F3;
+  --card-bg: #FFFFFF;
+  --text-primary: #8B4513; /* SaddleBrown */
+  --text-secondary: #D2691E; /* Chocolate */
+  --text-muted: #E9967A; /* DarkSalmon */
+  --accent-sage: #E9B384; /* Honey */
+  --accent-sage-dark: #D4A373;
+  --accent-terracotta: #D88569;
+  --accent-terracotta-dark: #BC6C4D;
+  --border-color: #F7E7CE; /* Champagne */
+  --input-bg: #FFFBFA;
+  --shadow-color: rgba(216, 133, 105, 0.12);
+  --nav-bg: #FFF5E1;
+  --btn-secondary: #FFF0E0;
+  --btn-secondary-border: #FAD4B2;
+  --tag-bg: #FDF2E9;
+}
+
+[data-theme="midnight"] {
+  --bg-color: #1A1C1E;
+  --card-bg: #2D3033;
+  --text-primary: #E2E2E6;
+  --text-secondary: #C4C6D0;
+  --text-muted: #909094;
+  --accent-sage: #A9D39E; /* Brightened Sage */
+  --accent-sage-dark: #8C967D;
+  --accent-terracotta: #FFB4A2; /* Soft Terracotta */
+  --accent-terracotta-dark: #D88569;
+  --border-color: #44474E;
+  --input-bg: #1A1C1E;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --nav-bg: #1A1C1E;
+  --btn-secondary: #44474E;
+  --btn-secondary-border: #5F6F52;
+  --tag-bg: #3E4735;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}

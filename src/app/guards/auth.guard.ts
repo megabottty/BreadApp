@@ -23,6 +23,6 @@ export const bakerGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
-  router.navigate(['/store']);
+  router.navigate(['/front']);
   return false;
 };

@@ -1,0 +1,59 @@
+<div class="confirmation-container">
+  @if (loading()) {
+    <div class="status-card card">
+      <div class="loader-icon">⌛</div>
+      <h2>Confirming your order...</h2>
+      <p>Give us just a moment to pull up your fresh receipt.</p>
+    </div>
+  } @else if (error()) {
+    <div class="status-card card error">
+      <div class="error-icon">🥖❌</div>
+      <h2>Something went wrong</h2>
+      <p>{{ error() }}</p>
+      <button class="btn-primary" routerLink="/front">Back to Storefront</button>
+    </div>
+  } @else if (order(); as o) {
+    <div class="receipt-card card">
+      <header>
+        <span class="logo-icon">🌾</span>
+        <h1>Thank you for your order!</h1>
+        <p class="order-number">Order #{{ o.id }}</p>
+        <p class="date">{{ o.createdAt | date:'medium' }}</p>
+      </header>
+
+      <div class="customer-info">
+        <h3>Details</h3>
+        <p><strong>Name:</strong> {{ o.customerName || 'Friend' }}</p>
+        <p><strong>Fulfillment:</strong> {{ o.type || 'Pickup' }}</p>
+        @if (o.notes) {
+          <p><strong>Notes:</strong> {{ o.notes }}</p>
+        }
+      </div>
+
+      <div class="order-items">
+        <h3>Items</h3>
+        @for (item of o.items; track item.name) {
+          <div class="item-row">
+            <span class="item-qty">{{ item.quantity }}x</span>
+            <span class="item-name">{{ item.name }}</span>
+          </div>
+        } @empty {
+          <p>Handcrafted Artisan Bakes</p>
+        }
+      </div>
+
+      <div class="totals">
+        <div class="total-row">
+          <span>Total Paid</span>
+          <span class="amount">{{ (o.totalPrice || 0) | currency }}</span>
+        </div>
+      </div>
+
+      <footer>
+        <p>A confirmation SMS has been sent to {{ o.customerPhone || 'your phone' }}.</p>
+        <p class="hint">We'll notify you when your bread is ready for {{ (o.type === 'PICKUP' || !o.type) ? 'pickup' : 'delivery' }}!</p>
+        <button class="btn-primary" routerLink="/front">Continue Shopping</button>
+      </footer>
+    </div>
+  }
+</div>

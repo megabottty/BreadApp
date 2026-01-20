@@ -107,7 +107,7 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     if (ing.type === 'LEVAIN') levainWeight += ing.weight;
   });
 
-  const levainHydration = recipe.levainDetails?.hydration ?? 1; // Default 100%
+  const levainHydration = recipe.levainDetails?.hydration ?? 0.75; // Default 75%
 
   // Levain = Flour + Water
   // Water = Flour * Hydration
@@ -218,7 +218,10 @@ export interface Order {
  */
 export function aggregateOrders(orders: Order[], bakeDate: string) {
   return orders
-    .filter(o => o.pickupDate === bakeDate && (o.status === 'PENDING' || o.status === 'READY'))
+    .filter(o => {
+      const orderDate = o.pickupDate ? o.pickupDate.split('T')[0] : (o.createdAt ? o.createdAt.split('T')[0] : null);
+      return orderDate === bakeDate && (o.status === 'PENDING' || o.status === 'READY');
+    })
     .reduce((acc: Record<string, number>, order) => {
       order.items.forEach(item => {
         acc[item.name] = (acc[item.name] || 0) + item.quantity;

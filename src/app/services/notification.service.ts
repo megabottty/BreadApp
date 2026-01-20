@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 
 export interface NotificationLog {
   id: string;
@@ -12,21 +14,36 @@ export interface NotificationLog {
   providedIn: 'root'
 })
 export class NotificationService {
+  private http = inject(HttpClient);
+  private apiUrl = 'http://localhost:3000/api/notifications/send-sms';
   logs = signal<NotificationLog[]>([]);
 
   async sendSMS(to: string, message: string): Promise<boolean> {
-    console.log(`[Twilio Mock] Sending SMS to ${to}: ${message}`);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const success = true;
-    const newLog: NotificationLog = {
-      id: Math.random().toString(36).substring(7),
-      recipient: to,
-      message,
-      timestamp: new Date(),
-      status: success ? 'SENT' : 'FAILED'
-    };
-    this.logs.update(prev => [newLog, ...prev]);
-    return success;
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{ success: boolean; mocked?: boolean }>(this.apiUrl, { to, message })
+      );
+
+      const success = response.success;
+      const newLog: NotificationLog = {
+        id: Math.random().toString(36).substring(7),
+        recipient: to,
+        message,
+        timestamp: new Date(),
+        status: success ? 'SENT' : 'FAILED'
+      };
+
+      this.logs.update(prev => [newLog, ...prev]);
+
+      if (response.mocked) {
+        console.log(`[Twilio Mock - Backend] No credentials found, logged SMS: ${message}`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to send SMS:', error);
+      return false;
+    }
   }
 
   async sendOrderConfirmation(customerName: string, phone: string, orderId: string) {
@@ -47,8 +64,8 @@ export class NotificationService {
 
   async sendBakerOrderAlert(orderId: string, customerName: string) {
     const message = `[BAKER ALERT] New order #${orderId} received from ${customerName}! Get the ovens ready. 🍞`;
-    console.log(`[Notification Service] ${message}`);
-    // In a real app, this would send an SMS or email to the baker
-    return true;
+    // Replace with a real phone number for the baker in a real production scenario
+    const bakerPhone = '+15550123456';
+    return this.sendSMS(bakerPhone, message);
   }
 }

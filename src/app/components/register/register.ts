@@ -1,7 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AuthService } from '../../services/auth.service';
+import { AuthService, UserRole } from '../../services/auth.service';
+import { ModalService } from '../../services/modal.service';
 import { Router, RouterLink } from '@angular/router';
 
 @Component({
@@ -13,20 +14,50 @@ import { Router, RouterLink } from '@angular/router';
 })
 export class RegisterComponent {
   private authService = inject(AuthService);
+  private modalService = inject(ModalService);
   private router = inject(Router);
 
   name = signal('');
   email = signal('');
   password = signal('');
   confirmPassword = signal('');
+  selectedRole = signal<UserRole>('CUSTOMER');
+  showPassword = signal(false);
 
-  register() {
+  passwordErrors = computed(() => {
+    const p = this.password();
+    const errors: string[] = [];
+    if (p.length > 0 && p.length < 8) errors.push('At least 8 characters');
+    if (p.length > 0 && !/[A-Z]/.test(p)) errors.push('One uppercase letter');
+    if (p.length > 0 && !/[0-9]/.test(p)) errors.push('One number');
+    if (p.length > 0 && !/[!@#$%^&*]/.test(p)) errors.push('One special character (!@#$%^&*)');
+    return errors;
+  });
+
+  isPasswordValid = computed(() => this.password().length >= 8 && this.passwordErrors().length === 0);
+
+  async register() {
+    if (!this.isPasswordValid()) {
+      this.modalService.showAlert('Please ensure your password meets all requirements.', 'Invalid Password', 'warning');
+      return;
+    }
     if (this.password() !== this.confirmPassword()) {
-      alert('Passwords do not match!');
+      this.modalService.showAlert('Passwords do not match!', 'Registration Error', 'error');
       return;
     }
 
-    // In this mock version, we just call the register method
-    this.authService.register(this.name(), this.email());
+    try {
+      await this.authService.register(this.name(), this.email(), this.password(), this.selectedRole());
+    } catch (error: any) {
+      this.modalService.showAlert(error.message || 'Registration failed', 'Registration Error', 'error');
+    }
+  }
+
+  togglePassword() {
+    this.showPassword.update(v => !v);
+  }
+
+  setRole(role: UserRole) {
+    this.selectedRole.set(role);
   }
 }

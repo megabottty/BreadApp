@@ -57,7 +57,7 @@
           }
         } @empty {
           <p class="empty-msg">You haven't placed any orders yet. Fresh bread is waiting!</p>
-          <button class="btn-primary" routerLink="/store">Visit Storefront</button>
+          <button class="btn-primary" routerLink="/front">Visit Storefront</button>
         }
       </div>
     </div>
@@ -87,7 +87,10 @@
       </div>
 
       <div class="subscription-section">
-        <h3>Your Weekly Subscriptions</h3>
+        <div class="header-with-action">
+          <h3>Your Weekly Subscriptions</h3>
+          <a routerLink="/subscriptions" class="btn-small btn-outline">Full Manager</a>
+        </div>
         @for (sub of userSubscriptions(); track sub.id) {
           <div class="subscription-card" [attr.data-status]="sub.status">
             <div class="sub-header">

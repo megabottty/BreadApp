@@ -6,6 +6,11 @@
       <p class="subtitle">Start your artisan bread journey today</p>
     </header>
 
+    <div class="role-toggle">
+      <button type="button" [class.active]="selectedRole() === 'CUSTOMER'" (click)="setRole('CUSTOMER')">Bread Lover</button>
+      <button type="button" [class.active]="selectedRole() === 'BAKER'" (click)="setRole('BAKER')">The Baker</button>
+    </div>
+
     <form (submit)="register()">
       <div class="form-group">
         <label for="name">Full Name</label>
@@ -19,12 +24,29 @@
 
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" [(ngModel)]="password" name="password" placeholder="••••••••" required>
+        <div class="password-input-wrapper">
+          <input [type]="showPassword() ? 'text' : 'password'" id="password" [(ngModel)]="password" name="password" placeholder="••••••••" required>
+          <button type="button" class="btn-toggle-password" (click)="togglePassword()" [title]="showPassword() ? 'Hide Password' : 'Show Password'">
+            {{ showPassword() ? '👁️' : '👁️‍🗨️' }}
+          </button>
+        </div>
+        @if (passwordErrors().length > 0) {
+          <ul class="password-requirements">
+            @for (error of passwordErrors(); track error) {
+              <li class="error-text">{{ error }}</li>
+            }
+          </ul>
+        } @else if (password().length >= 8) {
+          <p class="success-text small">Password looks strong! 💪</p>
+        }
       </div>
 
       <div class="form-group">
         <label for="confirmPassword">Confirm Password</label>
-        <input type="password" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
+        <input [type]="showPassword() ? 'text' : 'password'" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
+        @if (confirmPassword().length > 0 && confirmPassword() !== password()) {
+          <p class="error-text small">Passwords do not match</p>
+        }
       </div>
 
       <button type="submit" class="btn-register">

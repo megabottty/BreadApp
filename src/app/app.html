@@ -1,5 +1,5 @@
 <nav class="main-nav">
-  <a routerLink="/store" class="nav-brand" (click)="closeMenu()">{{title()}}</a>
+  <a routerLink="/front" class="nav-brand" (click)="closeMenu()">{{title()}}</a>
 
   <button class="menu-toggle" (click)="toggleMenu()" [attr.aria-expanded]="isMenuOpen()" aria-label="Toggle navigation">
     <span class="hamburger"></span>
@@ -8,8 +8,10 @@
   <div class="nav-links" [class.open]="isMenuOpen()">
     @if (authService.isBaker()) {
       <a routerLink="/calculator" routerLinkActive="active" (click)="closeMenu()">Recipe Lab</a>
+      <a routerLink="/manage-orders" routerLinkActive="active" (click)="closeMenu()">Manage Orders</a>
+      <a routerLink="/ledger" routerLinkActive="active" (click)="closeMenu()">Ledger</a>
     }
-    <a routerLink="/store" routerLinkActive="active" (click)="closeMenu()">Storefront</a>
+    <a routerLink="/front" routerLinkActive="active" (click)="closeMenu()">Storefront</a>
     <a routerLink="/about" routerLinkActive="active" (click)="closeMenu()">About Us</a>
     <a routerLink="/experimental" routerLinkActive="active" (click)="closeMenu()">Experimental Kitchen</a>
     <a routerLink="/cart" routerLinkActive="active" class="cart-link" (click)="closeMenu()">
@@ -20,13 +22,25 @@
     </a>
     @if (authService.isCustomer()) {
       <a routerLink="/profile" routerLinkActive="active" (click)="closeMenu()">My Orders</a>
+      <a routerLink="/subscriptions" routerLinkActive="active" (click)="closeMenu()">Subscriptions</a>
     }
+
+    <button class="btn-theme-toggle" (click)="themeService.toggleTheme()" [title]="'Switch Theme (Current: ' + themeService.theme() + ')'">
+      @if (themeService.theme() === 'natural') { 🌿 }
+      @else if (themeService.theme() === 'sunset') { 🌅 }
+      @else { 🌙 }
+    </button>
 
     <div class="auth-controls">
       @if (!authService.isAuthenticated()) {
         <a routerLink="/login" class="btn-auth" (click)="closeMenu()">Login</a>
       } @else {
-        <span class="user-name">{{authService.user()?.name}}</span>
+        <div class="user-info">
+          <span class="user-role-badge" [class.baker]="authService.isBaker()">
+            {{ authService.isBaker() ? 'Head Baker' : 'Bread Lover' }}
+          </span>
+          <span class="user-name">{{authService.user()?.name}}</span>
+        </div>
         <button (click)="logout()" class="btn-auth logout">Logout</button>
       }
     </div>
@@ -36,3 +50,5 @@
 <main>
   <router-outlet />
 </main>
+
+<app-notification-modal></app-notification-modal>

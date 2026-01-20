@@ -5,13 +5,15 @@ import { Order, CalculatedRecipe, Review } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { ReviewService } from '../../services/review.service';
 import { SubscriptionService, Subscription } from '../../services/subscription.service';
+import { ModalService } from '../../services/modal.service';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule],
+  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule, RouterLink],
   templateUrl: './profile.html',
   styleUrls: ['./profile.css']
 })
@@ -20,7 +22,9 @@ export class ProfileComponent implements OnInit {
   cartService = inject(CartService);
   reviewService = inject(ReviewService);
   subscriptionService = inject(SubscriptionService);
+  modalService = inject(ModalService);
   route = inject(ActivatedRoute);
+  private http = inject(HttpClient);
 
   pastOrders = signal<Order[]>([]);
 
@@ -71,14 +75,41 @@ export class ProfileComponent implements OnInit {
     this.route.queryParams.subscribe(params => {
       if (params['success'] === 'true') {
         const orderId = params['orderId'];
-        alert(`Payment successful for Order #${orderId}! Your bread is on the way.`);
+        this.modalService.showAlert(`Payment successful for Order #${orderId}! Your bread is on the way.`, 'Success', 'success');
         this.cartService.clearCart();
       }
     });
+
+    const user = this.authService.user();
+    if (user) {
+      this.subscriptionService.fetchSubscriptionsForUser(user.id);
+    }
   }
 
   loadOrders() {
-    // Check local storage for actual orders first
+    // Attempt to load from database if user is authenticated
+    const user = this.authService.user();
+    if (user) {
+      this.http.get<Order[]>(`http://localhost:3000/api/orders`).subscribe({
+        next: (orders) => {
+          // Filter orders for this specific customer
+          const myOrders = orders.filter(o => o.customerId === user.id);
+          if (myOrders.length > 0) {
+            this.pastOrders.set(myOrders);
+            localStorage.setItem('bakery_orders', JSON.stringify(myOrders));
+            this.updateLoyalty(myOrders);
+            return;
+          }
+          this.loadFromLocalStorage();
+        },
+        error: () => this.loadFromLocalStorage()
+      });
+    } else {
+      this.loadFromLocalStorage();
+    }
+  }
+
+  private loadFromLocalStorage() {
     const savedOrders = localStorage.getItem('bakery_orders');
     let orders: Order[] = [];
     if (savedOrders) {
@@ -91,7 +122,6 @@ export class ProfileComponent implements OnInit {
 
     if (orders.length === 0) {
       // Mocking past orders
-      const today = new Date().toISOString().split('T')[0];
       const lastWeek = new Date();
       lastWeek.setDate(lastWeek.getDate() - 7);
       const lastWeekStr = lastWeek.toISOString().split('T')[0];
@@ -115,8 +145,10 @@ export class ProfileComponent implements OnInit {
     }
 
     this.pastOrders.set(orders);
+    this.updateLoyalty(orders);
+  }
 
-    // Update total loaves purchased based on completed orders
+  private updateLoyalty(orders: Order[]) {
     const total = orders
       .filter(o => o.status === 'COMPLETED')
       .reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + i.quantity, 0), 0);
@@ -145,7 +177,7 @@ export class ProfileComponent implements OnInit {
          this.cartService.addToCart(mockProduct);
        }
     });
-    alert('Items from your past order have been added to your bag!');
+    this.modalService.showAlert('Items from your past order have been added to your bag!', 'Reordered');
   }
 
   startReview(orderId: string, recipeId: string) {
@@ -178,9 +210,9 @@ export class ProfileComponent implements OnInit {
     // this.reviewsCount() is already a computed from reviewService.getUserReviewsCount
 
     if (this.reviewService.getUserReviewsCount(user.id)() % 10 === 0 && this.reviewService.getUserReviewsCount(user.id)() > 0) {
-      alert('Congratulations! You\'ve earned a FREE LOAF for leaving 10 reviews! (Contact baker to claim)');
+      this.modalService.showAlert('Congratulations! You\'ve earned a FREE LOAF for leaving 10 reviews! (Contact baker to claim)', 'Loyalty Perk!', 'success');
     } else {
-      alert('Thank you for your review!');
+      this.modalService.showAlert('Thank you for your review!', 'Review Submitted', 'success');
     }
   }
 

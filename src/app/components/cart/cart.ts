@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CartService, CartItem, FulfillmentType } from '../../services/cart.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
+import { ModalService } from '../../services/modal.service';
 import { Order, OrderItem } from '../../logic/bakers-math';
 import { ActivatedRoute } from '@angular/router';
 
@@ -18,6 +19,7 @@ export class CartComponent implements OnInit {
   cartService = inject(CartService);
   notificationService = inject(NotificationService);
   authService = inject(AuthService);
+  modalService = inject(ModalService);
   route = inject(ActivatedRoute);
 
   items = this.cartService.items;
@@ -37,7 +39,7 @@ export class CartComponent implements OnInit {
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
       if (params['canceled'] === 'true') {
-        alert('Payment was canceled. You can review your cart and try again.');
+        this.modalService.showAlert('Payment was canceled. You can review your cart and try again.', 'Payment Canceled', 'info');
       }
     });
   }
@@ -99,18 +101,18 @@ export class CartComponent implements OnInit {
 
   checkout() {
     if (this.fulfillmentType() === 'SHIPPING' && !this.isDispatchDateValid(this.dispatchDate())) {
-      alert('For shipping, please select a Monday or Tuesday dispatch date at least 48 hours from now.');
+      this.modalService.showAlert('For shipping, please select a Monday or Tuesday dispatch date at least 48 hours from now.', 'Invalid Date', 'warning');
       return;
     }
 
     if (this.fulfillmentType() === 'PICKUP' && !this.isPickupDateValid(this.pickupDate())) {
-      alert('Please select a pickup date at least 48 hours from now.');
+      this.modalService.showAlert('Please select a pickup date at least 48 hours from now.', 'Invalid Date', 'warning');
       return;
     }
 
     const isGuest = !this.authService.isAuthenticated();
     if (isGuest && (!this.guestName() || !this.guestPhone())) {
-      alert('Please provide your name and phone number for guest checkout.');
+      this.modalService.showAlert('Please provide your name and phone number for guest checkout.', 'Missing Information', 'warning');
       return;
     }
 
@@ -150,32 +152,36 @@ export class CartComponent implements OnInit {
     localStorage.setItem('bakery_orders', JSON.stringify(allOrders));
 
     // Send order to real backend
+    console.log('Attempting to sync order with backend...');
     this.cartService.saveOrderToDatabase(newOrder).subscribe({
       next: (response) => {
-        console.log('Order synced to cloud:', response);
+        console.log('Order synced to cloud successfully:', response);
 
         if (this.payAtPickup()) {
-          alert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS and saved to our bakery ledger.`);
+          this.modalService.showAlert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS and saved to our bakery ledger.`, 'Order Confirmed', 'success');
           this.cartService.clearCart();
           return;
         }
 
         // After syncing order, initiate Stripe Checkout
+        console.log('Initiating Stripe Checkout...');
         const email = isGuest ? (this.guestPhone() + '@guest.com') : (this.authService.user()?.email || 'customer@example.com');
         this.cartService.createCheckoutSession(this.items(), email, orderId).subscribe({
           next: (session) => {
+            console.log('Stripe session created:', session);
             if (session.url) {
               window.location.href = session.url; // Redirect to Stripe
             }
           },
           error: (err) => {
             console.error('Stripe session creation failed:', err);
-            alert('Failed to initiate payment. Please try again.');
+            this.modalService.showAlert('Failed to initiate payment. Please make sure your backend server is running on port 3000.', 'Payment Error', 'error');
           }
         });
       },
       error: (err) => {
-        console.error('Cloud sync failed:', err);
+        console.error('Cloud sync failed. Check if backend is running:', err);
+        this.modalService.showAlert('Could not connect to the backend server. Make sure it is running (npm run server).', 'Connection Error', 'error');
       }
     });
   }

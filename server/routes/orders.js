@@ -22,6 +22,7 @@ router.post('/', async (req, res) => {
   const orderData = req.body;
 
   try {
+    console.log('[Supabase Debug] Attempting to save order:', orderData.id);
     const { data, error } = await supabase
       .from('bakery_orders')
       .insert([
@@ -29,16 +30,22 @@ router.post('/', async (req, res) => {
           order_id: orderData.id,
           customer_name: orderData.customerName,
           customer_phone: orderData.customerPhone,
+          customer_id: orderData.customerId, // Added to store link to account or 'guest'
           total_price: orderData.totalPrice,
           fulfillment_type: orderData.type,
           items: orderData.items,
           notes: orderData.notes,
+          pickup_date: orderData.pickupDate,
           status: 'PENDING'
         }
       ])
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Supabase Error] Order Insert Failed:', error.message, error.details);
+      throw error;
+    }
+    console.log('[Supabase Debug] Order saved successfully:', data[0].id);
 
     res.status(201).json({
       message: 'Order saved to the cloud! ☁️🥖',
@@ -47,24 +54,6 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('Error saving order:', error);
     res.status(500).json({ error: 'Failed to save order to database' });
-  }
-});
-
-// GET: Retrieve all orders (for the Baker)
-router.get('/', async (req, res) => {
-  if (!supabase) {
-    return res.status(500).json({ error: 'Database connection not configured' });
-  }
-  try {
-    const { data, error } = await supabase
-      .from('bakery_orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
 
@@ -80,7 +69,21 @@ router.get('/recipes', async (req, res) => {
       .from('bakery_recipes')
       .select('*');
     if (error) throw error;
-    res.json(data);
+
+    // Map database snake_case to frontend camelCase
+    const formattedRecipes = data.map(recipe => ({
+      id: recipe.id,
+      name: recipe.name,
+      category: recipe.category,
+      price: recipe.price,
+      description: recipe.description,
+      trueHydration: recipe.true_hydration,
+      ingredients: recipe.ingredients,
+      images: recipe.images,
+      createdAt: recipe.created_at
+    }));
+
+    res.json(formattedRecipes);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch recipes' });
   }
@@ -93,10 +96,11 @@ router.post('/recipes', async (req, res) => {
   }
   const recipe = req.body;
   try {
+    console.log('[Supabase Debug] Attempting to save recipe:', recipe.name);
     const { data, error } = await supabase
       .from('bakery_recipes')
       .upsert({
-        id: recipe.id || undefined, // Supabase will generate if missing
+        id: (recipe.id && recipe.id.length > 15) ? recipe.id : undefined, // Only use if it looks like a UUID
         name: recipe.name,
         category: recipe.category,
         price: recipe.price,
@@ -106,11 +110,324 @@ router.post('/recipes', async (req, res) => {
         images: recipe.images
       })
       .select();
-    if (error) throw error;
+
+    if (error) {
+      console.error('[Supabase Error] Recipe Upsert Failed:', error.message, error.details);
+      throw error;
+    }
+    console.log('[Supabase Debug] Recipe saved successfully:', data[0].id);
     res.json(data[0]);
   } catch (error) {
     console.error('Error saving recipe:', error);
     res.status(500).json({ error: 'Failed to save recipe' });
+  }
+});
+
+// DELETE: Remove a recipe
+router.delete('/recipes/:id', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { id } = req.params;
+  try {
+    console.log('[Supabase Debug] Attempting to delete recipe:', id);
+    const { error } = await supabase
+      .from('bakery_recipes')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('[Supabase Error] Recipe Deletion Failed:', error.message);
+      throw error;
+    }
+
+    console.log('[Supabase Debug] Recipe deleted successfully:', id);
+    res.json({ message: 'Recipe deleted successfully', id });
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    res.status(500).json({ error: 'Failed to delete recipe' });
+  }
+});
+
+// GET: Retrieve a specific order by public order_id
+router.get('/:orderId', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  try {
+    console.log('[Supabase Debug] Fetching order:', req.params.orderId);
+    const { data, error } = await supabase
+      .from('bakery_orders')
+      .select('*')
+      .eq('order_id', req.params.orderId)
+      .single();
+
+    if (error) {
+      console.error('[Supabase Error] Fetch Order Failed:', error.message);
+      throw error;
+    }
+
+    console.log('[Supabase Debug] Order Found:', JSON.stringify(data));
+
+    // Map Supabase snake_case to Frontend camelCase
+    const formattedOrder = {
+      id: data.order_id,
+      customerName: data.customer_name,
+      customerPhone: data.customer_phone,
+      customerId: data.customer_id,
+      totalPrice: data.total_price,
+      type: data.fulfillment_type,
+      items: data.items,
+      notes: data.notes,
+      pickupDate: data.pickup_date || null,
+      status: data.status,
+      createdAt: data.created_at
+    };
+
+    res.json(formattedOrder);
+  } catch (error) {
+    res.status(404).json({ error: 'Order not found' });
+  }
+});
+
+// GET: Retrieve all orders (for the Baker)
+router.get('/', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  try {
+    const { data, error } = await supabase
+      .from('bakery_orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const formattedOrders = data.map(order => ({
+      id: order.order_id,
+      customerName: order.customer_name,
+      customerPhone: order.customer_phone,
+      customerId: order.customer_id,
+      totalPrice: order.total_price,
+      type: order.fulfillment_type,
+      items: order.items,
+      notes: order.notes,
+      pickupDate: order.pickup_date || null,
+      status: order.status,
+      createdAt: order.created_at
+    }));
+
+    res.json(formattedOrders);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// --- REVIEWS ROUTES ---
+
+// GET: Reviews for a specific recipe
+router.get('/recipes/:recipeId/reviews', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  try {
+    const { recipeId } = req.params;
+    console.log('[Supabase Debug] Fetching reviews for recipe:', recipeId);
+
+    if (!supabase) {
+      console.error('[Supabase Error] Supabase client is null during review fetch');
+      return res.status(500).json({ error: 'Database connection not configured' });
+    }
+
+    // Validate UUID format to prevent Supabase errors if it's a legacy ID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(recipeId);
+
+    if (!isUuid) {
+      console.warn('[Supabase Warning] Invalid UUID for recipe reviews:', recipeId);
+      return res.json([]); // Return empty reviews for non-UUID (local) recipes
+    }
+
+    const { data, error } = await supabase
+      .from('bakery_reviews')
+      .select('*')
+      .eq('recipe_id', recipeId);
+
+    if (error) {
+      console.error('[Supabase Error Detail] Query failed:', error);
+      throw error;
+    }
+
+    if (!data) {
+      console.warn('[Supabase Warning] No data returned from reviews query');
+      return res.json([]);
+    }
+
+    // Map database snake_case to frontend camelCase
+    const formattedReviews = data.map(review => ({
+      id: review.id,
+      recipeId: review.recipe_id,
+      customerId: review.customer_id,
+      customerName: review.customer_name,
+      rating: review.rating,
+      comment: review.comment,
+      date: review.created_at || new Date().toISOString()
+    }));
+
+    res.json(formattedReviews);
+  } catch (error) {
+    console.error('[Supabase Error] Fetch Reviews Failed:', error.message, error);
+    res.status(500).json({
+      error: 'Failed to fetch reviews',
+      details: error.message
+    });
+  }
+});
+
+// POST: Add a new review
+router.post('/reviews', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const review = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_reviews')
+      .insert([
+        {
+          recipe_id: review.recipeId,
+          customer_id: review.customerId,
+          customer_name: review.customerName,
+          rating: review.rating,
+          comment: review.comment
+        }
+      ])
+      .select();
+
+    if (error) throw error;
+
+    const formattedReview = {
+      id: data && data[0] ? data[0].id : null,
+      recipeId: data && data[0] ? data[0].recipe_id : review.recipeId,
+      customerId: data && data[0] ? data[0].customer_id : review.customerId,
+      customerName: data && data[0] ? data[0].customer_name : review.customerName,
+      rating: data && data[0] ? data[0].rating : review.rating,
+      comment: data && data[0] ? data[0].comment : review.comment,
+      date: data && data[0] ? data[0].created_at : new Date().toISOString()
+    };
+
+    res.status(201).json(formattedReview);
+  } catch (error) {
+    console.error('[Supabase Error] Save Review Failed:', error.message);
+    res.status(500).json({ error: 'Failed to save review' });
+  }
+});
+
+// GET: Subscriptions for a user
+router.get('/subscriptions/:customerId', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  try {
+    const { data, error } = await supabase
+      .from('bakery_subscriptions')
+      .select('*')
+      .eq('customer_id', req.params.customerId);
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch subscriptions' });
+  }
+});
+
+// POST: Create a new subscription
+router.post('/subscriptions', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const sub = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_subscriptions')
+      .insert([
+        {
+          customer_id: sub.customerId,
+          recipe_id: sub.recipeId,
+          recipe_name: sub.recipeName,
+          quantity: sub.quantity,
+          frequency: sub.frequency,
+          price: sub.price,
+          start_date: sub.startDate,
+          next_bake_date: sub.nextBakeDate,
+          status: sub.status
+        }
+      ])
+      .select();
+
+    if (error) throw error;
+    res.status(201).json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create subscription' });
+  }
+});
+
+// PATCH: Update subscription status
+router.patch('/subscriptions/:subId/status', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { status } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_subscriptions')
+      .update({ status })
+      .eq('id', req.params.subId)
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update subscription status' });
+  }
+});
+
+// PATCH: Update order notes
+router.patch('/:orderId/notes', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { notes } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_orders')
+      .update({ notes })
+      .eq('order_id', req.params.orderId)
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update order notes' });
+  }
+});
+
+// PATCH: Update order status
+router.patch('/:orderId/status', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { status } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_orders')
+      .update({ status })
+      .eq('order_id', req.params.orderId)
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update order status' });
   }
 });
 

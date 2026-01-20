@@ -1,0 +1,85 @@
+<div class="subscriptions-container">
+  <div class="header-section">
+    <h1>Manage Your Subscriptions</h1>
+    <p class="subtitle">Ensuring your favorite loaves are always ready for you.</p>
+  </div>
+
+  <div class="subscription-grid">
+    <div class="card active-subs">
+      <h2>Active & Paused Subscriptions</h2>
+      <div class="sub-list">
+        @for (sub of userSubscriptions(); track sub.id) {
+          <div class="sub-item card" [attr.data-status]="sub.status">
+            <div class="sub-main">
+              <div class="sub-info">
+                <div class="sub-header-row">
+                  <span class="status-icon">{{getStatusIcon(sub.status)}}</span>
+                  <h3>{{sub.recipeName}}</h3>
+                  <span class="status-badge" [attr.data-status]="sub.status">{{sub.status}}</span>
+                </div>
+                <div class="sub-meta">
+                  <p><strong>Frequency:</strong> {{sub.frequency}}</p>
+                  <p><strong>Quantity:</strong> {{sub.quantity}} loaf/loaves</p>
+                  <p><strong>Price:</strong> {{sub.price | currency}} / week</p>
+                  <p><strong>Next Bake Day:</strong> {{sub.nextBakeDate | date:'fullDate'}}</p>
+                </div>
+              </div>
+              <div class="sub-actions">
+                @if (sub.status === 'ACTIVE') {
+                  <button class="btn-pause" (click)="pauseSubscription(sub.id)">Pause Subscription</button>
+                } @else if (sub.status === 'PAUSED') {
+                  <button class="btn-resume" (click)="resumeSubscription(sub.id)">Resume Subscription</button>
+                }
+
+                @if (sub.status !== 'CANCELLED') {
+                  <button class="btn-cancel" (click)="cancelSubscription(sub.id)">Cancel</button>
+                }
+              </div>
+            </div>
+
+            @if (sub.status === 'ACTIVE') {
+              <div class="dispatch-alert">
+                <p>🚚 Scheduled for dispatch on the next <strong>Monday/Tuesday</strong>.</p>
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="empty-state">
+            <p>You don't have any subscriptions yet.</p>
+            <p class="hint">Add any loaf to your bag and check the "Weekly Subscription" box to start!</p>
+            <button class="btn-primary" routerLink="/front">Browse the Bakery</button>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="card info-sidebar">
+      <h3>About Our Subscriptions</h3>
+      <div class="info-item">
+        <span class="icon">🥖</span>
+        <div>
+          <h4>Guaranteed Freshness</h4>
+          <p>Subscription loaves are baked fresh on the morning of dispatch to ensure peak quality.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="icon">📅</span>
+        <div>
+          <h4>Flexible Scheduling</h4>
+          <p>Pause or resume anytime. Changes made 48 hours before bake day will apply to the next cycle.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="icon">💳</span>
+        <div>
+          <h4>Automatic Payments</h4>
+          <p>Your card on file will be charged 48 hours before each scheduled bake.</p>
+        </div>
+      </div>
+
+      <div class="support-notice">
+        <p>Need help with your subscription? <br> <a href="mailto:hello@thedailydough.com">Contact our bread support team</a></p>
+      </div>
+    </div>
+  </div>
+</div>

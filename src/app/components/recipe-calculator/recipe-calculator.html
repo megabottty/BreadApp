@@ -2,119 +2,6 @@
   <h1>Recipe Calculator</h1>
 
   <div class="grid">
-    <!-- Production Brain (Phase 3) -->
-    <div class="card production-brain">
-      <div class="header-with-badge">
-        <h2>Production Brain</h2>
-        @if (notificationService.logs().length > 0) {
-          <div class="notification-count" (click)="showNotifications.set(!showNotifications())">
-            🔔 {{notificationService.logs().length}}
-          </div>
-        }
-      </div>
-
-      @if (showNotifications()) {
-        <div class="notification-dropdown card">
-          <h3>Recent Alerts</h3>
-          @for (log of notificationService.logs(); track log.id) {
-            <div class="log-item">
-              <small>{{log.timestamp | date:'shortTime'}}</small>
-              <p>{{log.message}}</p>
-            </div>
-          } @empty {
-            <p>No new alerts.</p>
-          }
-          <button class="btn-small" (click)="showNotifications.set(false)">Close</button>
-        </div>
-      }
-      <div class="form-group">
-        <label>Bake Date</label>
-        <input type="date" [(ngModel)]="bakeDate" (change)="onBakeDateChange()">
-      </div>
-
-      @if (aggregatedOrders(); as orders) {
-        <h3>Orders for {{bakeDate()}}</h3>
-
-        <div class="status-summary-bar">
-          <div class="summary-item">
-            <span class="dot pending"></span>
-            {{statusSummary().pending}} Pending
-          </div>
-          <div class="summary-item">
-            <span class="dot ready"></span>
-            {{statusSummary().ready}} Ready/Shipped
-          </div>
-          <div class="summary-item">
-            <span class="dot completed"></span>
-            {{statusSummary().completed}} Done
-          </div>
-        </div>
-
-        <div class="aggregation-list">
-          @for (order of filteredOrders(); track order.id) {
-            <div class="aggregation-item order-card">
-              <div class="order-main">
-                <span class="type">{{order.type}}</span>
-                <span class="name">{{order.customerName}}</span>
-                <div class="items">
-                  @for (item of order.items; track item.name) {
-                    <span>{{item.quantity}}x {{item.name}} <small>({{getRecipeCategory(item.name)}})</small></span>
-                  }
-                </div>
-                @if (order.notes) {
-                  <p class="order-notes"><strong>Note:</strong> {{order.notes}}</p>
-                }
-              </div>
-              <div class="order-status-actions">
-                <span class="status-badge" [attr.data-status]="order.status">{{order.status}}</span>
-                <div class="btn-group">
-                  @if (order.status === 'PENDING') {
-                    <button class="btn-small" (click)="updateOrderStatus(order.id, order.type === 'PICKUP' ? 'READY' : 'SHIPPED')">
-                      Mark {{order.type === 'PICKUP' ? 'Ready' : 'Shipped'}}
-                    </button>
-                  }
-                  @if (order.status !== 'COMPLETED' && order.status !== 'CANCELLED') {
-                    <button class="btn-small btn-outline" (click)="updateOrderStatus(order.id, 'COMPLETED')">Complete</button>
-                  }
-                </div>
-              </div>
-            </div>
-          } @empty {
-            <p>No orders for this date.</p>
-          }
-        </div>
-
-        @if ((subscriptionOrders() | keyvalue).length > 0) {
-          <h3>Subscription Fulfillments</h3>
-          <div class="aggregation-list">
-            @for (sub of subscriptionOrders() | keyvalue; track sub.key) {
-              <div class="aggregation-item order-card subscription-highlight">
-                <div class="order-main">
-                  <span class="type">SUBSCRIPTION</span>
-                  <span class="name">{{sub.key}}</span>
-                  <div class="items">
-                    <span>{{sub.value}}x Recurring Total</span>
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-        }
-
-        @if (masterDough(); as ingredients) {
-          <h3>Master Dough Requirements</h3>
-          <div class="stats-grid">
-            @for (ing of ingredients | keyvalue; track ing.key) {
-              <div class="stat-box">
-                <span class="label">{{ing.key}}</span>
-                <span class="value">{{ing.value.weight | number:'1.0-0'}}g</span>
-              </div>
-            }
-          </div>
-        }
-      }
-    </div>
-
     <!-- Form Side -->
     <div class="card" [formGroup]="recipeForm">
       <h2>Recipe Details</h2>
@@ -133,15 +20,16 @@
         </select>
       </div>
 
-      @if (recipeForm.get('category')?.value === 'BREAD') {
+      @if (recipeForm.get('category')?.value === 'BREAD' || recipeForm.get('category')?.value === 'BAGEL') {
         <div class="form-group">
-          <label for="flavor-profile">Flavor Profile</label>
+          <label for="flavor-profile">Flavor Profile (Badge)</label>
           <select id="flavor-profile" formControlName="flavorProfile">
             <option [ngValue]="null">Select Profile (Optional)</option>
             @for (profile of flavorProfiles; track profile) {
               <option [value]="profile">{{profile}}</option>
             }
           </select>
+          <small class="form-hint">Choose 'PLAIN' for standard bread to show the badge.</small>
         </div>
       }
 
@@ -200,13 +88,20 @@
         @for (ingredient of ingredients.controls; track ingredient; let i = $index) {
           <div [formGroupName]="i" class="ingredient-row">
             <div class="search-container">
-              <input type="text" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" autocomplete="off">
+              <input type="text" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur()" autocomplete="off">
               @if (activeSearchIndex() === i && searchResults().length > 0) {
-                <ul class="search-results">
-                  @for (item of searchResults(); track item.name) {
-                    <li (click)="selectIngredient(item, i)">{{item.name}}</li>
-                  }
-                </ul>
+                <div class="search-results-wrapper">
+                  <ul class="search-results">
+                    @for (item of searchResults(); track item.name) {
+                      <li (mousedown)="selectIngredient(item, i)">
+                        <div class="search-item-info">
+                          <span class="search-item-name">{{item.name}}</span>
+                          <span class="search-item-meta">{{item.nutrition.caloriesPer100g | number:'1.0-0'}} kcal/100g</span>
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                </div>
               }
             </div>
             <input type="number" formControlName="weight" placeholder="Grams">
@@ -215,7 +110,7 @@
                 <option [value]="type">{{type}}</option>
               }
             </select>
-            <button type="button" class="btn-danger" (click)="removeIngredient(i)">×</button>
+            <button type="button" class="btn-delete-product" (click)="removeIngredient(i)">×</button>
           </div>
         }
       </div>
@@ -224,6 +119,9 @@
       <button type="button" class="btn-primary" (click)="addIngredient()">Add Ingredient</button>
 
       <div class="save-section">
+        @if (hasUnsavedChanges()) {
+          <p class="unsaved-hint">⚠️ You have unsaved changes in this recipe.</p>
+        }
         <button type="button" class="btn-save" (click)="saveRecipe()">Save This Recipe</button>
       </div>
     </div>
@@ -269,6 +167,16 @@
                 }
               </tbody>
             </table>
+          </div>
+
+          <div class="flavor-badge-preview">
+            @if (recipeForm.get('flavorProfile')?.value) {
+              <span class="flavor-badge" [attr.data-flavor]="recipeForm.get('flavorProfile')?.value">
+                {{recipeForm.get('flavorProfile')?.value}}
+              </span>
+            } @else {
+              <span class="flavor-badge-hint">No flavor badge selected</span>
+            }
           </div>
 
           <div class="nutrition-card">
@@ -333,6 +241,16 @@
                   <span class="value">{{recipe.totalNutrition.protein | number:'1.0-1'}}g</span>
                 </div>
               </div>
+
+              <div class="nutrition-divider"></div>
+              <div class="ingredients-list-section">
+                <h4>Ingredients</h4>
+                <p>
+                  @for (ing of recipe.ingredients; track ing.name; let last = $last) {
+                    {{ing.name}}{{ last ? '' : ', ' }}
+                  }
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -348,7 +266,7 @@
                   <span class="recipe-name">{{saved.name}}</span>
                   <span class="recipe-meta">{{saved.trueHydration | percent:'1.0-0'}} hydration</span>
                 </div>
-                <button class="btn-delete" (click)="deleteRecipe(saved.id)">×</button>
+                <button class="btn-delete" (click)="confirmDeleteRecipe(saved)">×</button>
               </div>
             }
           </div>
@@ -356,4 +274,22 @@
       }
     </div>
   </div>
+
+  @if (recipeToDelete(); as recipe) {
+    <div class="modal-overlay" (click)="cancelDelete()">
+      <div class="modal-content card delete-confirm" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Delete Recipe?</h2>
+          <button class="btn-close" (click)="cancelDelete()">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete <strong>{{recipe.name}}</strong>? This action cannot be undone and it will be permanently removed from your cloud library.</p>
+        </div>
+        <div class="modal-footer-actions">
+          <button class="btn-outline" (click)="cancelDelete()">Keep Recipe</button>
+          <button class="btn-danger" (click)="executeDelete()">Yes, Delete Recipe</button>
+        </div>
+      </div>
+    </div>
+  }
 </div>

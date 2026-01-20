@@ -1,29 +1,52 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { Review, Recipe } from '../logic/bakers-math';
+import { HttpClient } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ReviewService {
+  private http = inject(HttpClient);
+  private apiUrl = 'http://localhost:3000/api/orders';
   private allReviews = signal<Review[]>([]);
 
   constructor() {
-    this.loadReviews();
+    this.loadReviewsFromLocalStorage();
   }
 
-  private loadReviews() {
+  private loadReviewsFromLocalStorage() {
     const saved = localStorage.getItem('bakery_reviews');
     if (saved) {
       try {
         this.allReviews.set(JSON.parse(saved));
       } catch (e) {
-        console.error('Error loading reviews', e);
+        console.error('Error loading reviews from localStorage', e);
       }
     }
   }
 
-  private saveReviews() {
-    localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+  fetchReviewsForRecipe(recipeId: string) {
+    if (!recipeId) return;
+    console.log(`[ReviewService] Fetching reviews for recipe: ${recipeId}`);
+    this.http.get<any[]>(`${this.apiUrl}/recipes/${recipeId}/reviews`).subscribe({
+      next: (reviews) => {
+        console.log(`[ReviewService] Received ${reviews.length} reviews for recipe: ${recipeId}`);
+        this.allReviews.update(prev => {
+          // Filter out existing reviews for this recipe to avoid duplicates
+          const otherReviews = prev.filter(p => p.recipeId !== recipeId);
+          // Ensure reviews have a date
+          const validatedReviews = reviews.map(r => ({
+            ...r,
+            date: r.date || new Date().toISOString()
+          }));
+          return [...otherReviews, ...validatedReviews];
+        });
+
+        // Also update localStorage for persistence consistency
+        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+      },
+      error: (err) => console.error(`[ReviewService] Error fetching reviews for ${recipeId}`, err)
+    });
   }
 
   getReviewsForRecipe(recipeId: string) {
@@ -44,9 +67,19 @@ export class ReviewService {
   }
 
   addReview(review: Review) {
-    this.allReviews.update(prev => [...prev, review]);
-    this.saveReviews();
-    this.updateRecipeAverage(review.recipeId);
+    this.http.post<any>(`${this.apiUrl}/reviews`, review).subscribe({
+      next: (formatted: Review) => {
+        this.allReviews.update(prev => [...prev, formatted]);
+        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        this.updateRecipeAverage(formatted.recipeId);
+      },
+      error: (err) => {
+        console.error('Failed to save review to DB, saving locally', err);
+        this.allReviews.update(prev => [...prev, review]);
+        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        this.updateRecipeAverage(review.recipeId);
+      }
+    });
   }
 
   private updateRecipeAverage(recipeId: string) {

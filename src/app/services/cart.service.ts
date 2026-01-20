@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CalculatedRecipe, Order } from '../logic/bakers-math';
 import { SubscriptionService } from './subscription.service';
@@ -18,8 +18,15 @@ export interface CartItem {
 export class CartService {
   private http = inject(HttpClient);
   private cartItems = signal<CartItem[]>([]);
-  private apiUrl = 'https://bread-app-backend.onrender.com/api/orders'; // Live Render backend
-  private paymentUrl = 'https://bread-app-backend.onrender.com/api/payments';
+  private isInitialLoad = true;
+  // Use localhost for local development, or your live URL for production
+  private apiUrl = 'http://localhost:3000/api/orders';
+  private paymentUrl = 'http://localhost:3000/api/payments';
+  private recipeUrl = 'http://localhost:3000/api/orders/recipes';
+
+  getOrderById(orderId: string) {
+    return this.http.get<Order>(`${this.apiUrl}/${orderId}`);
+  }
 
   fulfillmentType = signal<FulfillmentType>('PICKUP');
   zipCode = signal<string>('');
@@ -72,6 +79,12 @@ export class CartService {
   constructor() {
     this.loadCart();
     this.loadLoyalty();
+    this.isInitialLoad = false;
+
+    // Automatically save cart whenever any relevant signal changes
+    effect(() => {
+      this.saveCart();
+    });
   }
 
   saveOrderToDatabase(order: Order) {
@@ -119,6 +132,7 @@ export class CartService {
   }
 
   private saveCart() {
+    if (this.isInitialLoad) return;
     const data = {
       items: this.cartItems(),
       fulfillmentType: this.fulfillmentType(),
@@ -130,11 +144,12 @@ export class CartService {
 
   addToCart(product: CalculatedRecipe) {
     this.cartItems.update(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      // Use name as fallback if ID is missing (newly created local recipes)
+      const existing = prev.find(item => (item.product.id && item.product.id === product.id) || item.product.name === product.name);
       let updated: CartItem[];
       if (existing) {
         updated = prev.map(item =>
-          item.product.id === product.id
+          ((item.product.id && item.product.id === product.id) || item.product.name === product.name)
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
@@ -143,12 +158,10 @@ export class CartService {
       }
       return updated;
     });
-    this.saveCart();
   }
 
   removeFromCart(productId: string) {
     this.cartItems.update(prev => prev.filter(item => item.product.id !== productId));
-    this.saveCart();
   }
 
   updateQuantity(productId: string, quantity: number) {
@@ -161,7 +174,6 @@ export class CartService {
         item.product.id === productId ? { ...item, quantity } : item
       )
     );
-    this.saveCart();
   }
 
   toggleSubscription(productId: string) {
@@ -172,22 +184,18 @@ export class CartService {
           : item
       )
     );
-    this.saveCart();
   }
 
   setFulfillment(type: FulfillmentType) {
     this.fulfillmentType.set(type);
-    this.saveCart();
   }
 
   setZipCode(zip: string) {
     this.zipCode.set(zip);
-    this.saveCart();
   }
 
   setNotes(notes: string) {
     this.notes.set(notes);
-    this.saveCart();
   }
 
   clearCart() {

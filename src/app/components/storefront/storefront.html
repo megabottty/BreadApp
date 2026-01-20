@@ -34,17 +34,55 @@
   </div>
 
   @if (showSubscriptionInfo()) {
-    <div class="info-card subscription-explanation card">
-      <button class="btn-close" (click)="showSubscriptionInfo.set(false)">×</button>
-      <h3>🔄 Bread Subscriptions</h3>
-      <p>Never run out of your favorite artisanal bakes! Here's how it works:</p>
-      <ul>
-        <li><strong>Weekly Delivery:</strong> Subscribed items are automatically added to our bake schedule every week.</li>
-        <li><strong>Freshness Guaranteed:</strong> Your subscription bakes are dispatched every Monday or Tuesday to ensure they arrive at peak freshness.</li>
-        <li><strong>Flexible Management:</strong> Pause, resume, or cancel your subscription anytime from your profile.</li>
-        <li><strong>No Hidden Fees:</strong> Pay the standard price per loaf, with simplified recurring checkout.</li>
-      </ul>
-      <p class="hint">Simply click "Subscribe" on any product to get started!</p>
+    <div class="subscription-modal-overlay" (click)="showSubscriptionInfo.set(false)">
+      <div class="subscription-info-card card" (click)="$event.stopPropagation()">
+        <button class="btn-close-modal" (click)="showSubscriptionInfo.set(false)">×</button>
+
+        <header class="modal-header-pro">
+          <div class="icon-circle">🔄</div>
+          <h2>Artisan Bread Subscriptions</h2>
+          <p class="tagline">The freshest way to enjoy your daily bread, automated.</p>
+        </header>
+
+        <div class="benefit-grid">
+          <div class="benefit-item">
+            <span class="benefit-icon">📅</span>
+            <div class="benefit-content">
+              <h4>Weekly Delivery</h4>
+              <p>Your favorites are automatically prioritized in our bake schedule every week.</p>
+            </div>
+          </div>
+
+          <div class="benefit-item">
+            <span class="benefit-icon">🌿</span>
+            <div class="benefit-content">
+              <h4>Peak Freshness</h4>
+              <p>Dispatched every Monday & Tuesday. Hand-delivered or shipped within hours of leaving the oven.</p>
+            </div>
+          </div>
+
+          <div class="benefit-item">
+            <span class="benefit-icon">⚙️</span>
+            <div class="benefit-content">
+              <h4>Total Control</h4>
+              <p>Pause, skip, or cancel anytime. Manage your subscription directly from your profile.</p>
+            </div>
+          </div>
+
+          <div class="benefit-item">
+            <span class="benefit-icon">✨</span>
+            <div class="benefit-content">
+              <h4>No Extra Cost</h4>
+              <p>Standard product pricing. No hidden membership fees or recurring surcharges.</p>
+            </div>
+          </div>
+        </div>
+
+        <footer class="modal-footer-pro">
+          <p>Ready to start? Simply look for the <strong>Subscribe</strong> button on any product!</p>
+          <button class="btn-primary" (click)="showSubscriptionInfo.set(false)">Got it, thanks!</button>
+        </footer>
+      </div>
     </div>
   }
 
@@ -80,11 +118,11 @@
           <div class="rating-display" (click)="product.id && toggleReviews(product.id)" [class.clickable]="product.id">
             <span class="stars">
               @for (star of [1,2,3,4,5]; track star) {
-                <span class="star" [class.filled]="(product.averageRating || 0) >= star">★</span>
+                <span class="star" [class.filled]="reviewService.getAverageRating(product.id || '')() >= star">★</span>
               }
             </span>
-            <span class="rating-count">({{product.ratings?.length || 0}})</span>
-            @if (product.id && product.ratings?.length) {
+            <span class="rating-count">({{getReviews(product.id || '').length}})</span>
+            @if (product.id && getReviews(product.id).length > 0) {
               <small class="view-reviews-hint">{{ showReviewsForProduct() === product.id ? 'Hide' : 'View' }} Reviews</small>
             }
           </div>
@@ -137,5 +175,23 @@
 
   @if (selectedProductForReview(); as product) {
     <app-review-modal [product]="product" (close)="selectedProductForReview.set(null)"></app-review-modal>
+  }
+
+  @if (productToDelete(); as product) {
+    <div class="modal-overlay" (click)="cancelDelete()">
+      <div class="modal-content card delete-confirm" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Delete Product?</h2>
+          <button class="btn-close" (click)="cancelDelete()">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete <strong>{{product.name}}</strong>? This will remove it from the storefront and your cloud library permanently.</p>
+        </div>
+        <div class="modal-footer-actions">
+          <button class="btn-outline" (click)="cancelDelete()">Keep Product</button>
+          <button class="btn-danger" (click)="executeDelete()">Yes, Delete Product</button>
+        </div>
+      </div>
+    </div>
   }
 </div>

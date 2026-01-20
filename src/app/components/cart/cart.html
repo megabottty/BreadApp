@@ -4,7 +4,7 @@
   @if (items().length === 0) {
     <div class="empty-cart">
       <p>Your bag is empty. Head to the storefront to find something delicious!</p>
-      <button class="btn-primary" routerLink="/store">Back to Store</button>
+      <button class="btn-primary" routerLink="/front">Back to Store</button>
     </div>
   } @else {
     <div class="cart-grid">
@@ -75,7 +75,8 @@
 
         <div class="card subscription-promo">
           <h3>🔄 Artisan Subscriptions</h3>
-          <p>Subscribing ensures your favorite loaves are baked and ready for you every week. We dispatch subscription orders every Monday and Tuesday to guarantee peak freshness.</p>
+          <p>Subscribing ensures your favorite loaves are baked and ready for you every week.</p>
+          <p class="dispatch-notice">We dispatch subscription orders every <strong>Monday and Tuesday</strong> to guarantee peak freshness.</p>
           <p class="section-hint">You can manage or cancel your subscriptions anytime in your profile.</p>
         </div>
 

@@ -247,6 +247,19 @@ textarea {
   border-top: 1px dashed #DDE3D5;
 }
 
+.header-with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.header-with-action h3 {
+  margin: 0;
+  color: #7D8F69;
+  font-family: 'Serif', Georgia, serif;
+}
+
 .subscriptions {
   background: #FAF9F6;
 }

@@ -51,7 +51,14 @@ h1 {
 
 @media (min-width: 640px) {
   .product-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
     gap: 2rem;
   }
 }
@@ -151,6 +158,95 @@ h2 {
   font-size: 1.5rem;
 }
 
+.rating-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.rating-display.clickable {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.rating-display.clickable:hover {
+  opacity: 0.7;
+}
+
+.view-reviews-hint {
+  font-size: 0.75rem;
+  color: #7D8F69;
+  text-decoration: underline;
+  margin-left: auto;
+}
+
+.reviews-list {
+  background: var(--bg-color);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+}
+
+.review-item {
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #E9E5D9;
+}
+
+.review-item:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.review-header strong {
+  font-size: 0.9rem;
+  color: #5F6F52;
+}
+
+.review-stars {
+  font-size: 0.8rem;
+}
+
+.review-item p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6C7A5C;
+  line-height: 1.4;
+}
+
+.review-item small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #8C967D;
+  font-size: 0.75rem;
+}
+
+.stars {
+  color: var(--border-color);
+  font-size: 1.1rem;
+}
+
+.star.filled {
+  color: #D88569;
+}
+
+.rating-count {
+  font-size: 0.85rem;
+  color: #8C967D;
+}
+
 .meta {
   font-size: 0.85rem;
   color: #A9B388;
@@ -185,7 +281,7 @@ h2 {
 .price {
   font-size: 1.4rem;
   font-weight: 600;
-  color: #5F6F52;
+  color: var(--accent-sage-dark);
 }
 
 .btn-group {
@@ -194,7 +290,7 @@ h2 {
 }
 
 .btn-add {
-  background: #7D8F69;
+  background: var(--accent-sage);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -205,13 +301,13 @@ h2 {
 }
 
 .btn-add:hover {
-  background: #5F6F52;
+  background: var(--accent-sage-dark);
 }
 
 .btn-subscribe {
-  background: #F1F3EB;
-  color: #7D8F69;
-  border: 1px solid #DDE3D5;
+  background: var(--btn-secondary);
+  color: var(--accent-sage);
+  border: 1px solid var(--btn-secondary-border);
   padding: 0.75rem 1rem;
   border-radius: 12px;
   font-weight: 600;
@@ -221,13 +317,13 @@ h2 {
 }
 
 .btn-subscribe:hover {
-  background: #E5E0D5;
+  background: var(--border-color);
 }
 
 .btn-edit {
-  background: #F1F3EB;
-  color: #6C7A5C;
-  border: 1px solid #DDE3D5;
+  background: var(--btn-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--btn-secondary-border);
   padding: 0.75rem 1.25rem;
   border-radius: 12px;
   font-weight: 600;
@@ -236,15 +332,15 @@ h2 {
 }
 
 .btn-edit:hover {
-  background: #E5E0D5;
+  background: var(--border-color);
 }
 
 .btn-delete-product {
   background: #FDF9F7;
   color: #A65D45;
   border: 1px solid #F5EAE6;
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
   font-size: 1.25rem;
   cursor: pointer;
@@ -258,6 +354,7 @@ h2 {
   background: #D88569;
   color: white;
   border-color: #D88569;
+  transform: scale(1.05);
 }
 
 .empty-state {
@@ -275,7 +372,7 @@ h2 {
 }
 
 .btn-primary {
-  background: #7D8F69;
+  background: var(--accent-sage);
   color: white;
   border: none;
   padding: 1rem 2rem;
@@ -284,4 +381,144 @@ h2 {
   cursor: pointer;
   transition: background 0.2s;
   text-decoration: none;
+}
+
+/* Delete Modal Enhancements */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(95, 111, 82, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+}
+
+[data-theme="midnight"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.delete-confirm {
+  border-left: 8px solid var(--accent-terracotta);
+  padding: 0 !important;
+  overflow: hidden;
+  background: var(--card-bg);
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.delete-confirm .modal-header {
+  background: #FDF9F7;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #F5EAE6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.delete-confirm h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--accent-terracotta-dark);
+  font-family: 'Serif', Georgia, serif;
+}
+
+.delete-confirm .modal-body {
+  padding: 2rem;
+}
+
+.delete-confirm p {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.delete-confirm .modal-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  border-top: 1px solid var(--border-color);
+  padding: 1.5rem 2rem;
+  background: #FAF9F6;
+}
+
+[data-theme="midnight"] .delete-confirm .modal-header {
+  background: #3E2B26;
+  border-bottom-color: #5F3F35;
+}
+
+[data-theme="midnight"] .delete-confirm .modal-footer-actions {
+  background: #242629;
+}
+
+.btn-danger {
+  background: var(--accent-terracotta);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-danger:hover {
+  background: var(--accent-terracotta-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(216, 133, 105, 0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-outline:hover {
+  background: var(--btn-secondary);
+  border-color: var(--accent-sage);
+  color: var(--accent-sage);
+}
+
+.btn-close {
+  background: #F1F3EB;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #5F6F52;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background: #E5E0D5;
 }

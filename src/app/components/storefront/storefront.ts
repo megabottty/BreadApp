@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, inject, computed } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
@@ -20,6 +21,7 @@ export class StorefrontComponent implements OnInit {
   protected authService = inject(AuthService);
   protected reviewService = inject(ReviewService);
   private router = inject(Router);
+  private http = inject(HttpClient);
 
   products = signal<CalculatedRecipe[]>([]);
   categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'OTHER']);
@@ -30,6 +32,8 @@ export class StorefrontComponent implements OnInit {
   showReviewsForProduct = signal<string | null>(null);
   showSubscriptionInfo = signal(false);
   searchTerm = signal('');
+
+  productToDelete = signal<CalculatedRecipe | null>(null);
 
   filteredProducts = computed(() => {
     const category = this.selectedCategory();
@@ -51,12 +55,25 @@ export class StorefrontComponent implements OnInit {
     const topRated: Record<string, string> = {};
 
     categories.forEach(cat => {
-      const catProducts = products.filter(p => p.category === cat && (p.averageRating || 0) > 0);
+      const catProducts = products.filter(p => p.category === cat);
       if (catProducts.length > 0) {
-        const top = catProducts.reduce((prev, current) =>
-          (prev.averageRating || 0) > (current.averageRating || 0) ? prev : current
-        );
-        if (top.id) topRated[cat] = top.id;
+        const top = catProducts.reduce((prev, current) => {
+          const prevRating = this.reviewService.getAverageRating(prev.id || '')();
+          const currRating = this.reviewService.getAverageRating(current.id || '')();
+
+          if (prevRating > currRating) return prev;
+          if (currRating > prevRating) return current;
+
+          // If ratings are equal, pick the one with more reviews
+          const prevCount = this.getReviews(prev.id || '').length;
+          const currCount = this.getReviews(current.id || '').length;
+          return prevCount >= currCount ? prev : current;
+        });
+
+        const topRating = this.reviewService.getAverageRating(top.id || '')();
+        if (top.id && topRating > 0) {
+          topRated[cat] = top.id;
+        }
       }
     });
 
@@ -80,10 +97,30 @@ export class StorefrontComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const saved = localStorage.getItem('bakery_recipes');
-    if (saved) {
-      this.products.set(JSON.parse(saved));
-    }
+    this.loadRecipes();
+  }
+
+  loadRecipes(): void {
+    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes').subscribe({
+      next: (recipes: CalculatedRecipe[]) => {
+        this.products.set(recipes);
+        // Sync local storage just in case other parts of the app still rely on it
+        localStorage.setItem('bakery_recipes', JSON.stringify(recipes));
+
+        // Fetch reviews for each recipe to ensure ratings are up to date
+        recipes.forEach(r => {
+          if (r.id) this.reviewService.fetchReviewsForRecipe(r.id);
+        });
+      },
+      error: (err: any) => {
+        console.error('Failed to load recipes from database:', err);
+        // Fallback to local storage if DB fails
+        const saved = localStorage.getItem('bakery_recipes');
+        if (saved) {
+          this.products.set(JSON.parse(saved));
+        }
+      }
+    });
   }
 
   addToCart(product: CalculatedRecipe): void {
@@ -101,13 +138,39 @@ export class StorefrontComponent implements OnInit {
     this.router.navigate(['/calculator', product.id]);
   }
 
+  confirmDeleteProduct(product: CalculatedRecipe): void {
+    this.productToDelete.set(product);
+  }
+
+  cancelDelete(): void {
+    this.productToDelete.set(null);
+  }
+
+  executeDelete(): void {
+    const product = this.productToDelete();
+    if (!product || !product.id) return;
+
+    this.http.delete(`http://localhost:3000/api/orders/recipes/${product.id}`).subscribe({
+      next: () => {
+        console.log('Product deleted from cloud:', product.id);
+        const updated = this.products().filter(p => p.id !== product.id);
+        this.products.set(updated);
+        localStorage.setItem('bakery_recipes', JSON.stringify(updated));
+        this.cancelDelete();
+      },
+      error: (err) => {
+        console.error('Failed to delete product from cloud:', err);
+        // Fallback to local delete
+        const updated = this.products().filter(p => p.id !== product.id);
+        this.products.set(updated);
+        localStorage.setItem('bakery_recipes', JSON.stringify(updated));
+        this.cancelDelete();
+      }
+    });
+  }
+
   deleteProduct(product: CalculatedRecipe): void {
-    if (!product.id) return;
-    if (confirm(`Are you sure you want to delete ${product.name}?`)) {
-      const updated = this.products().filter(p => p.id !== product.id);
-      this.products.set(updated);
-      localStorage.setItem('bakery_recipes', JSON.stringify(updated));
-    }
+    this.confirmDeleteProduct(product);
   }
 
   openReviewModal(product: CalculatedRecipe) {
@@ -123,11 +186,6 @@ export class StorefrontComponent implements OnInit {
   }
 
   getReviews(productId: string): Review[] {
-    const saved = localStorage.getItem('bakery_reviews');
-    if (saved) {
-      const all: Review[] = JSON.parse(saved);
-      return all.filter(r => r.recipeId === productId);
-    }
-    return [];
+    return this.reviewService.getReviewsForRecipe(productId)();
   }
 }
