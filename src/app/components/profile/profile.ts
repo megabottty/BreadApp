@@ -6,9 +6,10 @@ import { CartService } from '../../services/cart.service';
 import { ReviewService } from '../../services/review.service';
 import { SubscriptionService, Subscription } from '../../services/subscription.service';
 import { ModalService } from '../../services/modal.service';
+import { TenantService } from '../../services/tenant.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 @Component({
   selector: 'app-profile',
@@ -25,6 +26,7 @@ export class ProfileComponent implements OnInit {
   modalService = inject(ModalService);
   route = inject(ActivatedRoute);
   private http = inject(HttpClient);
+  private tenantService = inject(TenantService);
 
   pastOrders = signal<Order[]>([]);
 
@@ -90,7 +92,9 @@ export class ProfileComponent implements OnInit {
     // Attempt to load from database if user is authenticated
     const user = this.authService.user();
     if (user) {
-      this.http.get<Order[]>(`http://localhost:3000/api/orders`).subscribe({
+      const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+      const headers = new HttpHeaders().set('x-tenant-slug', slug);
+      this.http.get<Order[]>(`http://localhost:3000/api/orders`, { headers }).subscribe({
         next: (orders) => {
           // Filter orders for this specific customer
           const myOrders = orders.filter(o => o.customerId === user.id);

@@ -1,14 +1,21 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { Review, Recipe } from '../logic/bakers-math';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { TenantService } from './tenant.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ReviewService {
   private http = inject(HttpClient);
+  private tenantService = inject(TenantService);
   private apiUrl = 'http://localhost:3000/api/orders';
   private allReviews = signal<Review[]>([]);
+
+  private get headers() {
+    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    return new HttpHeaders().set('x-tenant-slug', slug);
+  }
 
   constructor() {
     this.loadReviewsFromLocalStorage();
@@ -28,7 +35,7 @@ export class ReviewService {
   fetchReviewsForRecipe(recipeId: string) {
     if (!recipeId) return;
     console.log(`[ReviewService] Fetching reviews for recipe: ${recipeId}`);
-    this.http.get<any[]>(`${this.apiUrl}/recipes/${recipeId}/reviews`).subscribe({
+    this.http.get<any[]>(`${this.apiUrl}/recipes/${recipeId}/reviews`, { headers: this.headers }).subscribe({
       next: (reviews) => {
         console.log(`[ReviewService] Received ${reviews.length} reviews for recipe: ${recipeId}`);
         this.allReviews.update(prev => {
@@ -67,7 +74,7 @@ export class ReviewService {
   }
 
   addReview(review: Review) {
-    this.http.post<any>(`${this.apiUrl}/reviews`, review).subscribe({
+    this.http.post<any>(`${this.apiUrl}/reviews`, review, { headers: this.headers }).subscribe({
       next: (formatted: Review) => {
         this.allReviews.update(prev => [...prev, formatted]);
         localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));

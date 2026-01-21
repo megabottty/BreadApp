@@ -1,9 +1,10 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Order, PromoCode } from '../../logic/bakers-math';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
+import { TenantService } from '../../services/tenant.service';
 
 @Component({
   selector: 'app-bakery-ledger',
@@ -70,20 +71,37 @@ export class BakeryLedgerComponent implements OnInit {
     return orders;
   });
 
+  private tenantService = inject(TenantService);
+
+  private headers() {
+    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    return new HttpHeaders().set('x-tenant-slug', slug);
+  }
+
+  constructor() {
+    // React to tenant changes to reload data
+    effect(() => {
+      const tenant = this.tenantService.tenant();
+      if (tenant) {
+        console.log('[BakeryLedger] Tenant identified, loading orders and promos:', tenant.slug);
+        this.loadOrders();
+        this.loadPromos();
+      }
+    });
+  }
+
   ngOnInit() {
-    this.loadOrders();
-    this.loadPromos();
   }
 
   loadOrders() {
-    this.http.get<Order[]>('http://localhost:3000/api/orders').subscribe({
+    this.http.get<Order[]>('http://localhost:3000/api/orders', { headers: this.headers() }).subscribe({
       next: (orders) => this.allOrders.set(orders),
       error: (err) => console.error('Failed to load ledger orders:', err)
     });
   }
 
   loadPromos() {
-    this.http.get<any[]>('http://localhost:3000/api/orders/promos/all').subscribe({
+    this.http.get<any[]>('http://localhost:3000/api/orders/promos/all', { headers: this.headers() }).subscribe({
       next: (data) => {
         const mapped: PromoCode[] = data.map(p => ({
           id: p.id,
@@ -104,7 +122,7 @@ export class BakeryLedgerComponent implements OnInit {
     const promo = this.newPromo();
     if (!promo.code) return;
 
-    this.http.post('http://localhost:3000/api/orders/promos', promo).subscribe({
+    this.http.post('http://localhost:3000/api/orders/promos', promo, { headers: this.headers() }).subscribe({
       next: () => {
         this.loadPromos();
         this.newPromo.set({ code: '', type: 'FIXED', value: 5, description: '', isActive: true });
@@ -115,7 +133,7 @@ export class BakeryLedgerComponent implements OnInit {
 
   deletePromo(id: string) {
     if (confirm('Are you sure you want to delete this promo code?')) {
-      this.http.delete(`http://localhost:3000/api/orders/promos/${id}`).subscribe({
+      this.http.delete(`http://localhost:3000/api/orders/promos/${id}`, { headers: this.headers() }).subscribe({
         next: () => this.loadPromos()
       });
     }

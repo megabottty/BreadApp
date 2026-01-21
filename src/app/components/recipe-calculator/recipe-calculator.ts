@@ -1,13 +1,14 @@
 import { Component, OnInit, signal, computed, inject, effect, OnDestroy } from '@angular/core';
 import { CommonModule, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { calculateBakersMath, Recipe, CalculatedRecipe, IngredientType, scaleRecipe, MOCK_INGREDIENTS_DB, RecipeCategory, FlavorProfile } from '../../logic/bakers-math';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { IngredientService, FoodSearchItem } from '../../services/ingredient.service';
 import { SubscriptionService } from '../../services/subscription.service';
 import { ModalService } from '../../services/modal.service';
+import { TenantService } from '../../services/tenant.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of, catchError } from 'rxjs';
 
@@ -25,6 +26,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private ingredientService = inject(IngredientService);
   private modalService = inject(ModalService);
+  private tenantService = inject(TenantService);
   private http = inject(HttpClient);
   private fb = inject(FormBuilder);
 
@@ -69,16 +71,25 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       price: [12],
       imageUrl: [''],
       images: this.fb.array([]),
-      levainHydration: [75],
+      levainHydration: [100],
       servingSizeGrams: [50],
       currentUnits: [1],
       targetUnits: [1],
       ingredients: this.fb.array([
         this.createIngredient('Bread Flour', 400, 'FLOUR'),
         this.createIngredient('Water', 300, 'WATER'),
-        this.createIngredient('Starter', 100, 'LEVAIN'),
+        this.createIngredient('Starter', 75, 'LEVAIN'),
         this.createIngredient('Salt', 10, 'SALT'),
       ])
+    });
+
+    // React to tenant changes to reload recipes
+    effect(() => {
+      const tenant = this.tenantService.tenant();
+      if (tenant) {
+        console.log('[RecipeCalculator] Tenant identified, loading recipes:', tenant.slug);
+        this.loadSavedRecipes();
+      }
     });
   }
 
@@ -87,11 +98,10 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       this.router.navigate(['/front']);
       return;
     }
-    this.loadSavedRecipes();
 
     // Debounced search setup
     this.searchSubject.pipe(
-      debounceTime(400),
+      debounceTime(500),
       distinctUntilChanged((prev, curr) => prev.term === curr.term && prev.index === curr.index),
       switchMap(({ term, index }) => {
         console.log('Debounced search triggered for:', term);
@@ -144,18 +154,20 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     if (saved && !this.route.snapshot.paramMap.get('id')) {
       try {
         const draft = JSON.parse(saved);
-        // We still use confirm here for now as it's a blocking decision during init,
-        // but the requirement said replace ALL alerts.
-        // For confirm, it's trickier to replace with an async modal without significant refactoring.
-        // User said "remove all the .alerts()". I'll stick to alerts first.
-        if (confirm('You have an unsaved recipe draft. Would you like to restore it?')) {
-          this.isLoadingRecipe = true;
-          this.loadRecipeIntoForm(draft);
-          this.isLoadingRecipe = false;
-          this.hasUnsavedChanges.set(true);
-        } else {
-          localStorage.removeItem('recipe_calculator_draft');
-        }
+        this.modalService.showConfirm(
+          'You have an unsaved recipe draft. Would you like to restore it?',
+          'Unsaved Draft Found',
+          () => {
+            this.isLoadingRecipe = true;
+            this.loadRecipeIntoForm(draft);
+            this.isLoadingRecipe = false;
+            this.hasUnsavedChanges.set(true);
+            localStorage.removeItem('recipe_calculator_draft');
+          },
+          () => {
+            localStorage.removeItem('recipe_calculator_draft');
+          }
+        );
       } catch (e) {
         console.error('Error loading draft', e);
       }
@@ -199,7 +211,13 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   }
 
   loadSavedRecipes(): void {
-    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes').subscribe({
+    const slug = this.tenantService.tenant()?.slug;
+    if (!slug) {
+      console.warn('[RecipeCalculator] Skipping loadSavedRecipes: No tenant slug identified yet.');
+      return;
+    }
+    const headers = new HttpHeaders().set('x-tenant-slug', slug);
+    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
       next: (recipes) => {
         this.savedRecipes.set(recipes);
         localStorage.setItem('bakery_recipes', JSON.stringify(recipes));
@@ -215,8 +233,10 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   saveRecipe(): void {
     const current = this.calculatedRecipe();
-    if (current) {
-      this.http.post<CalculatedRecipe>('http://localhost:3000/api/orders/recipes', current).subscribe({
+    const slug = this.tenantService.tenant()?.slug;
+    if (current && slug) {
+      const headers = new HttpHeaders().set('x-tenant-slug', slug);
+      this.http.post<CalculatedRecipe>('http://localhost:3000/api/orders/recipes', current, { headers }).subscribe({
         next: (saved: CalculatedRecipe) => {
           this.savedRecipes.update(prev => {
             const updated = saved.id ? prev.map(r => r.id === saved.id ? saved : r) : prev;
@@ -305,7 +325,8 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   deleteRecipe(id: string | undefined): void {
     if (!id) return;
     console.log('Attempting to delete recipe with ID:', id);
-    this.http.delete(`http://localhost:3000/api/orders/recipes/${id}`).subscribe({
+    const headers = new HttpHeaders().set('x-tenant-slug', this.tenantService.tenant()?.slug || 'the-daily-dough');
+    this.http.delete(`http://localhost:3000/api/orders/recipes/${id}`, { headers }).subscribe({
       next: () => {
         console.log('Delete successful for ID:', id);
         const updated = this.savedRecipes().filter(r => r.id !== id);

@@ -18,7 +18,12 @@ import { ModalService } from '../../services/modal.service';
             <p>{{modal.message}}</p>
           </div>
           <div class="modal-footer">
-            <button class="btn-primary" (click)="close()">Got it</button>
+            @if (modal.type === 'confirm') {
+              <button class="btn-outline" (click)="cancel(modal)">Cancel</button>
+              <button class="btn-primary" (click)="confirm(modal)">Yes, Restore</button>
+            } @else {
+              <button class="btn-primary" (click)="close()">Got it</button>
+            }
           </div>
         </div>
       </div>
@@ -55,6 +60,7 @@ import { ModalService } from '../../services/modal.service';
     .modal-content[data-type="warning"] { border-left-color: #E9B384; }
     .modal-content[data-type="error"] { border-left-color: var(--accent-terracotta); }
     .modal-content[data-type="info"] { border-left-color: var(--accent-sage); }
+    .modal-content[data-type="confirm"] { border-left-color: var(--accent-sage); }
 
     .modal-header {
       padding: 1.5rem 2rem;
@@ -109,6 +115,7 @@ import { ModalService } from '../../services/modal.service';
       background: var(--card-bg);
       display: flex;
       justify-content: flex-end;
+      gap: 1rem;
     }
 
     .btn-primary {
@@ -128,6 +135,23 @@ import { ModalService } from '../../services/modal.service';
       box-shadow: 0 4px 12px var(--shadow-color);
     }
 
+    .btn-outline {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-outline:hover {
+      background: var(--bg-color);
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
     @keyframes modalPop {
       from { transform: scale(0.9); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
@@ -139,5 +163,15 @@ export class NotificationModalComponent {
 
   close() {
     this.modalService.close();
+  }
+
+  confirm(modal: any) {
+    if (modal.onConfirm) modal.onConfirm();
+    this.close();
+  }
+
+  cancel(modal: any) {
+    if (modal.onCancel) modal.onCancel();
+    this.close();
   }
 }

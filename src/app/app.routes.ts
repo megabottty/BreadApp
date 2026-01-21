@@ -20,6 +20,11 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },
   { path: 'about', component: AboutComponent },
   {
+    path: 'dashboard',
+    loadComponent: () => import('./components/baker-dashboard/baker-dashboard').then(m => m.BakerDashboardComponent),
+    canActivate: [bakerGuard]
+  },
+  {
     path: 'calculator',
     component: RecipeCalculatorComponent,
     canActivate: [bakerGuard]

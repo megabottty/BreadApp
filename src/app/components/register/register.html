@@ -1,10 +1,19 @@
 <div class="register-container">
   <div class="register-card">
-    <header>
-      <span class="logo-icon">🥖</span>
-      <h1>Join the Community</h1>
-      <p class="subtitle">Start your artisan bread journey today</p>
-    </header>
+    @if (registrationSuccess()) {
+      <div class="verification-view">
+        <span class="verification-icon">📧</span>
+        <h1>Verify your email</h1>
+        <p>We've sent a verification link to <strong>{{email()}}</strong>.</p>
+        <p class="verification-hint">Please check your inbox (and spam folder) to complete your registration and start baking!</p>
+        <button class="btn-register" routerLink="/login">Back to Login</button>
+      </div>
+    } @else {
+      <header>
+        <span class="logo-icon">🥖</span>
+        <h1>Join the Community</h1>
+        <p class="subtitle">Start your artisan bread journey today</p>
+      </header>
 
     <div class="role-toggle">
       <button type="button" [class.active]="selectedRole() === 'CUSTOMER'" (click)="setRole('CUSTOMER')">Bread Lover</button>
@@ -12,9 +21,26 @@
     </div>
 
     <form (submit)="register()">
+      @if (selectedRole() === 'BAKER') {
+        <div class="bakery-setup-fields">
+          <div class="form-group">
+            <label for="bakeryName">Bakery Name</label>
+            <input type="text" id="bakeryName" [(ngModel)]="bakeryName" name="bakeryName" placeholder="Mama's Sourdough" required>
+          </div>
+          <div class="form-group">
+            <label for="bakerySlug">Shop URL Slug</label>
+            <div class="slug-input-wrapper">
+              <span class="url-prefix">dailydough.app/</span>
+              <input type="text" id="bakerySlug" [(ngModel)]="bakerySlug" name="bakerySlug" placeholder="mamas-bread" required>
+            </div>
+            <p class="field-hint">This will be your unique shop address.</p>
+          </div>
+        </div>
+      }
+
       <div class="form-group">
         <label for="name">Full Name</label>
-        <input type="text" id="name" [(ngModel)]="name" name="name" placeholder="Megan Muirhead" required>
+        <input type="text" id="name" [(ngModel)]="name" name="name" placeholder="Billy Bob" required>
       </div>
 
       <div class="form-group">
@@ -61,5 +87,6 @@
     <footer>
       <p>Already have an account? <a routerLink="/login">Login here</a></p>
     </footer>
+    }
   </div>
 </div>

@@ -257,12 +257,17 @@ textarea:focus {
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.ingredient-row:focus-within {
+  z-index: 10002;
 }
 
 .search-container {
   position: relative;
   min-width: 0;
-  z-index: 10;
 }
 
 @media (min-width: 640px) {
@@ -278,7 +283,7 @@ textarea:focus {
   top: 100%;
   left: 0;
   right: 0;
-  z-index: 1000;
+  z-index: 10003;
   margin-top: 4px;
   animation: dropdownFadeIn 0.2s ease-out;
 }

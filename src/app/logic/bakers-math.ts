@@ -232,7 +232,9 @@ export function aggregateOrders(orders: Order[], bakeDate: string) {
   return orders
     .filter(o => {
       const orderDate = o.pickupDate ? o.pickupDate.split('T')[0] : (o.createdAt ? o.createdAt.split('T')[0] : null);
-      return orderDate === bakeDate && (o.status === 'PENDING' || o.status === 'READY');
+      // Strip any potential time part from orderDate if it came from ISO string
+      const normalizedOrderDate = orderDate ? orderDate.split(' ')[0] : null;
+      return normalizedOrderDate === bakeDate && (o.status === 'PENDING' || o.status === 'READY' || o.status === 'SHIPPED');
     })
     .reduce((acc: Record<string, number>, order) => {
       order.items.forEach(item => {

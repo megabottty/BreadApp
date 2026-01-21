@@ -209,3 +209,81 @@ footer a {
 footer a:hover {
   text-decoration: underline;
 }
+
+/* Verification View */
+.verification-view {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.verification-icon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+.verification-view h1 {
+  margin-bottom: 1rem;
+}
+
+.verification-view p {
+  color: #4A4A4A;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.verification-hint {
+  font-size: 0.9rem;
+  color: #8C967D !important;
+  background: #F8F9F3;
+  padding: 1rem;
+  border-radius: 12px;
+  margin: 1.5rem 0 !important;
+}
+
+/* Bakery Setup Fields */
+.bakery-setup-fields {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #F8F9F3;
+  border-radius: 16px;
+  border: 1px dashed #7D8F69;
+}
+
+.slug-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: #FEFDFB;
+  border: 1px solid #E0DCCF;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.url-prefix {
+  padding: 0 0.75rem;
+  background: #F1F3EB;
+  color: #8C967D;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-right: 1px solid #E0DCCF;
+  white-space: nowrap;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.slug-input-wrapper input {
+  border: none;
+  border-radius: 0;
+}
+
+.slug-input-wrapper input:focus {
+  box-shadow: none;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: #8C967D;
+  margin-top: 0.4rem;
+  font-style: italic;
+}

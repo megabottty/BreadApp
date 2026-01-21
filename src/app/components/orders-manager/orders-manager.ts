@@ -1,12 +1,13 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe, KeyValuePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Order, CalculatedRecipe, aggregateOrders, calculateMasterDough } from '../../logic/bakers-math';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { SubscriptionService } from '../../services/subscription.service';
 import { ModalService } from '../../services/modal.service';
+import { TenantService } from '../../services/tenant.service';
 
 @Component({
   selector: 'app-orders-manager',
@@ -89,7 +90,8 @@ export class OrdersManagerComponent implements OnInit {
   filteredOrders = computed(() => {
     return this.allOrders().filter(o => {
       const orderDate = o.pickupDate ? o.pickupDate.split('T')[0] : (o.createdAt ? o.createdAt.split('T')[0] : null);
-      return orderDate === this.bakeDate();
+      const normalizedOrderDate = orderDate ? orderDate.split(' ')[0] : null;
+      return normalizedOrderDate === this.bakeDate();
     });
   });
 
@@ -103,20 +105,48 @@ export class OrdersManagerComponent implements OnInit {
     };
   });
 
+  constructor() {
+    // React to tenant changes to reload data
+    effect(() => {
+      const tenant = this.tenantService.tenant();
+      if (tenant) {
+        console.log('[OrdersManager] Tenant identified, loading orders and recipes:', tenant.slug);
+        this.loadRealOrders();
+        this.loadSavedRecipes();
+      }
+    });
+  }
+
   ngOnInit(): void {
-    this.loadRealOrders();
-    this.loadSavedRecipes();
+  }
+
+  private tenantService = inject(TenantService);
+
+  private get headers() {
+    const slug = this.tenantService.tenant()?.slug;
+    if (!slug) return new HttpHeaders();
+    return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
   loadSavedRecipes(): void {
-    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes').subscribe({
+    const headers = this.headers;
+    if (!headers.has('x-tenant-slug')) {
+      console.warn('[OrdersManager] Skipping loadSavedRecipes: No tenant slug identified yet.');
+      return;
+    }
+    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
       next: (recipes) => this.savedRecipes.set(recipes),
       error: (err) => console.error('Error loading recipes', err)
     });
   }
 
   loadRealOrders(): void {
-    this.http.get<Order[]>('http://localhost:3000/api/orders').subscribe({
+    const headers = this.headers;
+    if (!headers.has('x-tenant-slug')) {
+      console.warn('[OrdersManager] Skipping loadRealOrders: No tenant slug identified yet.');
+      return;
+    }
+    this.http.get<Order[]>('http://localhost:3000/api/orders', { headers }).subscribe({
       next: (orders) => this.allOrders.set(orders),
       error: (err) => console.error('Failed to load orders:', err)
     });

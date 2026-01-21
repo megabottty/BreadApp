@@ -14,6 +14,36 @@ const supabase = (supabaseUrl && supabaseKey)
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
+// Middleware to extract tenant_id from headers
+const tenantMiddleware = async (req, res, next) => {
+  const tenantSlug = req.headers['x-tenant-slug'];
+  if (!tenantSlug) {
+    console.warn(`[Tenant Middleware] Missing x-tenant-slug header for ${req.method} ${req.originalUrl}`);
+    req.tenantId = null;
+    return next();
+  }
+
+  try {
+    const { data: tenant, error } = await supabase
+      .from('bakery_tenants')
+      .select('id')
+      .eq('slug', tenantSlug)
+      .single();
+
+    if (error || !tenant) {
+      console.warn(`[Tenant Middleware] Bakery not found for slug: "${tenantSlug}". Ensure the bakery is registered.`);
+      return res.status(404).json({ error: 'Bakery not found' });
+    }
+
+    req.tenantId = tenant.id;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Tenant lookup failed' });
+  }
+};
+
+router.use(tenantMiddleware);
+
 // POST: Place a new order
 router.post('/', async (req, res) => {
   if (!supabase) {
@@ -22,15 +52,16 @@ router.post('/', async (req, res) => {
   const orderData = req.body;
 
   try {
-    console.log('[Supabase Debug] Attempting to save order:', orderData.id);
+    console.log('[Supabase Debug] Attempting to save order:', orderData.id, 'for tenant:', req.tenantId);
     const { data, error } = await supabase
       .from('bakery_orders')
       .insert([
         {
+          tenant_id: req.tenantId,
           order_id: orderData.id,
           customer_name: orderData.customerName,
           customer_phone: orderData.customerPhone,
-          customer_id: orderData.customerId, // Added to store link to account or 'guest'
+          customer_id: orderData.customerId,
           total_price: orderData.totalPrice,
           fulfillment_type: orderData.type,
           items: orderData.items,
@@ -67,10 +98,24 @@ router.get('/recipes', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    const { data, error } = await supabase
-      .from('bakery_recipes')
-      .select('*');
-    if (error) throw error;
+    const query = supabase.from('bakery_recipes').select('*');
+    if (req.tenantId) {
+      query.eq('tenant_id', req.tenantId);
+    } else {
+      console.warn('[Supabase Warning] Recipes requested but tenantId is missing from request.');
+      return res.status(400).json({ error: 'Tenant not identified' });
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('[Supabase Error] Fetch Recipes Failed:', error.message);
+      if (error.message.includes('column') && error.message.includes('does not exist')) {
+        return res.status(500).json({
+          error: 'Database schema mismatch: missing tenant_id column in bakery_recipes. Please run the latest supabase_schema.sql.'
+        });
+      }
+      throw error;
+    }
 
     // Map database snake_case to frontend camelCase
     const formattedRecipes = data.map(recipe => ({
@@ -91,6 +136,70 @@ router.get('/recipes', async (req, res) => {
   }
 });
 
+// GET: Bakery Info
+router.get('/info', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    console.warn('[Supabase Warning] Bakery info requested but tenantId is missing from request.');
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('bakery_tenants')
+      .select('*')
+      .eq('id', req.tenantId)
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch bakery info' });
+  }
+});
+
+// POST: Register a new bakery
+router.post('/register-bakery', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { name, slug } = req.body;
+  if (!name || !slug) {
+    return res.status(400).json({ error: 'Name and slug are required' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('bakery_tenants')
+      .insert([{ name, slug }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Supabase Error] Bakery Registration Failed:', error.message, error.details);
+
+      // Check for missing table error
+      if (error.message.includes("Could not find the table 'public.bakery_tenants'")) {
+        return res.status(500).json({
+          error: 'Database table missing. Please ensure you have run the latest supabase_schema.sql in your Supabase SQL Editor.'
+        });
+      }
+
+      if (error.code === '23505') { // Unique violation
+        return res.status(400).json({ error: 'This bakery slug is already taken' });
+      }
+      throw error;
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error registering bakery:', error);
+    res.status(500).json({ error: 'Failed to register bakery' });
+  }
+});
+
 // POST: Save/Update recipe
 router.post('/recipes', async (req, res) => {
   if (!supabase) {
@@ -98,11 +207,12 @@ router.post('/recipes', async (req, res) => {
   }
   const recipe = req.body;
   try {
-    console.log('[Supabase Debug] Attempting to save recipe:', recipe.name);
+    console.log('[Supabase Debug] Attempting to save recipe:', recipe.name, 'for tenant:', req.tenantId);
     const { data, error } = await supabase
       .from('bakery_recipes')
       .upsert({
-        id: (recipe.id && recipe.id.length > 15) ? recipe.id : undefined, // Only use if it looks like a UUID
+        id: (recipe.id && recipe.id.length > 15) ? recipe.id : undefined,
+        tenant_id: req.tenantId,
         name: recipe.name,
         category: recipe.category,
         price: recipe.price,
@@ -157,19 +267,20 @@ router.get('/:orderId', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    console.log('[Supabase Debug] Fetching order:', req.params.orderId);
-    const { data, error } = await supabase
+    console.log('[Supabase Debug] Fetching order:', req.params.orderId, 'for tenant:', req.tenantId);
+    const query = supabase
       .from('bakery_orders')
       .select('*')
-      .eq('order_id', req.params.orderId)
-      .single();
+      .eq('order_id', req.params.orderId);
+
+    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+
+    const { data, error } = await query.single();
 
     if (error) {
       console.error('[Supabase Error] Fetch Order Failed:', error.message);
       throw error;
     }
-
-    console.log('[Supabase Debug] Order Found:', JSON.stringify(data));
 
     // Map Supabase snake_case to Frontend camelCase
     const formattedOrder = {
@@ -187,7 +298,6 @@ router.get('/:orderId', async (req, res) => {
       discountApplied: data.discount_applied,
       createdAt: data.created_at
     };
-
     res.json(formattedOrder);
   } catch (error) {
     res.status(404).json({ error: 'Order not found' });
@@ -200,12 +310,24 @@ router.get('/', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    const { data, error } = await supabase
-      .from('bakery_orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const query = supabase.from('bakery_orders').select('*');
+    if (req.tenantId) {
+      query.eq('tenant_id', req.tenantId);
+    } else {
+      console.warn('[Supabase Warning] Fetching orders without tenant_id. Headers:', req.headers['x-tenant-slug']);
+    }
 
-    if (error) throw error;
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[Supabase Error] Fetch Orders Failed:', error.message);
+      if (error.message.includes('column') && error.message.includes('does not exist')) {
+        return res.status(500).json({
+          error: 'Database schema mismatch: missing tenant_id column in bakery_orders. Please run the latest supabase_schema.sql.'
+        });
+      }
+      throw error;
+    }
 
     const formattedOrders = data.map(order => ({
       id: order.order_id,
@@ -238,12 +360,7 @@ router.get('/recipes/:recipeId/reviews', async (req, res) => {
   }
   try {
     const { recipeId } = req.params;
-    console.log('[Supabase Debug] Fetching reviews for recipe:', recipeId);
-
-    if (!supabase) {
-      console.error('[Supabase Error] Supabase client is null during review fetch');
-      return res.status(500).json({ error: 'Database connection not configured' });
-    }
+    console.log('[Supabase Debug] Fetching reviews for recipe:', recipeId, 'for tenant:', req.tenantId);
 
     // Validate UUID format to prevent Supabase errors if it's a legacy ID
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(recipeId);
@@ -253,10 +370,10 @@ router.get('/recipes/:recipeId/reviews', async (req, res) => {
       return res.json([]); // Return empty reviews for non-UUID (local) recipes
     }
 
-    const { data, error } = await supabase
-      .from('bakery_reviews')
-      .select('*')
-      .eq('recipe_id', recipeId);
+    const query = supabase.from('bakery_reviews').select('*').eq('recipe_id', recipeId);
+    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[Supabase Error Detail] Query failed:', error);
@@ -300,6 +417,7 @@ router.post('/reviews', async (req, res) => {
       .from('bakery_reviews')
       .insert([
         {
+          tenant_id: req.tenantId,
           recipe_id: review.recipeId,
           customer_id: review.customerId,
           customer_name: review.customerName,
@@ -334,10 +452,10 @@ router.get('/subscriptions/:customerId', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    const { data, error } = await supabase
-      .from('bakery_subscriptions')
-      .select('*')
-      .eq('customer_id', req.params.customerId);
+    const query = supabase.from('bakery_subscriptions').select('*').eq('customer_id', req.params.customerId);
+    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+
+    const { data, error } = await query;
 
     if (error) throw error;
     res.json(data);
@@ -357,6 +475,7 @@ router.post('/subscriptions', async (req, res) => {
       .from('bakery_subscriptions')
       .insert([
         {
+          tenant_id: req.tenantId,
           customer_id: sub.customerId,
           recipe_id: sub.recipeId,
           recipe_name: sub.recipeName,
@@ -384,11 +503,14 @@ router.patch('/subscriptions/:subId/status', async (req, res) => {
   }
   const { status } = req.body;
   try {
-    const { data, error } = await supabase
+    const query = supabase
       .from('bakery_subscriptions')
       .update({ status })
-      .eq('id', req.params.subId)
-      .select();
+      .eq('id', req.params.subId);
+
+    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+
+    const { data, error } = await query.select();
 
     if (error) throw error;
     res.json(data[0]);
@@ -404,11 +526,14 @@ router.patch('/:orderId/notes', async (req, res) => {
   }
   const { notes } = req.body;
   try {
-    const { data, error } = await supabase
+    const query = supabase
       .from('bakery_orders')
       .update({ notes })
-      .eq('order_id', req.params.orderId)
-      .select();
+      .eq('order_id', req.params.orderId);
+
+    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+
+    const { data, error } = await query.select();
 
     if (error) throw error;
     res.json(data[0]);
@@ -424,11 +549,14 @@ router.patch('/:orderId/status', async (req, res) => {
   }
   const { status } = req.body;
   try {
-    const { data, error } = await supabase
+    const query = supabase
       .from('bakery_orders')
       .update({ status })
-      .eq('order_id', req.params.orderId)
-      .select();
+      .eq('order_id', req.params.orderId);
+
+    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+
+    const { data, error } = await query.select();
 
     if (error) throw error;
     res.json(data[0]);
@@ -445,12 +573,25 @@ router.get('/promos/all', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    const { data, error } = await supabase
-      .from('bakery_promos')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const query = supabase.from('bakery_promos').select('*');
+    if (req.tenantId) {
+      query.eq('tenant_id', req.tenantId);
+    } else {
+      console.warn('[Supabase Warning] Promos requested but tenantId is missing from request.');
+      return res.status(400).json({ error: 'Tenant not identified' });
+    }
 
-    if (error) throw error;
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[Supabase Error] Fetch Promos Failed:', error.message);
+      if (error.message.includes('column') && error.message.includes('does not exist')) {
+        return res.status(500).json({
+          error: 'Database schema mismatch: missing tenant_id column in bakery_promos. Please run the latest supabase_schema.sql.'
+        });
+      }
+      throw error;
+    }
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch promo codes' });
@@ -468,6 +609,7 @@ router.post('/promos', async (req, res) => {
       .from('bakery_promos')
       .upsert({
         id: promo.id,
+        tenant_id: req.tenantId,
         code: promo.code.toUpperCase(),
         type: promo.type,
         value: promo.value,
@@ -489,10 +631,14 @@ router.delete('/promos/:id', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    const { error } = await supabase
+    const query = supabase
       .from('bakery_promos')
       .delete()
       .eq('id', req.params.id);
+
+    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+
+    const { error } = await query;
 
     if (error) throw error;
     res.json({ success: true });

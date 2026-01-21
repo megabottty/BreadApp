@@ -1,59 +1,107 @@
-# The Daily Dough
+# 🥖 The Daily Dough
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.0.
+The Daily Dough is a multi-tenant SaaS (Software as a Service) platform designed for artisan bakers. It provides a complete solution for bakers to manage their production and for customers to order fresh, handmade bread through a beautiful, branded storefront.
 
-## Development server
+## 🌟 Key Features
 
-To start a local development server, run:
+- **Multi-Tenant Architecture**: Each baker gets their own branded storefront and isolated data.
+- **Baker Dashboard**: Manage recipes, track daily production (auto-calculated ingredients), and view financial ledgers.
+- **Recipe Calculator**: Professional baker's math with scaling and hydration tracking.
+- **PWA Ready**: Installable on mobile devices for an app-like experience.
+- **Customer Storefront**: Subscriptions, reviews, and easy checkout.
 
-```bash
-ng serve
+See [FEATURES.md](./FEATURES.md) for a full list of capabilities and [TESTING_GUIDE.md](./TESTING_GUIDE.md) for instructions on how to test the app on your phone.
+
+---
+
+## 🛠️ Getting Started
+
+### 1. Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [npm](https://www.npmjs.com/)
+- [Supabase Account](https://supabase.com/)
+
+### 2. Database Setup
+
+1. Create a new project in **Supabase**.
+2. Go to the **SQL Editor** in your Supabase dashboard.
+3. Copy the contents of `supabase_schema.sql` from this project and run it to create the necessary tables.
+4. Enable **Supabase Auth** and ensure the `role` and `full_name` metadata fields are allowed (standard in Supabase).
+
+### 3. Environment Configuration
+
+Create a `.env` file in the root directory and add your credentials:
+
+```env
+# Supabase Configuration
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_supabase_anon_key
+
+# Optional: Payment & Communication
+STRIPE_SECRET_KEY=your_stripe_key
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+*Note: Also update `src/environments/environment.ts` with your Supabase URL and Key for the frontend.*
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### 4. Installation
 
 ```bash
-ng generate component component-name
+npm install
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+---
+
+## 🚀 Running the App
+
+The application consists of an Angular frontend and a Node.js backend.
+
+### Start the Backend Server
 
 ```bash
-ng generate --help
+npm run server
 ```
+*The server will start at `http://localhost:3000`.*
 
-## Building
-
-To build the project run:
+### Start the Frontend (Development)
 
 ```bash
-ng build
+npm start
 ```
+*Navigate to `http://localhost:4200` in your browser.*
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+---
 
-## Running unit tests
+## 🧪 Testing
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use:
 
 ```bash
-ng test
+npm test
 ```
 
-## Running end-to-end tests
+---
 
-For end-to-end (e2e) testing, run:
+## 📦 Deployment
+
+### Building for Production
 
 ```bash
-ng e2e
+npm run build
 ```
+This will compile the project and store the build artifacts in the `dist/` directory.
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+### PWA Support
+The app is configured as a Progressive Web App. After building for production and serving via HTTPS, users will be prompted to "Install" the app on their devices.
 
-## Additional Resources
+---
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License.

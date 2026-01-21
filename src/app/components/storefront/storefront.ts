@@ -1,13 +1,14 @@
-import { Component, OnInit, signal, inject, computed } from '@angular/core';
+import { Component, OnInit, signal, inject, computed, effect } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
 import { Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
+import { TenantService } from '../../services/tenant.service';
 
 @Component({
   selector: 'app-storefront',
@@ -96,12 +97,35 @@ export class StorefrontComponent implements OnInit {
     this.selectedFlavor.set(flavor);
   }
 
+  constructor() {
+    // React to tenant changes to reload recipes
+    effect(() => {
+      const tenant = this.tenantService.tenant();
+      if (tenant) {
+        console.log('[Storefront] Tenant identified, loading recipes:', tenant.slug);
+        this.loadRecipes();
+      }
+    });
+  }
+
   ngOnInit(): void {
-    this.loadRecipes();
+  }
+
+  private tenantService = inject(TenantService);
+
+  private get headers() {
+    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
   loadRecipes(): void {
-    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes').subscribe({
+    const slug = this.tenantService.tenant()?.slug;
+    if (!slug) {
+      console.warn('[Storefront] Skipping loadRecipes: No tenant slug identified yet.');
+      return;
+    }
+    const headers = new HttpHeaders().set('x-tenant-slug', slug);
+    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
       next: (recipes: CalculatedRecipe[]) => {
         this.products.set(recipes);
         // Sync local storage just in case other parts of the app still rely on it

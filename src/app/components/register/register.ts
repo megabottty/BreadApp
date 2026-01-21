@@ -23,6 +23,11 @@ export class RegisterComponent {
   confirmPassword = signal('');
   selectedRole = signal<UserRole>('CUSTOMER');
   showPassword = signal(false);
+  registrationSuccess = signal(false);
+
+  // Baker specific signals
+  bakeryName = signal('');
+  bakerySlug = signal('');
 
   passwordErrors = computed(() => {
     const p = this.password();
@@ -46,8 +51,26 @@ export class RegisterComponent {
       return;
     }
 
+    if (this.selectedRole() === 'BAKER') {
+      if (!this.bakeryName() || !this.bakerySlug()) {
+        this.modalService.showAlert('Please provide your Bakery name and choose a shop URL.', 'Incomplete Info', 'warning');
+        return;
+      }
+    }
+
     try {
-      await this.authService.register(this.name(), this.email(), this.password(), this.selectedRole());
+      const result = await this.authService.register(
+        this.name(),
+        this.email(),
+        this.password(),
+        this.selectedRole(),
+        this.selectedRole() === 'BAKER' ? this.bakeryName() : undefined,
+        this.selectedRole() === 'BAKER' ? this.bakerySlug() : undefined
+      );
+
+      if (result?.needsVerification) {
+        this.registrationSuccess.set(true);
+      }
     } catch (error: any) {
       this.modalService.showAlert(error.message || 'Registration failed', 'Registration Error', 'error');
     }

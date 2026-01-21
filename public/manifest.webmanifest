@@ -1,0 +1,17 @@
+{
+  "name": "The Daily Dough",
+  "short_name": "DailyDough",
+  "theme_color": "#7D8F69",
+  "background_color": "#FAF9F6",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

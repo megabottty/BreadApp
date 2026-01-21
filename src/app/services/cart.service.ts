@@ -1,9 +1,10 @@
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, Order, PromoCode } from '../logic/bakers-math';
 import { SubscriptionService } from './subscription.service';
 import { AuthService } from './auth.service';
 import { ModalService } from './modal.service';
+import { TenantService } from './tenant.service';
 
 export type FulfillmentType = 'PICKUP' | 'SHIPPING';
 
@@ -29,8 +30,15 @@ export class CartService {
 
   private availablePromos = signal<PromoCode[]>([]);
 
+  private tenantService = inject(TenantService);
+
+  private get headers() {
+    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    return new HttpHeaders().set('x-tenant-slug', slug);
+  }
+
   getOrderById(orderId: string) {
-    return this.http.get<Order>(`${this.apiUrl}/${orderId}`);
+    return this.http.get<Order>(`${this.apiUrl}/${orderId}`, { headers: this.headers });
   }
 
   fulfillmentType = signal<FulfillmentType>('PICKUP');
@@ -119,7 +127,7 @@ export class CartService {
   }
 
   loadPromos() {
-    this.http.get<any[]>(`${this.apiUrl}/promos/all`).subscribe({
+    this.http.get<any[]>(`${this.apiUrl}/promos/all`, { headers: this.headers }).subscribe({
       next: (data) => {
         const mapped: PromoCode[] = data.map(p => ({
           id: p.id,
@@ -131,7 +139,13 @@ export class CartService {
         }));
         this.availablePromos.set(mapped);
       },
-      error: (err) => console.error('Failed to load promos', err)
+      error: (err) => {
+        if (err.status !== 404) {
+          console.error('Failed to load promos', err);
+        } else {
+          console.warn('[CartService] No promos found for this bakery (404).');
+        }
+      }
     });
   }
 
@@ -165,7 +179,7 @@ export class CartService {
   }
 
   saveOrderToDatabase(order: Order) {
-    return this.http.post(this.apiUrl, order);
+    return this.http.post(this.apiUrl, order, { headers: this.headers });
   }
 
   createCheckoutSession(items: CartItem[], customerEmail: string, orderId: string) {

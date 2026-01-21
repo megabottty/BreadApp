@@ -1,12 +1,13 @@
-import { Component, OnInit, signal, inject, computed } from '@angular/core';
+import { Component, OnInit, signal, inject, computed, effect } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe, PercentPipe, DatePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, Review } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
 import { Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
+import { TenantService } from '../../services/tenant.service';
 
 @Component({
   selector: 'app-experimental-kitchen',
@@ -57,12 +58,35 @@ export class ExperimentalKitchenComponent implements OnInit {
     return this.topRatedSpecialId() === product.id;
   }
 
+  constructor() {
+    // React to tenant changes to reload recipes
+    effect(() => {
+      const tenant = this.tenantService.tenant();
+      if (tenant) {
+        console.log('[ExperimentalKitchen] Tenant identified, loading recipes:', tenant.slug);
+        this.loadRecipes();
+      }
+    });
+  }
+
   ngOnInit(): void {
-    this.loadRecipes();
+  }
+
+  private tenantService = inject(TenantService);
+
+  private get headers() {
+    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
   loadRecipes(): void {
-    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes').subscribe({
+    const slug = this.tenantService.tenant()?.slug;
+    if (!slug) {
+      console.warn('[ExperimentalKitchen] Skipping loadRecipes: No tenant slug identified yet.');
+      return;
+    }
+    const headers = new HttpHeaders().set('x-tenant-slug', slug);
+    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
       next: (recipes: CalculatedRecipe[]) => {
         this.products.set(recipes);
         localStorage.setItem('bakery_recipes', JSON.stringify(recipes));

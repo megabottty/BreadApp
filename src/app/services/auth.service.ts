@@ -95,8 +95,10 @@ export class AuthService {
     }
   }
 
-  async register(name: string, email: string, password: string, role: UserRole = 'CUSTOMER') {
+  async register(name: string, email: string, password: string, role: UserRole = 'CUSTOMER', bakeryName?: string, bakerySlug?: string) {
     console.log('[Auth Debug] Attempting to register:', email, role);
+
+    // 1. Create the Auth User in Supabase
     const { data, error } = await this.supabase.auth.signUp({
       email,
       password,
@@ -114,13 +116,61 @@ export class AuthService {
     }
 
     console.log('[Auth Debug] Registration successful:', data.user?.email);
+
+    // 2. If Baker, create their Bakery Tenant via the backend API
+    if (role === 'BAKER' && bakeryName && bakerySlug) {
+      try {
+        const tenantResponse = await fetch('http://localhost:3000/api/orders/register-bakery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: bakeryName, slug: bakerySlug })
+        });
+
+        if (!tenantResponse.ok) {
+          const errData = await tenantResponse.json();
+          throw new Error(errData.error || 'Failed to create bakery');
+        }
+
+        const tenant = await tenantResponse.json();
+        console.log('[Auth Debug] Bakery created:', tenant.slug);
+
+        // Update user metadata with tenant_id if possible, or just rely on the slug in the URL later
+        await this.supabase.auth.updateUser({
+          data: { tenant_id: tenant.id, bakery_slug: tenant.slug }
+        });
+
+      } catch (tenantError: any) {
+        console.error('[Auth Error] Bakery creation failed:', tenantError.message);
+
+        // Pass through specific backend errors if they exist
+        let errorMessage = 'Failed to create bakery setup. Please check your connection and try again.';
+
+        if (tenantError.message.includes('slug is already taken')) {
+          errorMessage = tenantError.message;
+        } else if (tenantError.message.includes('Database table missing')) {
+          errorMessage = tenantError.message;
+        }
+
+        throw new Error(errorMessage);
+      }
+    }
+
     if (data.user) {
+      // Check if session exists (if not, email confirmation is likely enabled)
+      const { data: sessionData } = await this.supabase.auth.getSession();
+
+      if (!sessionData.session) {
+        console.log('[Auth Debug] No session after registration, likely needs email verification');
+        return { needsVerification: true };
+      }
+
       if (role === 'BAKER') {
         this.router.navigate(['/calculator']);
       } else {
         this.router.navigate(['/front']);
       }
     }
+    return { needsVerification: false };
   }
 
   async logout() {

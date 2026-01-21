@@ -1,0 +1,73 @@
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">🥖</span>
+      <h2>Baker Central</h2>
+    </div>
+    <nav>
+      <button [class.active]="activeTab() === 'orders'" (click)="activeTab.set('orders')">
+        <span class="icon">📋</span> Production
+      </button>
+      <button [class.active]="activeTab() === 'ledger'" (click)="activeTab.set('ledger')">
+        <span class="icon">💰</span> Ledger
+      </button>
+      <button [class.active]="activeTab() === 'recipes'" (click)="activeTab.set('recipes')">
+        <span class="icon">⚖️</span> Recipes
+      </button>
+      <button [class.active]="activeTab() === 'settings'" (click)="activeTab.set('settings')">
+        <span class="icon">⚙️</span> Shop Settings
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      @if (currentTenant(); as tenant) {
+        <div class="bakery-badge">
+          <p class="name">{{tenant.name}}</p>
+          <p class="status">● Online</p>
+        </div>
+      }
+    </div>
+  </aside>
+
+  <main class="content-area">
+    @if (activeTab() === 'orders') {
+      <app-orders-manager></app-orders-manager>
+    }
+    @if (activeTab() === 'ledger') {
+      <app-bakery-ledger></app-bakery-ledger>
+    }
+    @if (activeTab() === 'recipes') {
+      <app-recipe-calculator></app-recipe-calculator>
+    }
+    @if (activeTab() === 'settings') {
+      <div class="settings-view">
+        <header>
+          <h1>Shop Settings</h1>
+          <p>Customize how your customers see your bakery.</p>
+        </header>
+
+        <div class="card">
+          <h3>Branding</h3>
+          <div class="branding-grid">
+            <div class="color-picker">
+              <label>Primary Color</label>
+              <input type="color" [ngModel]="currentTenant()?.primary_color">
+            </div>
+            <div class="color-picker">
+              <label>Secondary Color</label>
+              <input type="color" [ngModel]="currentTenant()?.secondary_color">
+            </div>
+          </div>
+          <button class="btn-primary">Save Branding</button>
+        </div>
+
+        <div class="card">
+          <h3>Store Status</h3>
+          <div class="status-toggle">
+            <span>Accepting Orders</span>
+            <button class="btn-toggle active">ON</button>
+          </div>
+        </div>
+      </div>
+    }
+  </main>
+</div>

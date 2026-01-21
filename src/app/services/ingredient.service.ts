@@ -2,6 +2,7 @@ import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { NutritionData, MOCK_INGREDIENTS_DB } from '../logic/bakers-math';
 import { map, Observable, of, catchError } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface FoodSearchItem {
   name: string;
@@ -13,6 +14,9 @@ export interface FoodSearchItem {
 })
 export class IngredientService {
   private http = inject(HttpClient);
+  private isRateLimited = false;
+  private lastRateLimitTime = 0;
+  private readonly RATE_LIMIT_COOLDOWN = 60000; // 1 minute cooldown
 
   private ingredientsDb = signal<Record<string, NutritionData>>({
     ...MOCK_INGREDIENTS_DB,
@@ -46,8 +50,16 @@ export class IngredientService {
       .filter(name => name.toLowerCase().includes(normalizedTerm))
       .map(name => ({ name, nutrition: this.ingredientsDb()[name] }));
 
-    // USDA FoodData Central Search API (using demo key)
-    const apiKey = 'DEMO_KEY';
+    // Check if we are currently cooled down from rate limiting
+    if (this.isRateLimited) {
+      if (Date.now() - this.lastRateLimitTime < this.RATE_LIMIT_COOLDOWN) {
+        return of(localResults);
+      }
+      this.isRateLimited = false;
+    }
+
+    // USDA FoodData Central Search API
+    const apiKey = environment.usdaApiKey || 'DEMO_KEY';
     const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(normalizedTerm)}&pageSize=10&api_key=${apiKey}`;
 
     return this.http.get<any>(url).pipe(
@@ -83,7 +95,13 @@ export class IngredientService {
         return combined.slice(0, 15);
       }),
       catchError(err => {
-        console.error('API search failed, falling back to local results', err);
+        if (err.status === 429) {
+          console.warn('[IngredientService] USDA API rate limit reached. Falling back to local results for 1 minute.');
+          this.isRateLimited = true;
+          this.lastRateLimitTime = Date.now();
+        } else {
+          console.error('API search failed, falling back to local results', err);
+        }
         return of(localResults);
       })
     );

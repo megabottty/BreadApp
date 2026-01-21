@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { CalculatedRecipe } from '../logic/bakers-math';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { TenantService } from './tenant.service';
 
 export interface Subscription {
   id: string;
@@ -20,8 +21,14 @@ export interface Subscription {
 })
 export class SubscriptionService {
   private http = inject(HttpClient);
+  private tenantService = inject(TenantService);
   private apiUrl = 'http://localhost:3000/api/orders/subscriptions';
   private subscriptions = signal<Subscription[]>([]);
+
+  private get headers() {
+    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    return new HttpHeaders().set('x-tenant-slug', slug);
+  }
 
   allSubscriptions = computed(() => this.subscriptions());
 
@@ -41,7 +48,7 @@ export class SubscriptionService {
   }
 
   fetchSubscriptionsForUser(customerId: string) {
-    this.http.get<any[]>(`http://localhost:3000/api/orders/subscriptions/${customerId}`).subscribe({
+    this.http.get<any[]>(`http://localhost:3000/api/orders/subscriptions/${customerId}`, { headers: this.headers }).subscribe({
       next: (data) => {
         const mapped: Subscription[] = data.map(s => ({
           id: s.id,
@@ -80,7 +87,7 @@ export class SubscriptionService {
       status: 'ACTIVE'
     };
 
-    this.http.post<any>(`http://localhost:3000/api/orders/subscriptions`, newSub).subscribe({
+    this.http.post<any>(`http://localhost:3000/api/orders/subscriptions`, newSub, { headers: this.headers }).subscribe({
       next: (saved) => {
         const formatted: Subscription = {
           id: saved.id,
@@ -119,7 +126,7 @@ export class SubscriptionService {
   }
 
   private updateSubscriptionStatus(subId: string, status: 'ACTIVE' | 'PAUSED' | 'CANCELLED') {
-    this.http.patch<any>(`http://localhost:3000/api/orders/subscriptions/${subId}/status`, { status }).subscribe({
+    this.http.patch<any>(`http://localhost:3000/api/orders/subscriptions/${subId}/status`, { status }, { headers: this.headers }).subscribe({
       next: () => {
         this.subscriptions.update(prev => prev.map(s =>
           s.id === subId ? { ...s, status } : s
