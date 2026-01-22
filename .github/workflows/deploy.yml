@@ -39,52 +39,47 @@ jobs:
           echo -e "\n3. Network Path (mtr/traceroute):"
           traceroute -p 2222 129.121.65.112 || echo "Traceroute failed"
 
-      - name: Deploy Frontend to Bluehost via SSH
+      - name: Deploy to Bluehost (Frontend and Backend)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 2222
-          timeout: 5m
-          command_timeout: 10m
+          timeout: 10m
+          command_timeout: 20m
           debug: true
-          source: "dist/BreadApp/browser/**"
-          target: "public_html/"
-          strip_components: 3
+          source: "dist/BreadApp/browser/**,server/**,package.json,package-lock.json"
+          target: "deploy_tmp/"
 
-      - name: Deploy Backend to Bluehost via SSH
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 2222
-          timeout: 5m
-          command_timeout: 10m
-          debug: true
-          source: "server/**,package.json,package-lock.json"
-          target: "api/"
-
-      - name: Install Backend Dependencies and Restart Server
+      - name: Move Files to Correct Locations and Restart
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 2222
           script: |
+            echo "Moving frontend files..."
+            mkdir -p public_html
+            cp -r deploy_tmp/dist/BreadApp/browser/* public_html/
+
+            echo "Moving backend files..."
+            mkdir -p api
+            cp -r deploy_tmp/server api/
+            cp deploy_tmp/package.json api/
+            cp deploy_tmp/package-lock.json api/
+
+            echo "Cleaning up temp folder..."
+            rm -rf deploy_tmp
+
+            echo "Installing dependencies and restarting..."
             cd api
-            # Ensure npm is available and install dependencies
             export PATH=$PATH:/usr/local/bin
             npm install --production
-            # Try to restart using PM2 if it exists
             if command -v pm2 &> /dev/null
             then
                 pm2 restart bread-api || pm2 start server/index.js --name bread-api
             else
-                echo "Backend files uploaded to 'api/' folder. PM2 not found."
+                echo "PM2 not found. Backend updated."
             fi
