@@ -6,6 +6,8 @@ import { AuthService } from './auth.service';
 import { ModalService } from './modal.service';
 import { TenantService } from './tenant.service';
 
+import { environment } from '../../environments/environment';
+
 export type FulfillmentType = 'PICKUP' | 'SHIPPING';
 
 export interface CartItem {
@@ -22,11 +24,10 @@ export class CartService {
   private modalService = inject(ModalService);
   private cartItems = signal<CartItem[]>([]);
   private isInitialLoad = true;
-  // Use localhost for local development, or your live URL for production
-  private apiUrl = 'http://localhost:3000/api/orders';
-  private paymentUrl = 'http://localhost:3000/api/payments';
-  private recipeUrl = 'http://localhost:3000/api/orders/recipes';
-  private promoUrl = 'http://localhost:3000/api/orders/promos';
+  private apiUrl = environment.apiUrl + '/orders';
+  private paymentUrl = environment.apiUrl + '/payments';
+  private recipeUrl = environment.apiUrl + '/orders/recipes';
+  private promoUrl = environment.apiUrl + '/orders/promos';
 
   private availablePromos = signal<PromoCode[]>([]);
 

@@ -2,6 +2,8 @@ import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
+import { environment } from '../../environments/environment';
+
 export interface NotificationLog {
   id: string;
   recipient: string;
@@ -15,7 +17,7 @@ export interface NotificationLog {
 })
 export class NotificationService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:3000/api/notifications/send-sms';
+  private apiUrl = environment.apiUrl + '/notifications/send-sms';
   logs = signal<NotificationLog[]>([]);
 
   async sendSMS(to: string, message: string): Promise<boolean> {

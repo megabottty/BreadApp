@@ -25,51 +25,55 @@ jobs:
 
       - name: Network Diagnosis
         run: |
-          echo "Checking connectivity to 129.121.65.112 on port 22..."
-          nc -zv -w 5 129.121.65.112 22 || echo "Port 22 is CLOSED or BLOCKED"
+          echo "Checking connectivity to 129.121.65.112 on port 2222..."
+          nc -zv -w 5 129.121.65.112 2222 || echo "Port 2222 is CLOSED or BLOCKED"
 
       - name: Deploy Frontend to Bluehost via SSH
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
+          port: 2222
           timeout: 5m
+          command_timeout: 10m
           debug: true
-          source: "dist/BreadApp/browser/*"
+          source: "dist/BreadApp/browser/**"
           target: "public_html/"
           strip_components: 3
 
       - name: Deploy Backend to Bluehost via SSH
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
+          port: 2222
           timeout: 5m
+          command_timeout: 10m
           debug: true
-          source: "server/*,package.json,package-lock.json"
+          source: "server/**,package.json,package-lock.json"
           target: "api/"
 
       - name: Install Backend Dependencies and Restart Server
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
+          port: 2222
           script: |
             cd api
+            # Ensure npm is available and install dependencies
+            export PATH=$PATH:/usr/local/bin
             npm install --production
-            # Try to restart using PM2 if it exists, otherwise provide a hint
+            # Try to restart using PM2 if it exists
             if command -v pm2 &> /dev/null
             then
                 pm2 restart bread-api || pm2 start server/index.js --name bread-api
             else
-                echo "Backend files uploaded to 'api/' folder. PM2 not found, please start your server manually or install PM2."
+                echo "Backend files uploaded to 'api/' folder. PM2 not found."
             fi

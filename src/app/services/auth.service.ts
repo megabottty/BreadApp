@@ -138,7 +138,7 @@ export class AuthService {
     // 2. If Baker, create their Bakery Tenant via the backend API
     if (role === 'BAKER' && bakeryName && bakerySlug) {
       try {
-        const tenantResponse = await fetch('http://localhost:3000/api/orders/register-bakery', {
+        const tenantResponse = await fetch(`${environment.apiUrl}/orders/register-bakery`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: bakeryName, slug: bakerySlug })

@@ -3,6 +3,8 @@ import { CalculatedRecipe } from '../logic/bakers-math';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { TenantService } from './tenant.service';
 
+import { environment } from '../../environments/environment';
+
 export interface Subscription {
   id: string;
   customerId: string;
@@ -22,7 +24,7 @@ export interface Subscription {
 export class SubscriptionService {
   private http = inject(HttpClient);
   private tenantService = inject(TenantService);
-  private apiUrl = 'http://localhost:3000/api/orders/subscriptions';
+  private apiUrl = environment.apiUrl + '/orders/subscriptions';
   private subscriptions = signal<Subscription[]>([]);
 
   private get headers() {
@@ -48,7 +50,7 @@ export class SubscriptionService {
   }
 
   fetchSubscriptionsForUser(customerId: string) {
-    this.http.get<any[]>(`http://localhost:3000/api/orders/subscriptions/${customerId}`, { headers: this.headers }).subscribe({
+    this.http.get<any[]>(`${this.apiUrl}/${customerId}`, { headers: this.headers }).subscribe({
       next: (data) => {
         const mapped: Subscription[] = data.map(s => ({
           id: s.id,
@@ -87,7 +89,7 @@ export class SubscriptionService {
       status: 'ACTIVE'
     };
 
-    this.http.post<any>(`http://localhost:3000/api/orders/subscriptions`, newSub, { headers: this.headers }).subscribe({
+    this.http.post<any>(this.apiUrl, newSub, { headers: this.headers }).subscribe({
       next: (saved) => {
         const formatted: Subscription = {
           id: saved.id,
@@ -126,7 +128,7 @@ export class SubscriptionService {
   }
 
   private updateSubscriptionStatus(subId: string, status: 'ACTIVE' | 'PAUSED' | 'CANCELLED') {
-    this.http.patch<any>(`http://localhost:3000/api/orders/subscriptions/${subId}/status`, { status }, { headers: this.headers }).subscribe({
+    this.http.patch<any>(`${this.apiUrl}/${subId}/status`, { status }, { headers: this.headers }).subscribe({
       next: () => {
         this.subscriptions.update(prev => prev.map(s =>
           s.id === subId ? { ...s, status } : s

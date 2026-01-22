@@ -17,6 +17,7 @@ export interface Tenant {
 })
 export class TenantService {
   private http = inject(HttpClient);
+  private apiUrl = environment.apiUrl;
 
   private currentTenant = signal<Tenant | null>(null);
   tenant = computed(() => this.currentTenant());
@@ -68,7 +69,7 @@ export class TenantService {
       return;
     }
     console.log(`[TenantService] Loading info for slug: ${slug}`);
-    this.http.get<Tenant>(`http://localhost:3000/api/orders/info`, {
+    this.http.get<Tenant>(`${this.apiUrl}/orders/info`, {
       headers: { 'x-tenant-slug': slug }
     }).subscribe({
       next: (tenant) => {
@@ -88,11 +89,11 @@ export class TenantService {
   }
 
   registerBakery(name: string, slug: string) {
-    return this.http.post<Tenant>(`http://localhost:3000/api/orders/register-bakery`, { name, slug });
+    return this.http.post<Tenant>(`${this.apiUrl}/orders/register-bakery`, { name, slug });
   }
 
   updateTenantBranding(id: string, primary: string, secondary: string) {
-    return this.http.patch<Tenant>(`http://localhost:3000/api/orders/info`, { primary_color: primary, secondary_color: secondary }, {
+    return this.http.patch<Tenant>(`${this.apiUrl}/orders/info`, { primary_color: primary, secondary_color: secondary }, {
       headers: { 'x-tenant-id': id }
     }).subscribe({
       next: (updated) => {
