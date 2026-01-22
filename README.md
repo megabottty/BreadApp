@@ -96,6 +96,9 @@ This will compile the project and store the build artifacts in the `dist/` direc
 ### PWA Support
 The app is configured as a Progressive Web App. After building for production and serving via HTTPS, users will be prompted to "Install" the app on their devices.
 
+### Deployment Note (URL Refreshing)
+If you are hosting on a traditional server (like Apache/Bluehost), you must ensure that all requests are redirected to `index.html` so that Angular can handle the routing. I have included a `.htaccess` file in the `public/` directory which will be automatically included in your build.
+
 ---
 
 ## 🤝 Contributing

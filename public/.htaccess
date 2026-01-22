@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # If the requested resource is a physical file or directory, just serve it
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # otherwise, redirect all other requests to index.html
+  RewriteRule ^ index.html [L]
+</IfModule>

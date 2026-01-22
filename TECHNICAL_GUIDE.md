@@ -32,6 +32,11 @@ The app is configured for mobile-first use:
 - **Service Workers**: Handles caching for offline availability.
 - **App Icons**: Stored in `public/` and `src/assets/`.
 
+### 5. Hosting & URL Rewriting (SPA Refresh Fix)
+Since this is a Single Page Application (SPA), traditional servers (Apache/Bluehost) need to be told how to handle sub-routes. I have added a `.htaccess` file in the `public/` directory.
+
+When you build the app (`npm run build`), this file is copied to the root of your `dist/` folder. It tells the server to redirect any unknown URLs back to `index.html` so Angular can handle them, preventing the "Bluehost Splash Page" on refresh.
+
 ---
 
 ## 💾 Data Schema
