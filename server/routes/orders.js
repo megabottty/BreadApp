@@ -125,6 +125,7 @@ router.get('/recipes', async (req, res) => {
       price: recipe.price,
       description: recipe.description,
       trueHydration: recipe.true_hydration,
+      flavorProfile: recipe.flavor_profile,
       ingredients: recipe.ingredients,
       images: recipe.images,
       createdAt: recipe.created_at
@@ -218,6 +219,7 @@ router.post('/recipes', async (req, res) => {
         price: recipe.price,
         description: recipe.description,
         true_hydration: recipe.trueHydration,
+        flavor_profile: recipe.flavorProfile,
         ingredients: recipe.ingredients,
         images: recipe.images
       })

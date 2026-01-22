@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS bakery_recipes (
     price DECIMAL(10, 2) NOT NULL,
     description TEXT,
     true_hydration DECIMAL(5, 4),
+    flavor_profile TEXT,
     ingredients JSONB NOT NULL,
     images TEXT[] DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

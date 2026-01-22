@@ -43,7 +43,7 @@ export class StorefrontComponent implements OnInit {
 
     return this.products().filter(p => {
       const matchCategory = (category === 'ALL' && p.category !== 'SPECIAL') || p.category === category;
-      const matchFlavor = flavor === 'ALL' || p.flavorProfile === flavor;
+      const matchFlavor = flavor === 'ALL' || (p.flavorProfile && p.flavorProfile.toUpperCase() === flavor.toUpperCase());
       const matchSearch = p.name.toLowerCase().includes(search) ||
                           p.description?.toLowerCase().includes(search);
       return matchCategory && matchFlavor && matchSearch;
