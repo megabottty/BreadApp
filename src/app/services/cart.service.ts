@@ -117,8 +117,14 @@ export class CartService {
   constructor() {
     this.loadCart();
     this.loadLoyalty();
-    this.loadPromos();
     this.isInitialLoad = false;
+
+    // Automatically load promos once tenant is identified
+    effect(() => {
+      if (this.tenantService.tenant()) {
+        this.loadPromos();
+      }
+    });
 
     // Automatically save cart whenever any relevant signal changes
     effect(() => {
@@ -127,6 +133,13 @@ export class CartService {
   }
 
   loadPromos() {
+    const slug = this.tenantService.tenant()?.slug;
+    if (!slug) {
+      // If tenant isn't loaded yet, don't fire the request.
+      // The constructor/effect or component will trigger this once tenant is identified.
+      return;
+    }
+
     this.http.get<any[]>(`${this.apiUrl}/promos/all`, { headers: this.headers }).subscribe({
       next: (data) => {
         const mapped: PromoCode[] = data.map(p => ({

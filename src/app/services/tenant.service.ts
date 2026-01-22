@@ -27,24 +27,46 @@ export class TenantService {
 
   private identifyTenant() {
     // Logic to identify tenant from URL
-    // e.g. baker1.daily-dough.com or daily-dough.com/baker1
     const host = window.location.hostname;
     const path = window.location.pathname;
 
-    let slug = 'the-daily-dough'; // Default for demo
+    let slug = 'thedailydough'; // Updated default to match registered slug
 
-    // Simple path-based logic for now: /b/slug/...
+    // Path-based logic: /b/slug/...
     if (path.startsWith('/b/')) {
-      slug = path.split('/')[2];
-    } else if (host !== 'localhost' && host.includes('.')) {
+      const parts = path.split('/');
+      if (parts[2]) {
+        slug = parts[2];
+      }
+    } else if (host !== 'localhost' && !host.includes('bluehost.com')) {
       // Subdomain logic: slug.daily-dough.com
-      slug = host.split('.')[0];
+      const parts = host.split('.');
+
+      // If we have at least two parts, the first might be a slug
+      if (parts.length >= 2) {
+        const potentialSlug = parts[0].toLowerCase();
+
+        // Define system-reserved prefixes that are NOT bakery slugs
+        const systemPrefixes = ['www', 'thedailydough', 'dailydough', 'app', 'api', 'admin'];
+
+        // If the first part isn't a system prefix, it's likely a baker's custom slug
+        if (!systemPrefixes.includes(potentialSlug)) {
+          slug = potentialSlug;
+        }
+      }
     }
+
+    // Clean slug from any trailing slashes or junk
+    slug = slug.replace(/\/$/, '').trim();
 
     this.loadTenantInfo(slug);
   }
 
   loadTenantInfo(slug: string) {
+    if (!slug) {
+      console.warn('[TenantService] No slug provided to loadTenantInfo');
+      return;
+    }
     console.log(`[TenantService] Loading info for slug: ${slug}`);
     this.http.get<Tenant>(`http://localhost:3000/api/orders/info`, {
       headers: { 'x-tenant-slug': slug }
@@ -55,9 +77,11 @@ export class TenantService {
         this.applyBranding(tenant);
       },
       error: (err) => {
-        console.error(`[TenantService] Failed to load tenant info for slug: ${slug}`, err);
+        // If it's a 404, we don't want to spam error logs, just a warning is enough
         if (err.status === 404) {
-          console.warn('[TenantService] This usually means the bakery slug hasn\'t been registered yet.');
+          console.warn(`[TenantService] Bakery not found for slug: ${slug}. This usually means the bakery hasn't been registered yet.`);
+        } else {
+          console.error(`[TenantService] Failed to load tenant info for slug: ${slug}`, err);
         }
       }
     });

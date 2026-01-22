@@ -40,17 +40,35 @@ export class AuthService {
   }
 
   private async initSession() {
-    const { data: { session } } = await this.supabase.auth.getSession();
-    if (session) {
-      console.log('Session found on init:', session.user.email);
-      this.handleAuthChange(session.user);
-    } else {
-      console.log('No session found on init');
+    try {
+      const { data: { session }, error } = await this.supabase.auth.getSession();
+      if (error) {
+        console.warn('[Auth] Session initialization error:', error.message);
+        // If there's an error getting the session (like invalid refresh token),
+        // Supabase might still have local data that needs clearing
+        if (error.status === 400 || error.message.includes('Refresh Token')) {
+          this.logout();
+        }
+      }
+
+      if (session) {
+        console.log('Session found on init:', session.user.email);
+        this.handleAuthChange(session.user);
+      } else {
+        console.log('No session found on init');
+      }
+    } catch (e) {
+      console.error('[Auth] Unexpected error during session init:', e);
     }
 
     this.supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
-      this.handleAuthChange(session?.user ?? null);
+      // Handle special event for signed out or token refresh failures
+      if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        this.handleAuthChange(session?.user ?? null);
+      } else {
+        this.handleAuthChange(session?.user ?? null);
+      }
     });
   }
 
