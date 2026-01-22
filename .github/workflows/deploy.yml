@@ -25,6 +25,10 @@ jobs:
 
       - name: Network Diagnosis
         run: |
+          echo "0. Current Runner IP:"
+          curl -s https://ifconfig.me
+          echo -e "\n"
+
           echo "1. Connectivity Check (nc):"
           nc -zv -w 5 129.121.65.112 2222 || echo "Port 2222 is CLOSED or BLOCKED"
 
