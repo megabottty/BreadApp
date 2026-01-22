@@ -175,7 +175,9 @@ export class ProfileComponent implements OnInit {
          totalFlour: 500,
          totalWater: 350,
          trueHydration: 0.7,
-         totalNutrition: { calories: 1500, protein: 50, carbs: 300, fat: 10 }
+         totalNutrition: { calories: 1500, protein: 50, carbs: 300, fat: 10 },
+         totalCost: 0,
+         profitMargin: 0
        };
        for(let i=0; i<item.quantity; i++) {
          this.cartService.addToCart(mockProduct);
