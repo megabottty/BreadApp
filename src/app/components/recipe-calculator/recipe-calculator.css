@@ -659,6 +659,34 @@ td {
 }
 
 /* Production Brain Styles */
+.low-margin {
+  background-color: #fff1f0 !important;
+  border: 1px solid #ffa39e !important;
+}
+
+.low-margin .value {
+  color: #cf1322 !important;
+}
+
+.checkbox-group {
+  margin: 1.5rem 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #555;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
 .save-section {
   margin-top: 2rem;
   padding-top: 1.5rem;

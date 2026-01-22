@@ -40,8 +40,12 @@ export class StorefrontComponent implements OnInit {
     const category = this.selectedCategory();
     const flavor = this.selectedFlavor();
     const search = this.searchTerm().toLowerCase();
+    const isBaker = this.authService.isBaker();
 
     return this.products().filter(p => {
+      // If baker, show everything. If customer, only show if not hidden.
+      if (!isBaker && p.isHidden) return false;
+
       const matchCategory = (category === 'ALL' && p.category !== 'SPECIAL') || p.category === category;
       const matchFlavor = flavor === 'ALL' || (p.flavorProfile && p.flavorProfile.toUpperCase() === flavor.toUpperCase());
       const matchSearch = p.name.toLowerCase().includes(search) ||

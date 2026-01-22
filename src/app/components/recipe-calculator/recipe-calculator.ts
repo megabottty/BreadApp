@@ -73,13 +73,14 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       images: this.fb.array([]),
       levainHydration: [100],
       servingSizeGrams: [50],
+      isHidden: [false],
       currentUnits: [1],
       targetUnits: [1],
       ingredients: this.fb.array([
-        this.createIngredient('Bread Flour', 400, 'FLOUR'),
-        this.createIngredient('Water', 300, 'WATER'),
-        this.createIngredient('Starter', 75, 'LEVAIN'),
-        this.createIngredient('Salt', 10, 'SALT'),
+        this.createIngredient('Bread Flour', 400, 'FLOUR', 0.15),
+        this.createIngredient('Water', 300, 'WATER', 0),
+        this.createIngredient('Starter', 75, 'LEVAIN', 0.15),
+        this.createIngredient('Salt', 10, 'SALT', 0.05),
       ])
     });
 
@@ -185,6 +186,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       imageUrl: recipe.imageUrl || '',
       levainHydration: (recipe.levainDetails?.hydration ?? 1) * 100 || recipe.levainHydration,
       servingSizeGrams: recipe.servingSizeGrams || 50,
+      isHidden: recipe.isHidden || false,
       currentUnits: recipe.currentUnits || 1,
       targetUnits: recipe.targetUnits || 1
     });
@@ -200,7 +202,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     const ingredientsArray = this.recipeForm.get('ingredients') as FormArray;
     ingredientsArray.clear();
     recipe.ingredients.forEach((ing: any) => {
-      ingredientsArray.push(this.createIngredient(ing.name, ing.weight, ing.type));
+      ingredientsArray.push(this.createIngredient(ing.name, ing.weight, ing.type, ing.costPerUnit));
     });
     this.updateCalculations();
   }
@@ -397,11 +399,12 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.updateCalculations();
   }
 
-  createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR'): FormGroup {
+  createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR', cost = 0): FormGroup {
     return this.fb.group({
       name: [name],
       weight: [weight],
-      type: [type]
+      type: [type],
+      costPerUnit: [cost]
     });
   }
 
@@ -424,6 +427,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       price: formValue.price,
       imageUrl: formValue.imageUrl,
       images: formValue.images,
+      isHidden: formValue.isHidden,
       ingredients: formValue.ingredients.map((ing: any) => ({
         ...ing,
         nutrition: this.ingredientService.getNutrition(ing.name)

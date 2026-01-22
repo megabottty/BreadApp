@@ -31,7 +31,11 @@ export class ExperimentalKitchenComponent implements OnInit {
   productToDelete = signal<CalculatedRecipe | null>(null);
 
   experimentalProducts = computed(() => {
-    return this.products().filter(p => p.category === 'SPECIAL');
+    const isBaker = this.authService.isBaker();
+    return this.products().filter(p => {
+      if (!isBaker && p.isHidden) return false;
+      return p.category === 'SPECIAL';
+    });
   });
 
   topRatedSpecialId = computed(() => {

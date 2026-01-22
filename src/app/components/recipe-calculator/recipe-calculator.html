@@ -43,6 +43,13 @@
         <textarea id="recipe-description" formControlName="description" rows="3" placeholder="Tell customers about this item..."></textarea>
       </div>
 
+      <div class="form-group checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" formControlName="isHidden">
+          <span>Hide from customers (Seasonal/Draft)</span>
+        </label>
+      </div>
+
       <div class="form-group">
         <label>Recipe Photos</label>
         <div class="image-upload-wrapper">
@@ -105,6 +112,7 @@
               }
             </div>
             <input type="number" formControlName="weight" placeholder="Grams">
+            <input type="number" formControlName="costPerUnit" placeholder="Cost/100g">
             <select formControlName="type">
               @for (type of ingredientTypes; track type) {
                 <option [value]="type">{{type}}</option>
@@ -144,6 +152,22 @@
             <div class="stat-box highlight">
               <span class="label">True Hydration</span>
               <span class="value">{{recipe.trueHydration | percent:'1.1-1'}}</span>
+            </div>
+          </div>
+
+          <h3>Profitability</h3>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="label">Total Cost</span>
+              <span class="value">{{recipe.totalCost | currency}}</span>
+            </div>
+            <div class="stat-box highlight" [class.low-margin]="recipe.profitMargin < 60">
+              <span class="label">Profit Margin</span>
+              <span class="value">{{recipe.profitMargin | number:'1.1-1'}}%</span>
+            </div>
+            <div class="stat-box">
+              <span class="label">Total Batch Price</span>
+              <span class="value">{{recipe.price | currency}}</span>
             </div>
           </div>
 

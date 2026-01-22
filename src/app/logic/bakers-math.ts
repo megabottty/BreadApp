@@ -15,6 +15,7 @@ export interface Ingredient {
   weight: number;
   type: IngredientType;
   nutrition?: NutritionData;
+  costPerUnit?: number; // Cost per 100g (or unit used in calculation)
 }
 
 export type RecipeCategory = 'BREAD' | 'PASTRY' | 'COOKIE' | 'BAGEL' | 'MUFFIN' | 'SPECIAL' | 'OTHER';
@@ -47,6 +48,7 @@ export interface Recipe {
   instructions?: string;
   ratings?: Review[];
   averageRating?: number;
+  isHidden?: boolean;
 }
 
 export interface CalculatedRecipe extends Recipe {
@@ -66,6 +68,8 @@ export interface CalculatedRecipe extends Recipe {
     carbs: number;
     fat: number;
   };
+  totalCost: number;
+  profitMargin: number;
 }
 
 export const MOCK_INGREDIENTS_DB: Record<string, NutritionData> = {
@@ -145,6 +149,12 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
+  const totalCost = recipe.ingredients.reduce((acc, ing) => {
+    return acc + (ing.weight / 100) * (ing.costPerUnit || 0);
+  }, 0);
+
+  const profitMargin = recipe.price > 0 ? ((recipe.price - totalCost) / recipe.price) * 100 : 0;
+
   const totalWeight = recipe.ingredients.reduce((acc, ing) => acc + ing.weight, 0);
   let nutritionPerServing;
 
@@ -165,7 +175,9 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     trueHydration,
     ingredients: calculatedIngredients,
     totalNutrition,
-    nutritionPerServing
+    nutritionPerServing,
+    totalCost,
+    profitMargin
   };
 }
 

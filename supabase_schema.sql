@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS bakery_recipes (
     flavor_profile TEXT,
     ingredients JSONB NOT NULL,
     images TEXT[] DEFAULT '{}',
+    is_hidden BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
