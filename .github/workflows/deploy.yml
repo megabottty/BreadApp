@@ -25,8 +25,15 @@ jobs:
 
       - name: Network Diagnosis
         run: |
-          echo "Checking connectivity to 129.121.65.112 on port 2222..."
+          echo "1. Connectivity Check (nc):"
           nc -zv -w 5 129.121.65.112 2222 || echo "Port 2222 is CLOSED or BLOCKED"
+
+          echo -e "\n2. Detailed SSH Handshake (ssh -vvv):"
+          # This will fail, but the verbose output is what Bluehost needs
+          ssh -vvv -p 2222 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@129.121.65.112 2>&1 | grep -A 20 "Connecting to" || true
+
+          echo -e "\n3. Network Path (mtr/traceroute):"
+          traceroute -p 2222 129.121.65.112 || echo "Traceroute failed"
 
       - name: Deploy Frontend to Bluehost via SSH
         uses: appleboy/scp-action@v0.1.7
