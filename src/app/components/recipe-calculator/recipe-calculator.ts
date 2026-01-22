@@ -202,7 +202,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     const ingredientsArray = this.recipeForm.get('ingredients') as FormArray;
     ingredientsArray.clear();
     recipe.ingredients.forEach((ing: any) => {
-      ingredientsArray.push(this.createIngredient(ing.name, ing.weight, ing.type, ing.costPerUnit));
+      ingredientsArray.push(this.createIngredient(ing.name, ing.weight, ing.type, ing.costPerUnit, ing.bulkPrice, ing.bulkWeight));
     });
     this.updateCalculations();
   }
@@ -399,12 +399,14 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.updateCalculations();
   }
 
-  createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR', cost = 0): FormGroup {
+  createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR', cost = 0, bulkPrice = 0, bulkWeight = 0): FormGroup {
     return this.fb.group({
       name: [name],
       weight: [weight],
       type: [type],
-      costPerUnit: [cost]
+      costPerUnit: [cost],
+      bulkPrice: [bulkPrice],
+      bulkWeight: [bulkWeight]
     });
   }
 
@@ -430,6 +432,8 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       isHidden: formValue.isHidden,
       ingredients: formValue.ingredients.map((ing: any) => ({
         ...ing,
+        bulkPrice: ing.bulkPrice,
+        bulkWeight: ing.bulkWeight,
         nutrition: this.ingredientService.getNutrition(ing.name)
       })),
       levainDetails: {

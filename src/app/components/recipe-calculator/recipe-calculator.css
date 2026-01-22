@@ -253,12 +253,23 @@ textarea:focus {
 
 .ingredient-row {
   display: grid;
-  grid-template-columns: 1fr 60px 80px 32px;
+  grid-template-columns: 1fr 60px 120px 32px;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   align-items: center;
   position: relative;
   z-index: 1;
+}
+
+.bulk-cost-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.bulk-cost-inputs input {
+  padding: 0.5rem !important;
+  font-size: 0.8rem !important;
 }
 
 .ingredient-row:focus-within {
@@ -272,7 +283,7 @@ textarea:focus {
 
 @media (min-width: 640px) {
   .ingredient-row {
-    grid-template-columns: 2fr 1fr 1.2fr 32px;
+    grid-template-columns: 1.5fr 80px 180px 100px 32px;
     gap: 1rem;
     margin-bottom: 1rem;
   }

@@ -15,7 +15,9 @@ export interface Ingredient {
   weight: number;
   type: IngredientType;
   nutrition?: NutritionData;
-  costPerUnit?: number; // Cost per 100g (or unit used in calculation)
+  costPerUnit?: number; // Legacy/Fallback Cost per 100g
+  bulkPrice?: number;   // What you paid for the whole pack
+  bulkWeight?: number;  // How much the pack weighs (in grams)
 }
 
 export type RecipeCategory = 'BREAD' | 'PASTRY' | 'COOKIE' | 'BAGEL' | 'MUFFIN' | 'SPECIAL' | 'OTHER';
@@ -150,7 +152,15 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
   );
 
   const totalCost = recipe.ingredients.reduce((acc, ing) => {
-    return acc + (ing.weight / 100) * (ing.costPerUnit || 0);
+    let ingCost = 0;
+    if (ing.bulkPrice && ing.bulkWeight && ing.bulkWeight > 0) {
+      // (Bulk Price / Bulk Weight) * weight in recipe
+      ingCost = (ing.bulkPrice / ing.bulkWeight) * ing.weight;
+    } else {
+      // Fallback to legacy costPerUnit (cost per 100g)
+      ingCost = (ing.weight / 100) * (ing.costPerUnit || 0);
+    }
+    return acc + ingCost;
   }, 0);
 
   const profitMargin = recipe.price > 0 ? ((recipe.price - totalCost) / recipe.price) * 100 : 0;

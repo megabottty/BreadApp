@@ -112,7 +112,10 @@
               }
             </div>
             <input type="number" formControlName="weight" placeholder="Grams">
-            <input type="number" formControlName="costPerUnit" placeholder="Cost/100g">
+            <div class="bulk-cost-inputs">
+              <input type="number" formControlName="bulkPrice" placeholder="Bulk Price ($)">
+              <input type="number" formControlName="bulkWeight" placeholder="Bulk Weight (g)">
+            </div>
             <select formControlName="type">
               @for (type of ingredientTypes; track type) {
                 <option [value]="type">{{type}}</option>
