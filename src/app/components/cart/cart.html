@@ -24,8 +24,8 @@
               </div>
               <div class="form-group">
                 <label>Dispatch Date (Mon/Tue Only)</label>
-                <input type="date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="!isDispatchDateValid(dispatchDate())">
-                @if (!isDispatchDateValid(dispatchDate())) {
+                <input type="date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="dispatchDate() && !isDispatchDateValid(dispatchDate())">
+                @if (dispatchDate() && !isDispatchDateValid(dispatchDate())) {
                   <small class="error-text">Bread only ships on Mondays and Tuesdays, with a 48-hour lead time.</small>
                 }
               </div>
@@ -34,8 +34,8 @@
             <div class="pickup-details">
               <div class="form-group">
                 <label>Pickup Date</label>
-                <input type="date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="!isPickupDateValid(pickupDate())">
-                @if (!isPickupDateValid(pickupDate())) {
+                <input type="date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())">
+                @if (pickupDate() && !isPickupDateValid(pickupDate())) {
                   <small class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
                 }
               </div>
@@ -151,6 +151,7 @@
         </div>
         <button class="btn-checkout"
                 [disabled]="(fulfillmentType() === 'SHIPPING' && !isDispatchDateValid(dispatchDate())) ||
+                           (fulfillmentType() === 'PICKUP' && !isPickupDateValid(pickupDate())) ||
                            (!authService.isAuthenticated() && (!guestName() || !guestPhone()))"
                 (click)="checkout()">
           Checkout

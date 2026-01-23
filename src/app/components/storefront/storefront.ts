@@ -25,7 +25,7 @@ export class StorefrontComponent implements OnInit {
   private http = inject(HttpClient);
 
   products = signal<CalculatedRecipe[]>([]);
-  categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'OTHER']);
+  categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SPECIAL', 'OTHER']);
   selectedCategory = signal<RecipeCategory | 'ALL'>('ALL');
   selectedFlavor = signal<FlavorProfile | 'ALL'>('ALL');
 
@@ -33,6 +33,13 @@ export class StorefrontComponent implements OnInit {
   showReviewsForProduct = signal<string | null>(null);
   showSubscriptionInfo = signal(false);
   searchTerm = signal('');
+
+  replyingToReviewId = signal<string | null>(null);
+  replyText = signal<string>('');
+
+  editingReviewId = signal<string | null>(null);
+  editReviewText = signal<string>('');
+  editReviewRating = signal<number>(5);
 
   productToDelete = signal<CalculatedRecipe | null>(null);
 
@@ -46,7 +53,7 @@ export class StorefrontComponent implements OnInit {
       // If baker, show everything. If customer, only show if not hidden.
       if (!isBaker && p.isHidden) return false;
 
-      const matchCategory = (category === 'ALL' && p.category !== 'SPECIAL') || p.category === category;
+      const matchCategory = category === 'ALL' || p.category === category;
       const matchFlavor = flavor === 'ALL' || (p.flavorProfile && p.flavorProfile.toUpperCase() === flavor.toUpperCase());
       const matchSearch = p.name.toLowerCase().includes(search) ||
                           p.description?.toLowerCase().includes(search);
@@ -56,7 +63,7 @@ export class StorefrontComponent implements OnInit {
 
   topRatedByCategory = computed(() => {
     const products = this.products();
-    const categories: RecipeCategory[] = ['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'OTHER'];
+    const categories: RecipeCategory[] = ['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SPECIAL', 'OTHER'];
     const topRated: Record<string, string> = {};
 
     categories.forEach(cat => {
@@ -76,6 +83,8 @@ export class StorefrontComponent implements OnInit {
         });
 
         const topRating = this.reviewService.getAverageRating(top.id || '')();
+        // For Experimental category, we show the badge if it has any rating
+        // For others, maybe we only want 4+? The existing logic was > 0.
         if (top.id && topRating > 0) {
           topRated[cat] = top.id;
         }
@@ -86,7 +95,8 @@ export class StorefrontComponent implements OnInit {
   });
 
   isTopRated(product: CalculatedRecipe): boolean {
-    return this.topRatedByCategory()[product.category] === product.id;
+    const topId = this.topRatedByCategory()[product.category];
+    return topId === product.id;
   }
 
   setCategory(category: RecipeCategory | 'ALL') {
@@ -122,6 +132,14 @@ export class StorefrontComponent implements OnInit {
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
+  private getOptimizedRecipesForStorage(recipes: CalculatedRecipe[]): CalculatedRecipe[] {
+    return recipes.map(r => ({
+      ...r,
+      imageUrl: r.imageUrl?.startsWith('data:') ? '' : r.imageUrl,
+      images: r.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
+    }));
+  }
+
   loadRecipes(): void {
     const slug = this.tenantService.tenant()?.slug;
     if (!slug) {
@@ -133,7 +151,11 @@ export class StorefrontComponent implements OnInit {
       next: (recipes: CalculatedRecipe[]) => {
         this.products.set(recipes);
         // Sync local storage just in case other parts of the app still rely on it
-        localStorage.setItem('bakery_recipes', JSON.stringify(recipes));
+        try {
+          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
+        } catch (e) {
+          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+        }
 
         // Fetch reviews for each recipe to ensure ratings are up to date
         recipes.forEach(r => {
@@ -149,6 +171,46 @@ export class StorefrontComponent implements OnInit {
         }
       }
     });
+  }
+
+  deleteReview(reviewId: string): void {
+    if (confirm('Are you sure you want to delete this review?')) {
+      this.reviewService.deleteReview(reviewId);
+    }
+  }
+
+  startReply(review: Review): void {
+    this.replyingToReviewId.set(review.id);
+    this.replyText.set(review.reply || '');
+  }
+
+  submitReply(reviewId: string): void {
+    if (!this.replyText().trim()) return;
+    this.reviewService.replyToReview(reviewId, this.replyText());
+    this.cancelReply();
+  }
+
+  cancelReply(): void {
+    this.replyingToReviewId.set(null);
+    this.replyText.set('');
+  }
+
+  startEditReview(review: Review): void {
+    this.editingReviewId.set(review.id);
+    this.editReviewText.set(review.comment);
+    this.editReviewRating.set(review.rating);
+  }
+
+  submitEditReview(reviewId: string): void {
+    if (!this.editReviewText().trim()) return;
+    this.reviewService.updateReview(reviewId, this.editReviewRating(), this.editReviewText());
+    this.cancelEditReview();
+  }
+
+  cancelEditReview(): void {
+    this.editingReviewId.set(null);
+    this.editReviewText.set('');
+    this.editReviewRating.set(5);
   }
 
   addToCart(product: CalculatedRecipe): void {
@@ -183,7 +245,11 @@ export class StorefrontComponent implements OnInit {
         console.log('Product deleted from cloud:', product.id);
         const updated = this.products().filter(p => p.id !== product.id);
         this.products.set(updated);
-        localStorage.setItem('bakery_recipes', JSON.stringify(updated));
+        try {
+          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
+        } catch (e) {
+          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+        }
         this.cancelDelete();
       },
       error: (err) => {
@@ -191,7 +257,11 @@ export class StorefrontComponent implements OnInit {
         // Fallback to local delete
         const updated = this.products().filter(p => p.id !== product.id);
         this.products.set(updated);
-        localStorage.setItem('bakery_recipes', JSON.stringify(updated));
+        try {
+          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
+        } catch (e) {
+          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+        }
         this.cancelDelete();
       }
     });

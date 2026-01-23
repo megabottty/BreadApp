@@ -26,7 +26,7 @@ const tenantMiddleware = async (req, res, next) => {
   try {
     const { data: tenant, error } = await supabase
       .from('bakery_tenants')
-      .select('id')
+      .select('id, slug')
       .eq('slug', tenantSlug)
       .single();
 
@@ -36,6 +36,7 @@ const tenantMiddleware = async (req, res, next) => {
     }
 
     req.tenantId = tenant.id;
+    console.log(`[Tenant Middleware] Identified tenant: ${tenant.slug} (${tenant.id}) for ${req.method} ${req.originalUrl}`);
     next();
   } catch (err) {
     res.status(500).json({ error: 'Tenant lookup failed' });
@@ -69,7 +70,8 @@ router.post('/', async (req, res) => {
           pickup_date: orderData.pickupDate,
           status: 'PENDING',
           promo_code: orderData.promoCode,
-          discount_applied: orderData.discountApplied
+          discount_applied: orderData.discountApplied,
+          payment_method: orderData.paymentMethod
         }
       ])
       .select();
@@ -272,18 +274,20 @@ router.get('/:orderId', async (req, res) => {
   }
   try {
     console.log('[Supabase Debug] Fetching order:', req.params.orderId, 'for tenant:', req.tenantId);
-    const query = supabase
+    let query = supabase
       .from('bakery_orders')
       .select('*')
       .eq('order_id', req.params.orderId);
 
-    if (req.tenantId) query.eq('tenant_id', req.tenantId);
+    if (req.tenantId) {
+      query = query.eq('tenant_id', req.tenantId);
+    }
 
     const { data, error } = await query.single();
 
     if (error) {
-      console.error('[Supabase Error] Fetch Order Failed:', error.message);
-      throw error;
+      console.error('[Supabase Error] Fetch Order Failed:', error.message, 'Order ID:', req.params.orderId, 'Tenant ID:', req.tenantId);
+      return res.status(404).json({ error: 'Order not found', message: error.message });
     }
 
     // Map Supabase snake_case to Frontend camelCase
@@ -300,6 +304,7 @@ router.get('/:orderId', async (req, res) => {
       status: data.status,
       promoCode: data.promo_code,
       discountApplied: data.discount_applied,
+      paymentMethod: data.payment_method || null,
       createdAt: data.created_at
     };
     res.json(formattedOrder);
@@ -346,6 +351,7 @@ router.get('/', async (req, res) => {
       status: order.status,
       promoCode: order.promo_code,
       discountApplied: order.discount_applied,
+      paymentMethod: order.payment_method || null,
       createdAt: order.created_at
     }));
 
@@ -397,6 +403,7 @@ router.get('/recipes/:recipeId/reviews', async (req, res) => {
       customerName: review.customer_name,
       rating: review.rating,
       comment: review.comment,
+      reply: review.reply,
       date: review.created_at || new Date().toISOString()
     }));
 
@@ -440,6 +447,7 @@ router.post('/reviews', async (req, res) => {
       customerName: data && data[0] ? data[0].customer_name : review.customerName,
       rating: data && data[0] ? data[0].rating : review.rating,
       comment: data && data[0] ? data[0].comment : review.comment,
+      reply: data && data[0] ? data[0].reply : null,
       date: data && data[0] ? data[0].created_at : new Date().toISOString()
     };
 
@@ -447,6 +455,69 @@ router.post('/reviews', async (req, res) => {
   } catch (error) {
     console.error('[Supabase Error] Save Review Failed:', error.message);
     res.status(500).json({ error: 'Failed to save review' });
+  }
+});
+
+// DELETE: Remove a review
+router.delete('/reviews/:id', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { id } = req.params;
+  try {
+    const { error } = await supabase
+      .from('bakery_reviews')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    res.json({ message: 'Review deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
+});
+
+// PATCH: Update a review (comment/rating)
+router.patch('/reviews/:id', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { id } = req.params;
+  const { rating, comment } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_reviews')
+      .update({ rating, comment })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update review' });
+  }
+});
+
+// PATCH: Reply to a review
+router.patch('/reviews/:id/reply', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const { id } = req.params;
+  const { reply } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('bakery_reviews')
+      .update({ reply })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reply to review' });
   }
 });
 

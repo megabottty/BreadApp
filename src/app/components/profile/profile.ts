@@ -54,6 +54,12 @@ export class ProfileComponent implements OnInit {
   reviewsCount = this.reviewService.getUserReviewsCount(this.authService.user()?.id || '');
   loavesPurchased = this.cartService.totalLoavesPurchased;
 
+  hasReview(orderId: string, recipeId: string): boolean {
+    const user = this.authService.user();
+    if (!user) return false;
+    return this.reviewService.getReviewsForRecipe(recipeId)().some(r => r.customerId === user.id);
+  }
+
   reviewPerkProgress = computed(() => {
     return Math.min(100, (this.reviewsCount() % 10) * 10);
   });
@@ -132,7 +138,7 @@ export class ProfileComponent implements OnInit {
 
       orders = [
         {
-          id: 'old-1',
+          id: 'BAKE-73291',
           customerId: 'c1',
           customerName: 'Bread Lover',
           customerPhone: '555-0123',
@@ -143,6 +149,7 @@ export class ProfileComponent implements OnInit {
           notes: 'Please leave on the porch chair.',
           totalPrice: 24,
           shippingCost: 0,
+          paymentMethod: { brand: 'Visa', last4: '4242' },
           createdAt: lastWeekStr
         }
       ];

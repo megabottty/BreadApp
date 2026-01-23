@@ -56,16 +56,24 @@ npm install
 
 ## 🚀 Running the App
 
-The application consists of an Angular frontend and a Node.js backend.
+The application consists of an Angular frontend and a Node.js backend. You can start both together or separately.
 
-### Start the Backend Server
+### Start Both (Recommended)
+
+```bash
+npm run dev
+```
+
+### Start Individually
+
+#### Start the Backend Server
 
 ```bash
 npm run server
 ```
 *The server will start at `http://localhost:3000`.*
 
-### Start the Frontend (Development)
+#### Start the Frontend (Development)
 
 ```bash
 npm start

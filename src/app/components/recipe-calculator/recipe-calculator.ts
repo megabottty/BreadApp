@@ -147,7 +147,16 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   private saveDraft(): void {
     const draft = this.recipeForm.getRawValue();
-    localStorage.setItem('recipe_calculator_draft', JSON.stringify(draft));
+    const optimizedDraft = {
+      ...draft,
+      imageUrl: draft.imageUrl?.startsWith('data:') ? '' : draft.imageUrl,
+      images: draft.images?.map((img: string) => img.startsWith('data:') ? '' : img).filter((img: string) => img !== '')
+    };
+    try {
+      localStorage.setItem('recipe_calculator_draft', JSON.stringify(optimizedDraft));
+    } catch (e) {
+      console.warn('Failed to save draft to localStorage (quota exceeded)', e);
+    }
   }
 
   private loadDraft(): void {
@@ -222,7 +231,11 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
       next: (recipes) => {
         this.savedRecipes.set(recipes);
-        localStorage.setItem('bakery_recipes', JSON.stringify(recipes));
+        try {
+          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
+        } catch (e) {
+          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+        }
       },
       error: (err) => console.error('Error loading recipes', err)
     });
@@ -231,6 +244,14 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   getRecipeCategory(recipeName: string): string {
     const recipe = this.savedRecipes().find(r => r.name === recipeName);
     return recipe?.category || 'BREAD';
+  }
+
+  private getOptimizedRecipesForStorage(recipes: CalculatedRecipe[]): CalculatedRecipe[] {
+    return recipes.map(r => ({
+      ...r,
+      imageUrl: r.imageUrl?.startsWith('data:') ? '' : r.imageUrl,
+      images: r.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
+    }));
   }
 
   saveRecipe(): void {
@@ -245,7 +266,11 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
             if (!prev.find(r => r.id === saved.id)) {
               prev.push(saved);
             }
-            localStorage.setItem('bakery_recipes', JSON.stringify(prev));
+            try {
+              localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(prev)));
+            } catch (e) {
+              console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+            }
             return [...prev];
           });
           // Update form with the ID from the database if it's a new recipe
@@ -276,7 +301,11 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         updated = [...prev, recipeToSave];
         this.recipeForm.patchValue({ id: recipeToSave.id }, { emitEvent: false });
     }
-    localStorage.setItem('bakery_recipes', JSON.stringify(updated));
+    try {
+      localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
+    } catch (e) {
+      console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+    }
     this.hasUnsavedChanges.set(false);
     localStorage.removeItem('recipe_calculator_draft');
     return updated;
@@ -333,14 +362,22 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         console.log('Delete successful for ID:', id);
         const updated = this.savedRecipes().filter(r => r.id !== id);
         this.savedRecipes.set(updated);
-        localStorage.setItem('bakery_recipes', JSON.stringify(updated));
+        try {
+          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
+        } catch (e) {
+          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+        }
       },
       error: (err) => {
         console.error('Error deleting recipe', err);
         // Fallback for local-only recipes or server failure
         const updated = this.savedRecipes().filter(r => r.id !== id);
         this.savedRecipes.set(updated);
-        localStorage.setItem('bakery_recipes', JSON.stringify(updated));
+        try {
+          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
+        } catch (e) {
+          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+        }
       }
     });
   }

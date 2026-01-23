@@ -6,9 +6,25 @@
 
   <div class="subscription-grid">
     <div class="card active-subs">
-      <h2>Active & Paused Subscriptions</h2>
+      <div class="tabs-header">
+        <button
+          class="tab-btn"
+          [class.active]="selectedTab() === 'active'"
+          (click)="selectedTab.set('active')"
+        >
+          Active Subscriptions
+        </button>
+        <button
+          class="tab-btn"
+          [class.active]="selectedTab() === 'inactive'"
+          (click)="selectedTab.set('inactive')"
+        >
+          Paused & Cancelled
+        </button>
+      </div>
+
       <div class="sub-list">
-        @for (sub of userSubscriptions(); track sub.id) {
+        @for (sub of filteredSubscriptions(); track sub.id) {
           <div class="sub-item card" [attr.data-status]="sub.status">
             <div class="sub-main">
               <div class="sub-info">

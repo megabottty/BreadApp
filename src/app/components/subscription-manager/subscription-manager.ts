@@ -18,10 +18,22 @@ export class SubscriptionManagerComponent implements OnInit {
   authService = inject(AuthService);
   modalService = inject(ModalService);
 
+  selectedTab = signal<'active' | 'inactive'>('active');
+
   userSubscriptions = computed(() => {
     const user = this.authService.user();
     if (!user) return [];
     return this.subscriptionService.getSubscriptionsForUser(user.id)();
+  });
+
+  filteredSubscriptions = computed(() => {
+    const subs = this.userSubscriptions();
+    const tab = this.selectedTab();
+    if (tab === 'active') {
+      return subs.filter(s => s.status === 'ACTIVE');
+    } else {
+      return subs.filter(s => s.status === 'PAUSED' || s.status === 'CANCELLED');
+    }
   });
 
   ngOnInit() {

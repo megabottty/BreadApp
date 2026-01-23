@@ -13,7 +13,7 @@
       <button [class.active]="selectedCategory() === 'ALL'" (click)="setCategory('ALL')">All</button>
       @for (cat of categories(); track cat) {
         <button [class.active]="selectedCategory() === cat" (click)="setCategory(cat)">
-          {{cat | titlecase}}
+          {{cat === 'SPECIAL' ? 'Experimental' : (cat | titlecase)}}
         </button>
       }
     </div>
@@ -102,6 +102,12 @@
             <div class="placeholder-icon">🍞</div>
           }
 
+          @if (product.category === 'SPECIAL') {
+            <span class="category-badge experimental">Experimental</span>
+          } @else {
+            <span class="category-badge">{{product.category | titlecase}}</span>
+          }
+
           @if (product.flavorProfile) {
             <span class="flavor-badge" [attr.data-flavor]="product.flavorProfile">
               {{product.flavorProfile}}
@@ -115,7 +121,7 @@
         <div class="product-info">
           <h2>{{product.name}}</h2>
 
-          <div class="rating-display" (click)="product.id && toggleReviews(product.id)" [class.clickable]="product.id">
+          <div class="rating-display" (click)="product.id && getReviews(product.id).length > 0 && toggleReviews(product.id)" [class.clickable]="product.id && getReviews(product.id).length > 0">
             <span class="stars">
               @for (star of [1,2,3,4,5]; track star) {
                 <span class="star" [class.filled]="reviewService.getAverageRating(product.id || '')() >= star">★</span>
@@ -127,7 +133,7 @@
             }
           </div>
 
-          @if (product.id && showReviewsForProduct() === product.id) {
+          @if (product.id && showReviewsForProduct() === product.id && getReviews(product.id).length > 0) {
             <div class="reviews-list">
               @for (review of getReviews(product.id); track review.id) {
                 <div class="review-item">
@@ -140,14 +146,63 @@
                     </span>
                   </div>
                   <p>{{review.comment}}</p>
-                  <small>{{review.date | date:'mediumDate'}}</small>
+                  @if (review.reply) {
+                    <div class="baker-reply">
+                      <strong>Baker's Response:</strong>
+                      <p>{{review.reply}}</p>
+                    </div>
+                  }
+                  <div class="review-footer">
+                    <small>{{review.date | date:'mediumDate'}}</small>
+                    <div class="review-actions">
+                      @if (authService.isBaker()) {
+                        <button class="btn-text" (click)="startReply(review)">{{ review.reply ? 'Edit Reply' : 'Reply' }}</button>
+                      }
+                      @if (authService.isBaker() || (authService.user()?.id === review.customerId)) {
+                        @if (authService.user()?.id === review.customerId) {
+                          <button class="btn-text" (click)="startEditReview(review)">Edit</button>
+                        }
+                        <button class="btn-text danger" (click)="deleteReview(review.id)">Delete</button>
+                      }
+                    </div>
+                  </div>
+
+                  @if (replyingToReviewId() === review.id) {
+                    <div class="reply-editor">
+                      <textarea [(ngModel)]="replyText" placeholder="Write your response..."></textarea>
+                      <div class="reply-actions">
+                        <button class="btn-small outline" (click)="cancelReply()">Cancel</button>
+                        <button class="btn-small" (click)="submitReply(review.id)">Post Reply</button>
+                      </div>
+                    </div>
+                  }
+
+                  @if (editingReviewId() === review.id) {
+                    <div class="reply-editor">
+                      <div class="rating-input-small">
+                        @for (star of [1,2,3,4,5]; track star) {
+                          <span class="star-btn"
+                                [class.active]="editReviewRating() >= star"
+                                (click)="editReviewRating.set(star)">★</span>
+                        }
+                      </div>
+                      <textarea [(ngModel)]="editReviewText" placeholder="Edit your review..."></textarea>
+                      <div class="reply-actions">
+                        <button class="btn-small outline" (click)="cancelEditReview()">Cancel</button>
+                        <button class="btn-small" (click)="submitEditReview(review.id)">Update Review</button>
+                      </div>
+                    </div>
+                  }
                 </div>
               }
             </div>
           }
 
-          <p class="meta">{{product.trueHydration | percent:'1.0-0'}} Hydration • {{product.category | titlecase}}</p>
-          <p class="description">{{product.description || 'A handcrafted artisanal creation featuring organic ingredients and long fermentation.'}}</p>
+          <p class="meta">
+            {{product.trueHydration | percent:'1.0-0'}} Hydration •
+            {{product.category === 'SPECIAL' ? 'Limited Release' : (product.category | titlecase)}}
+          </p>
+          <p class="description">{{product.description || (product.category === 'SPECIAL' ? 'A new creation we are testing in the kitchen. Limited quantities available!' : 'A handcrafted artisanal creation featuring organic ingredients and long fermentation.')}}</p>
 
           <div class="product-footer">
             <span class="price">{{ (product.price || 12) | currency }}</span>

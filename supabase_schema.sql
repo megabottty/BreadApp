@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS bakery_orders (
     status TEXT DEFAULT 'PENDING',
     promo_code TEXT,
     discount_applied DECIMAL(10, 2) DEFAULT 0,
+    payment_method JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS bakery_reviews (
     customer_name TEXT NOT NULL,
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
+    reply TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

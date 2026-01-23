@@ -13,7 +13,6 @@
     }
     <a routerLink="/front" routerLinkActive="active" (click)="closeMenu()">Storefront</a>
     <a routerLink="/about" routerLinkActive="active" (click)="closeMenu()">About Us</a>
-    <a routerLink="/experimental" routerLinkActive="active" (click)="closeMenu()">Experimental Kitchen</a>
     <a routerLink="/cart" routerLinkActive="active" class="cart-link" (click)="closeMenu()">
       Bag
       @if (cartService.totalCount() > 0) {

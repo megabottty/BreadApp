@@ -3,7 +3,6 @@ import { RecipeCalculatorComponent } from './components/recipe-calculator/recipe
 import { StorefrontComponent } from './components/storefront/storefront';
 import { CartComponent } from './components/cart/cart';
 import { ProfileComponent } from './components/profile/profile';
-import { ExperimentalKitchenComponent } from './components/experimental-kitchen/experimental-kitchen';
 import { OrdersManagerComponent } from './components/orders-manager/orders-manager';
 import { LoginComponent } from './components/login/login';
 import { RegisterComponent } from './components/register/register';
@@ -45,7 +44,6 @@ export const routes: Routes = [
     canActivate: [bakerGuard]
   },
   { path: 'front', component: StorefrontComponent },
-  { path: 'experimental', component: ExperimentalKitchenComponent },
   { path: 'cart', component: CartComponent },
   { path: 'order-success/:orderId', component: OrderConfirmationComponent },
   {

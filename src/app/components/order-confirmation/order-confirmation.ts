@@ -1,8 +1,9 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, effect } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CartService } from '../../services/cart.service';
 import { Order } from '../../logic/bakers-math';
+import { TenantService } from '../../services/tenant.service';
 
 @Component({
   selector: 'app-order-confirmation',
@@ -14,19 +15,29 @@ import { Order } from '../../logic/bakers-math';
 export class OrderConfirmationComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private cartService = inject(CartService);
+  private tenantService = inject(TenantService);
 
   orderId = signal<string | null>(null);
   order = signal<Order | null>(null);
   loading = signal(true);
   error = signal<string | null>(null);
 
+  constructor() {
+    // Wait for tenant to be identified before fetching order
+    effect(() => {
+      const tenant = this.tenantService.tenant();
+      const id = this.orderId();
+      if (tenant && id && !this.order()) {
+        this.fetchOrder(id);
+      }
+    });
+  }
+
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('orderId');
     this.orderId.set(id);
 
-    if (id) {
-      this.fetchOrder(id);
-    } else {
+    if (!id) {
       this.loading.set(false);
       this.error.set('No order ID found.');
     }

@@ -77,15 +77,65 @@ export class ReviewService {
     this.http.post<any>(`${this.apiUrl}/reviews`, review, { headers: this.headers }).subscribe({
       next: (formatted: Review) => {
         this.allReviews.update(prev => [...prev, formatted]);
-        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        try {
+          localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        } catch (e) {
+          console.warn('Failed to save reviews to localStorage (quota exceeded)', e);
+        }
         this.updateRecipeAverage(formatted.recipeId);
       },
       error: (err) => {
         console.error('Failed to save review to DB, saving locally', err);
         this.allReviews.update(prev => [...prev, review]);
-        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        try {
+          localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        } catch (e) {
+          console.warn('Failed to save reviews to localStorage (quota exceeded)', e);
+        }
         this.updateRecipeAverage(review.recipeId);
       }
+    });
+  }
+
+  deleteReview(reviewId: string) {
+    return this.http.delete(`${this.apiUrl}/reviews/${reviewId}`, { headers: this.headers }).subscribe({
+      next: () => {
+        const review = this.allReviews().find(r => r.id === reviewId);
+        this.allReviews.update(prev => prev.filter(r => r.id !== reviewId));
+        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        if (review) {
+          this.updateRecipeAverage(review.recipeId);
+        }
+      },
+      error: (err) => console.error('Failed to delete review', err)
+    });
+  }
+
+  replyToReview(reviewId: string, reply: string) {
+    return this.http.patch<any>(`${this.apiUrl}/reviews/${reviewId}/reply`, { reply }, { headers: this.headers }).subscribe({
+      next: (updated) => {
+        this.allReviews.update(prev => prev.map(r =>
+          r.id === reviewId ? { ...r, reply: updated.reply } : r
+        ));
+        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+      },
+      error: (err) => console.error('Failed to reply to review', err)
+    });
+  }
+
+  updateReview(reviewId: string, rating: number, comment: string) {
+    return this.http.patch<any>(`${this.apiUrl}/reviews/${reviewId}`, { rating, comment }, { headers: this.headers }).subscribe({
+      next: (updated) => {
+        this.allReviews.update(prev => prev.map(r =>
+          r.id === reviewId ? { ...r, rating: updated.rating, comment: updated.comment } : r
+        ));
+        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        const review = this.allReviews().find(r => r.id === reviewId);
+        if (review) {
+          this.updateRecipeAverage(review.recipeId);
+        }
+      },
+      error: (err) => console.error('Failed to update review', err)
     });
   }
 
@@ -100,7 +150,19 @@ export class ReviewService {
           const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
           recipes[index].averageRating = reviews.length > 0 ? sum / reviews.length : 0;
           recipes[index].ratings = reviews; // Keep a few or all? For now all.
-          localStorage.setItem('bakery_recipes', JSON.stringify(recipes));
+
+          // Optimization: Ensure images are not re-saved to localStorage if they were somehow present
+          const optimizedRecipes = recipes.map(r => ({
+            ...r,
+            imageUrl: r.imageUrl?.startsWith('data:') ? '' : r.imageUrl,
+            images: r.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
+          }));
+
+          try {
+            localStorage.setItem('bakery_recipes', JSON.stringify(optimizedRecipes));
+          } catch (e) {
+            console.warn('Failed to update recipes in localStorage (quota exceeded)', e);
+          }
         }
       } catch (e) {
         console.error('Error updating recipe average', e);

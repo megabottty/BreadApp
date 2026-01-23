@@ -30,6 +30,7 @@ export interface Review {
   customerName: string;
   rating: number; // 1-5
   comment: string;
+  reply?: string;
   date: string;
 }
 
@@ -233,6 +234,10 @@ export interface Order {
   promoCode?: string;
   discountApplied?: number;
   shippingCost: number;
+  paymentMethod?: {
+    brand: string;
+    last4: string;
+  };
   createdAt: string;
 }
 

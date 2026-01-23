@@ -239,12 +239,23 @@ export class CartService {
   private saveCart() {
     if (this.isInitialLoad) return;
     const data = {
-      items: this.cartItems(),
+      items: this.cartItems().map(item => ({
+        ...item,
+        product: {
+          ...item.product,
+          imageUrl: item.product.imageUrl?.startsWith('data:') ? '' : item.product.imageUrl,
+          images: item.product.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
+        }
+      })),
       fulfillmentType: this.fulfillmentType(),
       zipCode: this.zipCode(),
       notes: this.notes()
     };
-    localStorage.setItem('bakery_cart', JSON.stringify(data));
+    try {
+      localStorage.setItem('bakery_cart', JSON.stringify(data));
+    } catch (e) {
+      console.warn('Failed to save cart to localStorage (quota exceeded)', e);
+    }
   }
 
   addToCart(product: CalculatedRecipe) {

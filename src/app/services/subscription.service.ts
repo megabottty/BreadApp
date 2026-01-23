@@ -65,7 +65,11 @@ export class SubscriptionService {
           status: s.status
         }));
         this.subscriptions.set(mapped);
-        localStorage.setItem('bakery_subscriptions', JSON.stringify(mapped));
+        try {
+          localStorage.setItem('bakery_subscriptions', JSON.stringify(mapped));
+        } catch (e) {
+          console.warn('Failed to save subscriptions to localStorage (quota exceeded)', e);
+        }
       },
       error: (err) => console.error('Error fetching subscriptions', err)
     });
@@ -73,6 +77,14 @@ export class SubscriptionService {
 
   getSubscriptionsForUser(customerId: string) {
     return computed(() => this.subscriptions().filter(s => s.customerId === customerId));
+  }
+
+  private saveSubscriptions() {
+    try {
+      localStorage.setItem('bakery_subscriptions', JSON.stringify(this.subscriptions()));
+    } catch (e) {
+      console.warn('Failed to save subscriptions to localStorage (quota exceeded)', e);
+    }
   }
 
   createSubscription(customerId: string, product: CalculatedRecipe, quantity: number) {
@@ -104,13 +116,13 @@ export class SubscriptionService {
           status: saved.status
         };
         this.subscriptions.update(prev => [...prev, formatted]);
-        localStorage.setItem('bakery_subscriptions', JSON.stringify(this.subscriptions()));
+        this.saveSubscriptions();
       },
       error: (err) => {
         console.error('Failed to create subscription in DB, saving locally', err);
         const localSub = { ...newSub, id: 'LOCAL_' + Math.random().toString(36).substring(7) };
         this.subscriptions.update(prev => [...prev, localSub]);
-        localStorage.setItem('bakery_subscriptions', JSON.stringify(this.subscriptions()));
+        this.saveSubscriptions();
       }
     });
   }
@@ -133,14 +145,14 @@ export class SubscriptionService {
         this.subscriptions.update(prev => prev.map(s =>
           s.id === subId ? { ...s, status } : s
         ));
-        localStorage.setItem('bakery_subscriptions', JSON.stringify(this.subscriptions()));
+        this.saveSubscriptions();
       },
       error: (err) => {
         console.error('Failed to update subscription status in DB, updating locally', err);
         this.subscriptions.update(prev => prev.map(s =>
           s.id === subId ? { ...s, status } : s
         ));
-        localStorage.setItem('bakery_subscriptions', JSON.stringify(this.subscriptions()));
+        this.saveSubscriptions();
       }
     });
   }

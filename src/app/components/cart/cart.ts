@@ -54,7 +54,7 @@ export class CartComponent implements OnInit {
 
   // Monday = 1, Tuesday = 2
   isDispatchDateValid = (date: string) => {
-    if (!date) return true;
+    if (!date) return false;
 
     const selected = new Date(date);
     const min = new Date(this.minDate());
@@ -65,7 +65,7 @@ export class CartComponent implements OnInit {
   };
 
   isPickupDateValid = (date: string) => {
-    if (!date) return true;
+    if (!date) return false;
     const selected = new Date(date);
     const min = new Date(this.minDate());
     return selected >= min;
@@ -162,6 +162,7 @@ export class CartComponent implements OnInit {
       promoCode: this.cartService.appliedPromo()?.code,
       discountApplied: this.cartService.loyaltyDiscount() + this.cartService.promoDiscount(),
       shippingCost: this.shippingCost(),
+      paymentMethod: this.payAtPickup() ? undefined : { brand: 'Visa', last4: '4242' },
       createdAt: new Date().toISOString()
     };
 

@@ -9,30 +9,65 @@
       <h2>Your Past Orders</h2>
       <div class="order-list">
         @for (order of userOrders(); track order.id) {
-          <div class="order-item">
-            <div class="order-info">
-              <span class="date">{{order.createdAt | date}}</span>
+          <div class="order-card">
+            <div class="order-header">
+              <div class="order-id-section">
+                <span class="order-number">Order #{{order.id}}</span>
+                <span class="order-date">Placed on {{order.createdAt | date:'mediumDate'}}</span>
+              </div>
               <span class="status-badge" [attr.data-status]="order.status">{{order.status}}</span>
-              <div class="items">
-                @for (item of order.items; track item.name) {
-                  <span>{{item.quantity}}x {{item.name}}</span>
-                }
-              </div>
-              @if (order.notes) {
-                <p class="order-notes"><strong>Note:</strong> {{order.notes}}</p>
-              }
-              <span class="total">{{order.totalPrice | currency}}</span>
-
-              <div class="review-actions">
-                @for (item of order.items; track item.recipeId) {
-                  <button class="btn-review" (click)="startReview(order.id, item.recipeId)">
-                    Review {{item.name}}
-                  </button>
-                }
-              </div>
             </div>
 
-            <div class="actions-group">
+            <div class="order-body">
+              <div class="order-details-grid">
+                <div class="detail-item">
+                  <strong>{{ order.type === 'PICKUP' ? 'Pickup Date' : 'Estimated Dispatch' }}</strong>
+                  <span>{{ order.pickupDate | date:'fullDate' }}</span>
+                </div>
+                <div class="detail-item">
+                  <strong>Fulfillment</strong>
+                  <span>{{ order.type | titlecase }}</span>
+                </div>
+                @if (order.paymentMethod) {
+                  <div class="detail-item">
+                    <strong>Payment</strong>
+                    <span class="payment-info">
+                      <span class="card-brand">{{order.paymentMethod.brand}}</span> •••• {{order.paymentMethod.last4}}
+                    </span>
+                  </div>
+                }
+              </div>
+
+              <div class="order-items-list">
+                <h4>Order Summary</h4>
+                @for (item of order.items; track item.name) {
+                  <div class="item-row">
+                    <span class="item-qty">{{item.quantity}}x</span>
+                    <span class="item-name">{{item.name}}</span>
+                    @if (hasReview(order.id, item.recipeId)) {
+                      <span class="review-status-tag">Reviewed ✓</span>
+                    } @else {
+                      <button class="btn-review-inline" (click)="startReview(order.id, item.recipeId)" title="Leave a review">★</button>
+                    }
+                  </div>
+                }
+              </div>
+
+              @if (order.notes) {
+                <div class="order-notes-box">
+                  <strong>Note to Baker:</strong>
+                  <p>{{order.notes}}</p>
+                </div>
+              }
+            </div>
+
+            <div class="order-footer">
+              <div class="order-total-info">
+                @if (order.discountApplied) {
+                  <span class="discount-label">Saved {{order.discountApplied | currency}}</span>
+                }
+                <span class="total-price">Total: {{order.totalPrice | currency}}</span>
+              </div>
               <button class="btn-reorder" (click)="reorder(order)">Repeat Order</button>
             </div>
           </div>
