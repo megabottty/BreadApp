@@ -90,11 +90,15 @@
         </div>
       </div>
 
-      <h3>Ingredients</h3>
+      <div class="ingredients-header">
+        <h3>Ingredients</h3>
+        <p class="section-hint">Enter the price and weight of the whole package for each ingredient (e.g., $15 for 5000g of Flour) to track costs.</p>
+      </div>
       <div formArrayName="ingredients">
         @for (ingredient of ingredients.controls; track ingredient; let i = $index) {
           <div [formGroupName]="i" class="ingredient-row">
             <div class="search-container">
+              <span class="tiny-label-mobile">Ingredient Name</span>
               <input type="text" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur()" autocomplete="off">
               @if (activeSearchIndex() === i && searchResults().length > 0) {
                 <div class="search-results-wrapper">
@@ -111,16 +115,28 @@
                 </div>
               }
             </div>
-            <input type="number" formControlName="weight" placeholder="Grams">
-            <div class="bulk-cost-inputs">
-              <input type="number" formControlName="bulkPrice" placeholder="Bulk Price ($)">
-              <input type="number" formControlName="bulkWeight" placeholder="Bulk Weight (g)">
+            <div class="input-with-label">
+              <span class="tiny-label-mobile">Weight (g)</span>
+              <input type="number" formControlName="weight" placeholder="Grams">
             </div>
-            <select formControlName="type">
-              @for (type of ingredientTypes; track type) {
-                <option [value]="type">{{type}}</option>
-              }
-            </select>
+            <div class="bulk-cost-inputs">
+              <div class="input-with-label">
+                <span class="tiny-label">Package Price ($)</span>
+                <input type="number" formControlName="bulkPrice" placeholder="Price Paid">
+              </div>
+              <div class="input-with-label">
+                <span class="tiny-label">Package Weight (g)</span>
+                <input type="number" formControlName="bulkWeight" placeholder="Full Weight">
+              </div>
+            </div>
+            <div class="input-with-label">
+              <span class="tiny-label-mobile">Type</span>
+              <select formControlName="type">
+                @for (type of ingredientTypes; track type) {
+                  <option [value]="type">{{type}}</option>
+                }
+              </select>
+            </div>
             <button type="button" class="btn-delete-product" (click)="removeIngredient(i)">×</button>
           </div>
         }
