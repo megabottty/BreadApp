@@ -78,6 +78,11 @@ export class TenantService {
         this.applyBranding(tenant);
       },
       error: (err) => {
+        // Handle connection refused or other network errors silently if we want to reduce noise
+        if (err.status === 0) {
+          console.warn('[TenantService] Backend server is not reachable. Please ensure the backend is running (npm run server).');
+          return;
+        }
         // If it's a 404, we don't want to spam error logs, just a warning is enough
         if (err.status === 404) {
           console.warn(`[TenantService] Bakery not found for slug: ${slug}. This usually means the bakery hasn't been registered yet.`);
