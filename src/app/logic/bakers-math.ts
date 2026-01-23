@@ -44,6 +44,7 @@ export interface Recipe {
   imageUrl?: string;
   images?: string[];
   ingredients: Ingredient[];
+  available_addons?: { name: string; price: number }[];
   servingSizeGrams?: number;
   levainDetails?: {
     hydration: number; // e.g., 1.0 for 100%

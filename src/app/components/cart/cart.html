@@ -104,6 +104,18 @@
                 <h3>{{item.product.name}}</h3>
                 <p>{{item.product.trueHydration | percent:'1.0-0'}} Hydration Loaf</p>
 
+                @if (item.selectedOptions && item.selectedOptions.length > 0) {
+                  <div class="item-options">
+                    @for (opt of item.selectedOptions; track opt.name) {
+                      <span class="option-tag">{{opt.name}} (+{{opt.price | currency}})</span>
+                    }
+                  </div>
+                }
+
+                @if (item.notes) {
+                  <p class="item-note"><em>Note: {{item.notes}}</em></p>
+                }
+
                 <label class="subscription-toggle">
                   <input type="checkbox" [checked]="item.isSubscription" (change)="toggleSubscription(item)">
                   Weekly Subscription
@@ -115,7 +127,9 @@
                   <span>{{item.quantity}}</span>
                   <button (click)="updateQuantity(item, 1)">+</button>
                 </div>
-                <span class="price">{{(item.product.price || 12) | currency}}</span>
+                <span class="price">
+                  {{((item.product.price || 12) + (item.selectedOptionsPrice || 0)) | currency}}
+                </span>
                 <button class="btn-remove" (click)="removeItem(item)">×</button>
               </div>
             </div>

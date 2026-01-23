@@ -14,6 +14,8 @@ export interface CartItem {
   product: CalculatedRecipe;
   quantity: number;
   isSubscription?: boolean;
+  notes?: string;
+  selectedOptions?: { name: string; price: number }[];
 }
 
 @Injectable({
@@ -53,7 +55,10 @@ export class CartService {
   discountClaimed = signal<boolean>(false);
 
   // Selectors
-  items = computed(() => this.cartItems());
+  items = computed(() => this.cartItems().map(item => ({
+    ...item,
+    selectedOptionsPrice: (item.selectedOptions || []).reduce((sum, opt) => sum + opt.price, 0)
+  })));
 
   totalCount = computed(() =>
     this.cartItems().reduce((acc, item) => acc + item.quantity, 0)
@@ -107,7 +112,10 @@ export class CartService {
   });
 
   totalPrice = computed(() => {
-    const itemsTotal = this.cartItems().reduce((acc, item) => acc + (item.quantity * (item.product.price || 12)), 0);
+    const itemsTotal = this.cartItems().reduce((acc, item) => {
+      const optionsPrice = (item.selectedOptions || []).reduce((sum, opt) => sum + opt.price, 0);
+      return acc + (item.quantity * ((item.product.price || 12) + optionsPrice));
+    }, 0);
     const total = itemsTotal + this.shippingCost() - this.loyaltyDiscount() - this.promoDiscount();
     return Math.max(0, total);
   });
@@ -258,19 +266,25 @@ export class CartService {
     }
   }
 
-  addToCart(product: CalculatedRecipe) {
+  addToCart(product: CalculatedRecipe, quantity: number = 1, notes?: string, selectedOptions?: { name: string; price: number }[]) {
     this.cartItems.update(prev => {
-      // Use name as fallback if ID is missing (newly created local recipes)
-      const existing = prev.find(item => (item.product.id && item.product.id === product.id) || item.product.name === product.name);
+      // For items with notes or specific options, we might want to treat them as unique line items
+      // but for now let's check if an identical item (same product + same notes + same options) exists.
+      const existing = prev.find(item =>
+        ((item.product.id && item.product.id === product.id) || item.product.name === product.name) &&
+        item.notes === notes &&
+        JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions)
+      );
+
       let updated: CartItem[];
       if (existing) {
         updated = prev.map(item =>
-          ((item.product.id && item.product.id === product.id) || item.product.name === product.name)
-            ? { ...item, quantity: item.quantity + 1 }
+          (item === existing)
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       } else {
-        updated = [...prev, { product, quantity: 1 }];
+        updated = [...prev, { product, quantity, notes, selectedOptions }];
       }
       return updated;
     });

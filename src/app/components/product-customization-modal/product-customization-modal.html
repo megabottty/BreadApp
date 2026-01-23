@@ -1,0 +1,70 @@
+@if (modalService.activeModal(); as modal) {
+  @if (modal.type === 'customization' && modal.product; as product) {
+    <div class="modal-overlay" (click)="close()">
+      <div class="modal-content card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>{{product.name}}</h2>
+          <button class="btn-close" (click)="close()">×</button>
+        </div>
+
+        <div class="modal-body">
+          @if (product.imageUrl || (product.images && product.images.length > 0)) {
+            <div class="product-modal-image">
+              <img [src]="product.imageUrl || product.images![0]" [alt]="product.name">
+            </div>
+          }
+
+          <div class="product-info-brief">
+            <p class="price">{{product.price | currency}}</p>
+            <p class="description">{{product.description}}</p>
+          </div>
+
+          <!-- Add-ons Section -->
+          @if (addOns().length > 0) {
+            <div class="section">
+              <h3>Options</h3>
+              <div class="options-grid">
+                @for (addon of addOns(); track $index) {
+                  <label class="option-item" [class.selected]="addon.selected">
+                    <input type="checkbox" [checked]="addon.selected" (change)="toggleAddOn($index)">
+                    <span class="option-name">{{addon.name}}</span>
+                    @if (addon.price > 0) {
+                      <span class="option-price">+{{addon.price | currency}}</span>
+                    }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Notes Section -->
+          <div class="section">
+            <h3>Special Instructions</h3>
+            <textarea
+              [(ngModel)]="notes"
+              placeholder="Any notes for the baker? (e.g. Allergy info, 'well done', etc.)"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <!-- Quantity Section -->
+          <div class="quantity-section">
+            <span>Quantity</span>
+            <div class="quantity-controls">
+              <button (click)="decrement()" [disabled]="quantity() <= 1">-</button>
+              <span class="quantity-display">{{quantity()}}</span>
+              <button (click)="increment()">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" (click)="close()">Cancel</button>
+          <button class="btn-primary" (click)="addToCart()">
+            Add to Cart
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+}

@@ -6,6 +6,7 @@ import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../l
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
+import { ModalService } from '../../services/modal.service';
 import { Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
 import { TenantService } from '../../services/tenant.service';
@@ -213,8 +214,10 @@ export class StorefrontComponent implements OnInit {
     this.editReviewRating.set(5);
   }
 
+  private modalService = inject(ModalService);
+
   addToCart(product: CalculatedRecipe): void {
-    this.cartService.addToCart(product);
+    this.modalService.showCustomization(product);
   }
 
   subscribe(product: CalculatedRecipe): void {

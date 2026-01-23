@@ -131,6 +131,7 @@ router.get('/recipes', async (req, res) => {
       isHidden: recipe.is_hidden,
       ingredients: recipe.ingredients,
       images: recipe.images,
+      available_addons: recipe.available_addons,
       createdAt: recipe.created_at
     }));
 
@@ -225,7 +226,8 @@ router.post('/recipes', async (req, res) => {
         flavor_profile: recipe.flavorProfile,
         is_hidden: recipe.isHidden,
         ingredients: recipe.ingredients,
-        images: recipe.images
+        images: recipe.images,
+        available_addons: recipe.available_addons
       })
       .select();
 

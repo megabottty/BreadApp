@@ -5,12 +5,13 @@ import { AuthService } from './services/auth.service';
 import { ThemeService } from './services/theme.service';
 import { SplashScreenComponent } from './components/splash-screen/splash-screen';
 import { NotificationModalComponent } from './components/notification-modal/notification-modal';
+import { ProductCustomizationModalComponent } from './components/product-customization-modal/product-customization-modal';
 import { FooterComponent } from './components/footer/footer';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationModalComponent, FooterComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationModalComponent, ProductCustomizationModalComponent, FooterComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
