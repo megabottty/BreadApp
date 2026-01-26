@@ -1,15 +1,22 @@
 {
   "name": "The Daily Dough",
   "short_name": "DailyDough",
+  "id": "/?source=pwa",
   "theme_color": "#7D8F69",
   "background_color": "#FAF9F6",
   "display": "standalone",
   "scope": "/",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "icons": [
     {
       "src": "favicon.svg",
-      "sizes": "any",
+      "sizes": "48x48 72x72 96x96 128x128 192x192 256x256 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "maskable"
     }

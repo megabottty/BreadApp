@@ -42,6 +42,7 @@ import { PwaService } from '../../services/pwa.service';
       padding: 1rem;
       border: 1px solid #E9E5D9;
       animation: slideUp 0.5s ease-out;
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
     }
 
     @keyframes slideUp {

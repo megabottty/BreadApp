@@ -53,10 +53,13 @@ export class PwaService {
     });
 
     // For iOS, we can't capture an event, so we show it after some time
-    if (this.isIos() && !this.isInStandaloneMode()) {
+    // But only if they haven't seen it in this session
+    const hasSeenPrompt = sessionStorage.getItem('pwa_prompt_shown');
+    if (this.isIos() && !this.isInStandaloneMode() && !hasSeenPrompt) {
       setTimeout(() => {
         this.showInstallPrompt.set(true);
-      }, 8000);
+        sessionStorage.setItem('pwa_prompt_shown', 'true');
+      }, 3000); // Reduced to 3 seconds for better discoverability
     }
   }
 
@@ -68,6 +71,7 @@ export class PwaService {
           console.log('[PWA] User accepted the install prompt');
         } else {
           console.log('[PWA] User dismissed the install prompt');
+          sessionStorage.setItem('pwa_prompt_shown', 'true');
         }
         this.deferredPrompt = null;
         this.showInstallPrompt.set(false);
@@ -77,5 +81,6 @@ export class PwaService {
 
   closePrompt() {
     this.showInstallPrompt.set(false);
+    sessionStorage.setItem('pwa_prompt_shown', 'true');
   }
 }

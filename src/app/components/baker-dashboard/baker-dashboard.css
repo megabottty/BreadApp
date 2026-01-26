@@ -193,14 +193,22 @@ nav button.active {
     font-size: 0.85rem;
     gap: 0.5rem;
   }
+  nav button.active {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
   .sidebar-header {
     margin-bottom: 1rem;
+    padding: 0 0.5rem;
   }
   .sidebar-footer {
     display: none;
   }
   .content-area {
-    padding: 1rem;
+    padding: 1.5rem 1rem;
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+  }
+  .branding-grid {
+    grid-template-columns: 1fr;
   }
 }
 

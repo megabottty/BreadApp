@@ -143,6 +143,15 @@ h1 {
   gap: 1.5rem;
 }
 
+@media (max-width: 639px) {
+  .product-grid {
+    gap: 1rem;
+  }
+  .product-card {
+    border-radius: 16px;
+  }
+}
+
 @media (min-width: 640px) {
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
