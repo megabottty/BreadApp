@@ -5,6 +5,8 @@
   font-family: 'Inter', sans-serif;
   background-color: var(--bg-color);
   min-height: 100vh;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 @media (min-width: 768px) {
@@ -579,7 +581,7 @@ h2 {
   justify-content: center;
   height: 52px; /* Increased from 48px for better mobile touch */
   flex: 2;
-  min-width: 90px;
+  min-width: 0;
   max-width: 150px;
   white-space: nowrap;
 }
@@ -589,7 +591,7 @@ h2 {
   color: var(--accent-sage);
   border: 1.5px solid var(--accent-sage);
   flex: 1;
-  min-width: 80px;
+  min-width: 0;
 }
 
 .btn-edit {

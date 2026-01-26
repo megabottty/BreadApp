@@ -3,6 +3,8 @@
   min-height: 100vh;
   background-color: #FAF9F6;
   font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .sidebar {
@@ -175,6 +177,7 @@ nav button.active {
     position: sticky;
     top: 0;
     z-index: 100;
+    box-sizing: border-box;
   }
   nav {
     flex-direction: row;
