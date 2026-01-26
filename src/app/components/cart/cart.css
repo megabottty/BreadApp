@@ -138,12 +138,14 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  width: 100%;
 }
 
 @media (min-width: 576px) {
   .item-actions {
     justify-content: flex-end;
     gap: 2rem;
+    width: auto;
   }
 }
 
@@ -448,7 +450,14 @@ h1 {
 
 .promo-input-group {
   display: flex;
+  flex-direction: column;
   gap: 0.75rem;
+}
+
+@media (min-width: 480px) {
+  .promo-input-group {
+    flex-direction: row;
+  }
 }
 
 .promo-input-group input {

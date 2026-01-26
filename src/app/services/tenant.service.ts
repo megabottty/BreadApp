@@ -10,6 +10,13 @@ export interface Tenant {
   logo_url?: string;
   primary_color: string;
   secondary_color: string;
+  oven_capacity?: number;
+  default_bake_temp?: number;
+  default_steam_time?: number;
+  default_bake_time?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
 }
 
 @Injectable({
@@ -85,7 +92,10 @@ export class TenantService {
         }
         // If it's a 404, we don't want to spam error logs, just a warning is enough
         if (err.status === 404) {
-          console.warn(`[TenantService] Bakery not found for slug: ${slug}. This usually means the bakery hasn't been registered yet.`);
+          // No warning needed for the default tenant if not found, it might be the first run
+          if (slug !== 'thedailydough') {
+            console.warn(`[TenantService] Bakery not found for slug: ${slug}. This usually means the bakery hasn't been registered yet.`);
+          }
         } else {
           console.error(`[TenantService] Failed to load tenant info for slug: ${slug}`, err);
         }
@@ -97,8 +107,15 @@ export class TenantService {
     return this.http.post<Tenant>(`${this.apiUrl}/orders/register-bakery`, { name, slug });
   }
 
-  updateTenantBranding(id: string, primary: string, secondary: string) {
-    return this.http.patch<Tenant>(`${this.apiUrl}/orders/info`, { primary_color: primary, secondary_color: secondary }, {
+  updateTenantBranding(id: string, primary: string, secondary: string, oven_capacity: number = 6, address?: string, phone?: string, email?: string) {
+    return this.http.patch<Tenant>(`${this.apiUrl}/orders/info`, {
+      primary_color: primary,
+      secondary_color: secondary,
+      oven_capacity: oven_capacity,
+      address: address,
+      phone: phone,
+      email: email
+    }, {
       headers: { 'x-tenant-id': id }
     }).subscribe({
       next: (updated) => {

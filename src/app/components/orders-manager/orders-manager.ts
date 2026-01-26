@@ -27,8 +27,77 @@ export class OrdersManagerComponent implements OnInit {
   allOrders = signal<Order[]>([]);
   savedRecipes = signal<CalculatedRecipe[]>([]);
   showNotifications = signal<boolean>(false);
+  showManualOrderModal = signal<boolean>(false);
   selectedOrder = signal<Order | null>(null);
   bakerNotes = signal<string>('');
+  rightTab = signal<'ingredients' | 'batches'>('ingredients');
+
+  productionBatches = computed(() => {
+    const agg = this.aggregatedOrders();
+    const subs = this.subscriptionOrders();
+    const totalAgg = { ...agg };
+    Object.entries(subs).forEach(([name, qty]) => {
+      totalAgg[name] = (totalAgg[name] || 0) + qty;
+    });
+
+    if (Object.keys(totalAgg).length === 0) return [];
+
+    // Simple heuristic for batches: Group by category and max capacity per batch
+    const capacity = this.tenantService.tenant()?.oven_capacity || 6;
+    const defaultTemp = this.tenantService.tenant()?.default_bake_temp || 450;
+    const defaultSteam = this.tenantService.tenant()?.default_steam_time || 15;
+    const defaultTime = this.tenantService.tenant()?.default_bake_time || '45m';
+
+    const batches: any[] = [];
+    let currentBatch: any[] = [];
+    let countInBatch = 0;
+
+    Object.entries(totalAgg).forEach(([name, qty]) => {
+      for (let i = 0; i < qty; i++) {
+        if (countInBatch >= capacity) {
+          batches.push({
+            items: this.summarizeItems(currentBatch),
+            temp: defaultTemp,
+            steamMinutes: defaultSteam,
+            estimatedTime: defaultTime
+          });
+          currentBatch = [];
+          countInBatch = 0;
+        }
+        currentBatch.push(name);
+        countInBatch++;
+      }
+    });
+
+    if (currentBatch.length > 0) {
+      batches.push({
+        items: this.summarizeItems(currentBatch),
+        temp: defaultTemp,
+        steamMinutes: defaultSteam,
+        estimatedTime: defaultTime
+      });
+    }
+
+    return batches;
+  });
+
+  private summarizeItems(items: string[]) {
+    const summary: Record<string, number> = {};
+    items.forEach(name => summary[name] = (summary[name] || 0) + 1);
+    return Object.entries(summary).map(([name, quantity]) => ({ name, quantity }));
+  }
+
+  // Manual Order Form State
+  manualOrder = signal<Partial<Order>>({
+    customerName: '',
+    customerPhone: '',
+    type: 'PICKUP',
+    orderSource: 'PHONE',
+    status: 'PENDING',
+    items: [],
+    notes: ''
+  });
+  manualOrderItem = signal<{ recipeId: string, quantity: number }>({ recipeId: '', quantity: 1 });
 
   aggregatedOrders = computed(() => {
     return aggregateOrders(this.allOrders(), this.bakeDate());
@@ -218,5 +287,85 @@ export class OrdersManagerComponent implements OnInit {
       name: ing.name,
       weight: ing.weight * quantity
     }));
+  }
+
+  // Manual Order Methods
+  openManualOrder() {
+    this.manualOrder.set({
+      customerName: '',
+      customerPhone: '',
+      type: 'PICKUP',
+      status: 'PENDING',
+      items: [],
+      notes: '',
+      pickupDate: this.bakeDate()
+    });
+    this.showManualOrderModal.set(true);
+  }
+
+  addManualItem() {
+    const item = this.manualOrderItem();
+    if (!item.recipeId) return;
+
+    const recipe = this.savedRecipes().find(r => r.id === item.recipeId);
+    if (!recipe) return;
+
+    const items = this.manualOrder().items || [];
+    items.push({
+      recipeId: recipe.id || '',
+      name: recipe.name,
+      quantity: item.quantity,
+      weightGrams: (recipe.ingredients.reduce((sum, ing) => sum + ing.weight, 0)) * item.quantity
+    });
+
+    this.manualOrder.update(prev => ({ ...prev, items }));
+    this.manualOrderItem.set({ recipeId: '', quantity: 1 });
+  }
+
+  removeManualItem(index: number) {
+    const items = this.manualOrder().items || [];
+    items.splice(index, 1);
+    this.manualOrder.update(prev => ({ ...prev, items }));
+  }
+
+  saveManualOrder() {
+    const order = this.manualOrder();
+    if (!order.customerName || !order.items || order.items.length === 0) {
+      this.modalService.showAlert('Please enter customer name and at least one item.', 'Missing Info', 'warning');
+      return;
+    }
+
+    const orderId = 'M-' + Math.random().toString(36).substring(7).toUpperCase();
+    const totalPrice = (order.items || []).reduce((sum, item) => {
+      const recipe = this.savedRecipes().find(r => r.id === item.recipeId);
+      return sum + (recipe?.price || 0) * item.quantity;
+    }, 0);
+
+    const finalOrder: Order = {
+      id: orderId,
+      customerId: 'manual',
+      customerName: order.customerName || '',
+      customerPhone: order.customerPhone || '',
+      type: order.type as 'PICKUP' | 'SHIPPING',
+      status: 'PENDING',
+      pickupDate: order.pickupDate || this.bakeDate(),
+      items: order.items as any[],
+      notes: order.notes,
+      totalPrice: totalPrice,
+      shippingCost: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    this.http.post('http://localhost:3000/api/orders', finalOrder, { headers: this.headers }).subscribe({
+      next: () => {
+        this.allOrders.update(prev => [finalOrder, ...prev]);
+        this.showManualOrderModal.set(false);
+        this.modalService.showAlert('Manual order saved! 🥖', 'Success', 'success');
+      },
+      error: (err) => {
+        console.error('Failed to save manual order:', err);
+        this.modalService.showAlert('Failed to save order to cloud.', 'Error', 'error');
+      }
+    });
   }
 }

@@ -53,6 +53,8 @@ export interface Recipe {
   ratings?: Review[];
   averageRating?: number;
   isHidden?: boolean;
+  prepTimeMinutes?: number;
+  bakeTimeMinutes?: number;
 }
 
 export interface CalculatedRecipe extends Recipe {
@@ -220,6 +222,7 @@ export interface Order {
   customerName: string;
   customerPhone: string;
   type: 'PICKUP' | 'SHIPPING';
+  orderSource?: 'ONLINE' | 'PHONE' | 'WALK_IN';
   status: 'PENDING' | 'READY' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
   pickupDate?: string; // ISO date string
   shippingAddress?: {

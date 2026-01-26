@@ -17,6 +17,12 @@
       <button [class.active]="activeTab() === 'settings'" (click)="activeTab.set('settings')">
         <span class="icon">⚙️</span> Shop Settings
       </button>
+      <button [class.active]="activeTab() === 'inventory'" (click)="activeTab.set('inventory')">
+        <span class="icon">📦</span> Inventory
+      </button>
+      <button [class.active]="activeTab() === 'forecast'" (click)="activeTab.set('forecast')">
+        <span class="icon">📈</span> Forecast
+      </button>
     </nav>
     <div class="sidebar-footer">
       @if (currentTenant(); as tenant) {
@@ -46,18 +52,54 @@
         </header>
 
         <div class="card">
-          <h3>Branding</h3>
-          <div class="branding-grid">
-            <div class="color-picker">
-              <label>Primary Color</label>
-              <input type="color" [ngModel]="currentTenant()?.primary_color">
+          <h3>Shop Settings</h3>
+          <div class="settings-grid">
+            <div class="branding-section">
+              <h4>Branding</h4>
+              <div class="branding-grid">
+                <div class="color-picker">
+                  <label>Primary Color</label>
+                  <input type="color" #primaryCol [ngModel]="currentTenant()?.primary_color">
+                </div>
+                <div class="color-picker">
+                  <label>Secondary Color</label>
+                  <input type="color" #secondaryCol [ngModel]="currentTenant()?.secondary_color">
+                </div>
+              </div>
             </div>
-            <div class="color-picker">
-              <label>Secondary Color</label>
-              <input type="color" [ngModel]="currentTenant()?.secondary_color">
+
+            <div class="oven-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1.5rem;">
+              <h4>🔥 Oven Configuration</h4>
+              <p class="description">Configure your oven capacity to optimize "Smart Batches".</p>
+              <div class="form-group">
+                <label>Oven Capacity (Loaves per batch)</label>
+                <input type="number" #ovenCap [ngModel]="currentTenant()?.oven_capacity || 6" class="form-control" style="max-width: 150px;">
+                <small class="form-hint">How many loaves can you bake at once?</small>
+              </div>
+            </div>
+
+            <div class="location-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1.5rem;">
+              <h4>📍 Location & Contact</h4>
+              <p class="description">This information will appear in your storefront footer and on the map.</p>
+              <div class="form-group">
+                <label>Shop Address</label>
+                <input type="text" #shopAddress [ngModel]="currentTenant()?.address" class="form-control" placeholder="e.g. 123 Baker St, London">
+              </div>
+              <div class="branding-grid">
+                <div class="form-group">
+                  <label>Public Phone</label>
+                  <input type="tel" #shopPhone [ngModel]="currentTenant()?.phone" class="form-control" placeholder="e.g. (555) 000-0000">
+                </div>
+                <div class="form-group">
+                  <label>Public Email</label>
+                  <input type="email" #shopEmail [ngModel]="currentTenant()?.email" class="form-control" placeholder="e.g. hello@mybakery.com">
+                </div>
+              </div>
             </div>
           </div>
-          <button class="btn-primary">Save Branding</button>
+          <button class="btn-primary" style="margin-top: 1.5rem;" (click)="saveSettings(primaryCol.value, secondaryCol.value, ovenCap.value, shopAddress.value, shopPhone.value, shopEmail.value)">
+            Save All Settings
+          </button>
         </div>
 
         <div class="card">
@@ -65,6 +107,214 @@
           <div class="status-toggle">
             <span>Accepting Orders</span>
             <button class="btn-toggle active">ON</button>
+          </div>
+        </div>
+
+        <div class="card toast-integration">
+          <div class="card-header-with-icon">
+            <span class="icon">🍞</span>
+            <h3>Toast Integration</h3>
+          </div>
+          <p class="description">Connect your ToastTab POS to sync orders and inventory automatically.</p>
+
+          <div class="integration-status">
+            <span class="status-badge disconnected">Not Connected</span>
+            <p class="setup-hint">To enable Toast integration, you must first authorize <strong>The Daily Dough</strong> in your Toast Account Manager.</p>
+          </div>
+
+          <div class="integration-steps">
+            <h4>Setup Instructions:</h4>
+            <ol>
+              <li>Log in to your <strong>Toast Portal</strong>.</li>
+              <li>Navigate to <strong>Integrations</strong> > <strong>Browse Integrations</strong>.</li>
+              <li>Search for <strong>The Daily Dough</strong> and click <strong>Add Integration</strong>.</li>
+              <li>Copy your <strong>Toast Client ID</strong> and paste it below.</li>
+            </ol>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label>Toast Client ID</label>
+            <input type="text" placeholder="Enter your Toast Client ID" class="form-control">
+          </div>
+
+          <div class="btn-group" style="margin-top: 1.5rem;">
+            <button class="btn-primary" (click)="modalService.showAlert('Toast integration setup initiated. Please check your email for the next steps.', 'Toast Setup', 'info')">
+              Connect to ToastTab
+            </button>
+            <button class="btn-outline" (click)="showToastDocs()">Documentation</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (activeTab() === 'inventory') {
+      <div class="inventory-view">
+        <header>
+          <h1>Ingredient Inventory</h1>
+          <p>Track your stock levels for flour, yeast, and inclusions.</p>
+        </header>
+
+        <div class="inventory-grid">
+          <div class="card inventory-card">
+            <div class="item-header">
+              <h3>Organic Bread Flour</h3>
+              <span class="status-tag low">Low Stock</span>
+            </div>
+            <div class="stock-level">
+              <div class="progress-bar">
+                <div class="progress" style="width: 15%"></div>
+              </div>
+              <span>15kg / 100kg</span>
+            </div>
+            <button class="btn-small">Order More</button>
+          </div>
+
+          <div class="card inventory-card">
+            <div class="item-header">
+              <h3>Active Dry Yeast</h3>
+              <span class="status-tag ok">In Stock</span>
+            </div>
+            <div class="stock-level">
+              <div class="progress-bar">
+                <div class="progress" style="width: 80%"></div>
+              </div>
+              <span>4kg / 5kg</span>
+            </div>
+            <button class="btn-small">Update Stock</button>
+          </div>
+
+          <div class="card inventory-card">
+            <div class="item-header">
+              <h3>Sea Salt</h3>
+              <span class="status-tag ok">In Stock</span>
+            </div>
+            <div class="stock-level">
+              <div class="progress-bar">
+                <div class="progress" style="width: 60%"></div>
+              </div>
+              <span>6kg / 10kg</span>
+            </div>
+            <button class="btn-small">Update Stock</button>
+          </div>
+        </div>
+
+        <div class="card replenishment-logic">
+          <h3>📦 Auto-Replenishment (ERP)</h3>
+          <p>Based on your <strong>Production Plan</strong> for the next 7 days, you will need approximately <strong>45kg</strong> of Bread Flour. Would you like to generate a purchase order?</p>
+          <div class="btn-group">
+            <button class="btn-primary" (click)="generatePO()">Generate PO</button>
+            <button class="btn-outline" (click)="showInventoryDocs()">How it works</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (activeTab() === 'forecast') {
+      <div class="forecast-view">
+        <header>
+          <h1>Production & Sales Forecast</h1>
+          <p>Predicting demand and planning your bake day.</p>
+        </header>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="label">Projected Total</span>
+            <span class="value">142</span>
+            <span class="sub-label">Total units for next bake</span>
+            <div class="channel-breakdown">
+              <small>🛒 45 Walk-in</small>
+              <small>🌐 75 Online</small>
+              <small>📞 22 Phone</small>
+            </div>
+          </div>
+          <div class="stat-card timeline-planner">
+            <span class="label">⏰ Start Time Planner</span>
+            <div class="target-time-input">
+              <label>Target Finish Time</label>
+              <input type="time" [ngModel]="targetDeliveryTime()" (ngModelChange)="targetDeliveryTime.set($event)">
+            </div>
+            @if (productionTimeline(); as timeline) {
+              <div class="start-time-result">
+                <span class="value">{{timeline.startTime}}</span>
+                <span class="sub-label">Recommended start to finish by {{targetDeliveryTime()}}</span>
+              </div>
+            } @else {
+              <p class="empty-hint">Add orders for tomorrow to calculate start time.</p>
+            }
+          </div>
+        </div>
+
+        @if (productionTimeline(); as timeline) {
+          <div class="card timeline-details">
+            <h3>🥖 Bake Day Schedule (Tomorrow)</h3>
+            <div class="timeline-items">
+              @for (item of timeline.items; track item.name) {
+                <div class="timeline-item">
+                  <div class="item-info">
+                    <strong>{{item.quantity}}x {{item.name}}</strong>
+                    <span>{{item.totalTime}} mins total</span>
+                  </div>
+                  <div class="time-segments">
+                    <span class="segment prep" [style.flex]="item.prepTime">Prep: {{item.prepTime}}m</span>
+                    <span class="segment bake" [style.flex]="item.bakeTime">Bake: {{item.bakeTime}}m</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="forecast-grid">
+          <div class="card forecast-card">
+            <h3>🛒 Walk-in Forecast</h3>
+            <div class="forecast-metric">
+              <span class="metric-value">45</span>
+              <span class="metric-unit">loaves</span>
+            </div>
+            <div class="trend-indicator up">
+              <span>+12% vs last week</span>
+            </div>
+            <p class="description">Strong demand predicted for Saturday morning walk-ins.</p>
+          </div>
+
+          <div class="card forecast-card">
+            <h3>📞 Phone Forecast</h3>
+            <div class="forecast-metric">
+              <span class="metric-value">22</span>
+              <span class="metric-unit">orders</span>
+            </div>
+            <div class="trend-indicator stable">
+              <span>Stable</span>
+            </div>
+            <p class="description">Consistent call-in volume expected for pre-orders.</p>
+          </div>
+
+          <div class="card forecast-card">
+            <h3>🌐 Online Forecast</h3>
+            <div class="forecast-metric">
+              <span class="metric-value">75</span>
+              <span class="metric-unit">loaves</span>
+            </div>
+            <div class="trend-indicator up">
+              <span>+5% vs last week</span>
+            </div>
+            <p class="description">Digital sales continue to grow steadily.</p>
+          </div>
+        </div>
+
+        <div class="card forecast-chart-placeholder">
+          <h3>Weekly Demand Pattern</h3>
+          <div class="mock-chart">
+            <div class="bar" style="height: 40%" title="Mon: 30"></div>
+            <div class="bar" style="height: 35%" title="Tue: 25"></div>
+            <div class="bar" style="height: 20%" title="Wed: 15"></div>
+            <div class="bar" style="height: 50%" title="Thu: 45"></div>
+            <div class="bar" style="height: 80%" title="Fri: 90"></div>
+            <div class="bar highlight" style="height: 100%" title="Sat: 120"></div>
+            <div class="bar" style="height: 10%" title="Sun: Closed"></div>
+          </div>
+          <div class="chart-labels">
+            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
           </div>
         </div>
       </div>

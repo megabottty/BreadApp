@@ -7,9 +7,7 @@
 
   <div class="nav-links" [class.open]="isMenuOpen()">
     @if (authService.isBaker()) {
-      <a routerLink="/calculator" routerLinkActive="active" (click)="closeMenu()">Recipe Lab</a>
-      <a routerLink="/manage-orders" routerLinkActive="active" (click)="closeMenu()">Manage Orders</a>
-      <a routerLink="/ledger" routerLinkActive="active" (click)="closeMenu()">Ledger</a>
+      <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMenu()">Baker Dashboard</a>
     }
     <a routerLink="/front" routerLinkActive="active" (click)="closeMenu()">Storefront</a>
     <a routerLink="/about" routerLinkActive="active" (click)="closeMenu()">About Us</a>

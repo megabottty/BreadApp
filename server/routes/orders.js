@@ -31,7 +31,9 @@ const tenantMiddleware = async (req, res, next) => {
       .single();
 
     if (error || !tenant) {
-      console.warn(`[Tenant Middleware] Bakery not found for slug: "${tenantSlug}". Ensure the bakery is registered.`);
+      if (tenantSlug !== 'thedailydough') {
+        console.warn(`[Tenant Middleware] Bakery not found for slug: "${tenantSlug}". Ensure the bakery is registered.`);
+      }
       return res.status(404).json({ error: 'Bakery not found' });
     }
 
@@ -68,6 +70,7 @@ router.post('/', async (req, res) => {
           items: orderData.items,
           notes: orderData.notes,
           pickup_date: orderData.pickupDate,
+          order_source: orderData.orderSource || 'ONLINE',
           status: 'PENDING',
           promo_code: orderData.promoCode,
           discount_applied: orderData.discountApplied,
@@ -132,6 +135,8 @@ router.get('/recipes', async (req, res) => {
       ingredients: recipe.ingredients,
       images: recipe.images,
       available_addons: recipe.available_addons,
+      prepTimeMinutes: recipe.prep_time_minutes,
+      bakeTimeMinutes: recipe.bake_time_minutes,
       createdAt: recipe.created_at
     }));
 
@@ -227,7 +232,9 @@ router.post('/recipes', async (req, res) => {
         is_hidden: recipe.isHidden,
         ingredients: recipe.ingredients,
         images: recipe.images,
-        available_addons: recipe.available_addons
+        available_addons: recipe.available_addons,
+        prep_time_minutes: recipe.prepTimeMinutes,
+        bake_time_minutes: recipe.bakeTimeMinutes
       })
       .select();
 
@@ -303,6 +310,7 @@ router.get('/:orderId', async (req, res) => {
       items: data.items,
       notes: data.notes,
       pickupDate: data.pickup_date || null,
+      orderSource: data.order_source || 'ONLINE',
       status: data.status,
       promoCode: data.promo_code,
       discountApplied: data.discount_applied,
@@ -350,6 +358,7 @@ router.get('/', async (req, res) => {
       items: order.items,
       notes: order.notes,
       pickupDate: order.pickup_date || null,
+      orderSource: order.order_source || 'ONLINE',
       status: order.status,
       promoCode: order.promo_code,
       discountApplied: order.discount_applied,

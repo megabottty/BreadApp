@@ -9,6 +9,13 @@ CREATE TABLE IF NOT EXISTS bakery_tenants (
     logo_url TEXT,
     primary_color TEXT DEFAULT '#7D8F69',
     secondary_color TEXT DEFAULT '#D88569',
+    oven_capacity INTEGER DEFAULT 6,
+    default_bake_temp INTEGER DEFAULT 450,
+    default_steam_time INTEGER DEFAULT 15,
+    default_bake_time TEXT DEFAULT '45m',
+    address TEXT,
+    phone TEXT,
+    email TEXT,
     stripe_account_id TEXT, -- For Stripe Connect or separate accounts
     twilio_config JSONB, -- Optional bakery-specific Twilio credentials
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -26,6 +33,8 @@ CREATE TABLE IF NOT EXISTS bakery_recipes (
     flavor_profile TEXT,
     ingredients JSONB NOT NULL,
     images TEXT[] DEFAULT '{}',
+    prep_time_minutes INTEGER DEFAULT 0,
+    bake_time_minutes INTEGER DEFAULT 45,
     is_hidden BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -43,6 +52,7 @@ CREATE TABLE IF NOT EXISTS bakery_orders (
     items JSONB NOT NULL,
     notes TEXT,
     pickup_date TEXT, -- YYYY-MM-DD
+    order_source TEXT DEFAULT 'ONLINE', -- 'ONLINE', 'PHONE', 'WALK_IN'
     status TEXT DEFAULT 'PENDING',
     promo_code TEXT,
     discount_applied DECIMAL(10, 2) DEFAULT 0,

@@ -515,20 +515,35 @@ h2 {
 
 .product-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 1.25rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--border-color);
   margin-top: auto;
-  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .product-footer {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
 }
 
 .product-footer .btn-group {
   display: flex;
   gap: 0.4rem;
   align-items: center;
-  flex: 1;
-  justify-content: flex-end;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .product-footer .btn-group {
+    flex: 1;
+    justify-content: flex-end;
+    width: auto;
+  }
 }
 
 .price {

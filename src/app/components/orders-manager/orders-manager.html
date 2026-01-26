@@ -1,9 +1,12 @@
 <div class="orders-container">
   <div class="header-section">
     <h1>Order Management</h1>
-    <div class="date-picker">
-      <label>Bake Date</label>
-      <input type="date" [ngModel]="bakeDate()" (ngModelChange)="bakeDate.set($event)">
+    <div class="header-actions">
+      <button class="btn-primary" (click)="openManualOrder()">➕ Manual Order</button>
+      <div class="date-picker">
+        <label>Bake Date</label>
+        <input type="date" [ngModel]="bakeDate()" (ngModelChange)="bakeDate.set($event)">
+      </div>
     </div>
   </div>
 
@@ -55,6 +58,12 @@
             <div class="order-main">
               <div class="customer-tag">
                 <span class="type">{{order.type}}</span>
+                <span class="source-badge" [attr.data-source]="order.orderSource">
+                  @if (order.orderSource === 'PHONE') { 📞 }
+                  @else if (order.orderSource === 'WALK_IN') { 🚶 }
+                  @else { 🌐 }
+                  {{order.orderSource}}
+                </span>
                 @if (order.customerId === 'guest') {
                   <span class="guest-badge">GUEST</span>
                 }
@@ -115,43 +124,77 @@
       </div>
     </div>
 
-    <!-- Right Column: Ingredient Aggregation -->
+    <!-- Right Column: Ingredient Aggregation & Production Plan -->
     <div class="card requirements-card">
-      <h2>Daily Grams Breakdown</h2>
-      <p class="subtitle">Detailed ingredient requirements by loaf type.</p>
+      <div class="tabs-small">
+        <button [class.active]="rightTab() === 'ingredients'" (click)="rightTab.set('ingredients')">Ingredients</button>
+        <button [class.active]="rightTab() === 'batches'" (click)="rightTab.set('batches')">Production Plan</button>
+      </div>
 
-      <div class="breakdown-list">
-        @for (item of loafBreakdown() | keyvalue; track item.key) {
-          <div class="loaf-type-breakdown">
-            <div class="loaf-header">
-              <span class="loaf-name">{{item.key}}</span>
-              <span class="loaf-qty">{{item.value.quantity}}x Loaves</span>
+      @if (rightTab() === 'ingredients') {
+        <h2>Daily Grams Breakdown</h2>
+        <p class="subtitle">Detailed ingredient requirements by loaf type.</p>
+
+        <div class="breakdown-list">
+          @for (item of loafBreakdown() | keyvalue; track item.key) {
+            <div class="loaf-type-breakdown">
+              <div class="loaf-header">
+                <span class="loaf-name">{{item.key}}</span>
+                <span class="loaf-qty">{{item.value.quantity}}x Loaves</span>
+              </div>
+              <div class="loaf-ingredients">
+                @for (ing of item.value.ingredients; track ing.name) {
+                  <div class="ing-row">
+                    <span class="ing-name">{{ing.name}}</span>
+                    <span class="ing-weight">{{ing.totalWeight | number:'1.0-0'}}g</span>
+                  </div>
+                }
+              </div>
             </div>
-            <div class="loaf-ingredients">
-              @for (ing of item.value.ingredients; track ing.name) {
-                <div class="ing-row">
-                  <span class="ing-name">{{ing.name}}</span>
-                  <span class="ing-weight">{{ing.totalWeight | number:'1.0-0'}}g</span>
+          } @empty {
+            <p class="empty-msg">No requirements yet. Select a date with orders.</p>
+          }
+        </div>
+
+        @if (masterDough(); as ingredients) {
+          <div class="master-total-section">
+            <h3>Total Master Dough Requirements</h3>
+            <div class="stats-grid">
+              @for (ing of ingredients | keyvalue; track ing.key) {
+                <div class="stat-box">
+                  <span class="label">{{ing.key}}</span>
+                  <span class="value">{{ing.value.weight | number:'1.0-0'}}g</span>
                 </div>
               }
             </div>
           </div>
-        } @empty {
-          <p class="empty-msg">No requirements yet. Select a date with orders.</p>
         }
-      </div>
+      } @else {
+        <h2>Production Batches</h2>
+        <p class="subtitle">Optimized batches for the oven.</p>
 
-      @if (masterDough(); as ingredients) {
-        <div class="master-total-section">
-          <h3>Total Master Dough Requirements</h3>
-          <div class="stats-grid">
-            @for (ing of ingredients | keyvalue; track ing.key) {
-              <div class="stat-box">
-                <span class="label">{{ing.key}}</span>
-                <span class="value">{{ing.value.weight | number:'1.0-0'}}g</span>
+        <div class="batch-list">
+          @for (batch of productionBatches(); track $index) {
+            <div class="batch-card">
+              <div class="batch-header">
+                <span class="batch-number">Batch #{{$index + 1}}</span>
+                <span class="batch-time">{{batch.estimatedTime}}</span>
               </div>
-            }
-          </div>
+              <div class="batch-items">
+                @for (item of batch.items; track item.name) {
+                  <div class="batch-item">
+                    <span>{{item.quantity}}x {{item.name}}</span>
+                  </div>
+                }
+              </div>
+              <div class="batch-footer">
+                <span>🔥 Temp: {{batch.temp}}°F</span>
+                <span>⏲️ Steam: {{batch.steamMinutes}}m</span>
+              </div>
+            </div>
+          } @empty {
+            <p class="empty-msg">Add orders to generate a production plan.</p>
+          }
         </div>
       }
     </div>
@@ -190,6 +233,83 @@
             <textarea [(ngModel)]="bakerNotes" rows="4" placeholder="Add private notes about this order..."></textarea>
             <button class="btn-save btn-small" (click)="saveBakerNotes()">Save Notes</button>
           </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Manual Order Modal -->
+  @if (showManualOrderModal()) {
+    <div class="modal-overlay" (click)="showManualOrderModal.set(false)">
+      <div class="modal-content card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>New Manual Order</h2>
+          <button class="btn-close" (click)="showManualOrderModal.set(false)">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Customer Name</label>
+              <input type="text" [(ngModel)]="manualOrder().customerName" placeholder="e.g. John Doe">
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" [(ngModel)]="manualOrder().customerPhone" placeholder="e.g. 555-0123">
+            </div>
+            <div class="form-group">
+              <label>Order Source</label>
+              <select [(ngModel)]="manualOrder().orderSource">
+                <option value="PHONE">📞 Phone</option>
+                <option value="WALK_IN">🚶 Walk-in</option>
+                <option value="ONLINE">🌐 Online</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Type</label>
+              <select [(ngModel)]="manualOrder().type">
+                <option value="PICKUP">Pickup</option>
+                <option value="SHIPPING">Shipping</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Pickup/Bake Date</label>
+              <input type="date" [(ngModel)]="manualOrder().pickupDate">
+            </div>
+          </div>
+
+          <div class="manual-items-section">
+            <h3>Items</h3>
+            <div class="add-item-row">
+              <select [(ngModel)]="manualOrderItem().recipeId">
+                <option value="">Select a recipe...</option>
+                @for (recipe of savedRecipes(); track recipe.id) {
+                  <option [value]="recipe.id">{{recipe.name}} ({{recipe.price | currency}})</option>
+                }
+              </select>
+              <input type="number" [(ngModel)]="manualOrderItem().quantity" min="1" style="width: 60px;">
+              <button class="btn-small" (click)="addManualItem()">Add</button>
+            </div>
+
+            <div class="manual-items-list">
+              @for (item of manualOrder().items; track $index) {
+                <div class="manual-item">
+                  <span>{{item.quantity}}x {{item.name}}</span>
+                  <button class="btn-remove" (click)="removeManualItem($index)">×</button>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea [(ngModel)]="manualOrder().notes" rows="3" placeholder="Special requests..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" (click)="showManualOrderModal.set(false)">Cancel</button>
+          <button class="btn-primary" (click)="saveManualOrder()">Save Order</button>
         </div>
       </div>
     </div>

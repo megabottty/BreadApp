@@ -73,6 +73,8 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       images: this.fb.array([]),
       levainHydration: [100],
       servingSizeGrams: [50],
+      prepTimeMinutes: [0],
+      bakeTimeMinutes: [45],
       isHidden: [false],
       currentUnits: [1],
       targetUnits: [1],

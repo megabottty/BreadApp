@@ -149,6 +149,7 @@
                 <td>
                   <div class="customer-info">
                     <span class="customer-name">{{ order.customerName }}</span>
+                    <span class="source-tag" [attr.data-source]="order.orderSource">{{order.orderSource}}</span>
                     <span class="customer-phone">{{ order.customerPhone }}</span>
                   </div>
                 </td>
