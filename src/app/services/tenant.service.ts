@@ -17,6 +17,7 @@ export interface Tenant {
   address?: string;
   phone?: string;
   email?: string;
+  stripe_account_id?: string;
   subscription_status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
   subscription_plan?: 'BASIC' | 'PRO' | 'ENTERPRISE';
   subscription_id?: string;

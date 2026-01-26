@@ -25,8 +25,16 @@ The core logic resides in `src/app/logic/bakers-math.ts`.
 
 - **Hydration Calculation**: Automatically calculates the "True Hydration" of a recipe based on flour and water weights (including the contribution from the starter).
 - **Ingredient Aggregation**: The `OrdersManager` takes multiple orders for a specific date and runs them through an aggregation algorithm to produce a "Daily Grams Breakdown" for the baker.
+- **Nutrition & Search**: Integrated with the **USDA FoodData Central API** via the `IngredientService`. It provides real-time nutritional data (calories, protein, carbs, fats) for thousands of ingredients during recipe creation.
 
-### 4. PWA & Mobile Optimization
+### 4. Communication & Notifications
+Powered by **Twilio** with a built-in mock fallback for development.
+
+- **SMS Workflow**: The `NotificationService` handles automated customer updates for order milestones (`Order Confirmation`, `Ready for Pickup`, `Out for Delivery`) and `Baker Alerts` for new orders.
+- **Fail-safe Mocking**: If Twilio credentials are missing in the environment, the backend gracefully logs messages to the console instead of failing.
+- **Customer SMS Shortcuts**: Bakers can manually trigger SMS notifications from the dashboard using the `NotificationService`.
+
+### 5. PWA & Mobile Optimization
 The app is designed with a **mobile-first** approach:
 
 - **Manifest**: `src/manifest.webmanifest` defines the app icons and splash screen.
@@ -50,23 +58,24 @@ When you build the app (`npm run build`), this file is copied to the root of you
 
 Key tables in the Supabase database:
 
-- `bakery_tenants`: The master list of all bakeries on the platform.
-- `bakery_recipes`: Product definitions, ingredients, and prices.
-- `bakery_orders`: Transactional records linking customers to specific recipes and tenants.
-- `bakery_reviews`: Customer feedback and star ratings.
-- `bakery_subscriptions`: Recurring weekly order schedules.
-- `bakery_promos`: Discount codes unique to each tenant.
+- `bakery_tenants`: Master list of bakeries. Stores branding (colors, logo), settings (`oven_capacity`, `default_bake_temp`, `default_bake_time`), and subscription status.
+- `bakery_recipes`: Product definitions, ingredients (JSONB), prices, and production metadata (`prep_time_minutes`, `bake_time_minutes`).
+- `bakery_orders`: Transactional records. Includes `fulfillment_type` (Pickup/Shipping), `order_source` (Online/Phone/Walk-in), and `promo_code`.
+- `bakery_reviews`: Customer feedback and star ratings with baker reply support.
+- `bakery_subscriptions`: Recurring weekly order schedules for customers.
+- `bakery_promos`: Discount codes (Fixed, Percent, Free Loaf) scoped to each tenant.
 
 ---
 
 ## 🔌 API Endpoints (Backend)
 
-The Node.js server (`server/index.js`) exposes several key routes:
+The Node.js server (`server/index.js`) exposes several key routes under the `/api` prefix:
 
-- `GET /api/orders/info`: Fetches branding for the current tenant.
-- `POST /api/orders`: Saves a new order (handles guest checkout).
-- `GET /api/orders/recipes`: Retrieves the product catalog for a specific tenant.
-- `POST /api/orders/register-bakery`: Onboards a new baker.
+- **Orders & Tenants**: `GET /api/orders` (all orders for tenant), `POST /api/orders` (place order), `GET /api/orders/info` (tenant branding/settings).
+- **Recipes**: `GET /api/orders/recipes` (catalog), `POST /api/orders/recipes` (save recipe).
+- **Promos**: `GET /api/orders/promos/all`, `POST /api/orders/promos`, `DELETE /api/orders/promos/:id`.
+- **Notifications**: `POST /api/notifications/send-sms`.
+- **Onboarding**: `POST /api/orders/register-bakery`.
 
 ---
 

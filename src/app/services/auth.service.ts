@@ -10,6 +10,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  tenant_id?: string;
 }
 
 @Injectable({
@@ -80,7 +81,8 @@ export class AuthService {
         id: supabaseUser.id,
         name: supabaseUser.user_metadata['full_name'] || supabaseUser.email?.split('@')[0] || 'User',
         email: supabaseUser.email || '',
-        role: supabaseUser.user_metadata['role'] || 'CUSTOMER'
+        role: supabaseUser.user_metadata['role'] || 'CUSTOMER',
+        tenant_id: supabaseUser.user_metadata['tenant_id']
       };
 
       console.log('[Auth Debug] Final User Object with Role:', user);

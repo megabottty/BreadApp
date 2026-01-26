@@ -13,10 +13,11 @@ The Daily Dough is a multi-tenant SaaS (Software as a Service) platform designed
 ### 2. Baker Dashboard ("Baker Central")
 A unified command center for managing everything:
 - **Production Brain**: A daily view of orders. It automatically aggregates ingredients across all orders for a specific "Bake Date," telling the baker exactly how many grams of flour, water, salt, and starter they need for the day.
-- **Recipe Calculator**: A professional baker's math calculator that handles hydration percentages and scales recipes based on desired loaf count. Now includes **Time Tracking** (Prep vs. Bake) to power your production schedule.
+- **Recipe Calculator**: A professional baker's math calculator that handles hydration percentages and scales recipes based on desired loaf count. Now includes **Time Tracking** (Prep vs. Bake) to power your production schedule and **Nutrition Tracking** with real-time data from the **USDA FoodData Central API**.
 - **Production Timeline Planner**: Located in the Forecast tab, this tool calculates exactly when you need to start your day based on your target finish time and the specific recipes in your production plan.
-- **Bakery Ledger**: A financial overview showing total revenue, pending sales, and average order value.
+- **Bakery Ledger**: A financial overview showing total revenue, pending sales, and average order value. Manage **Promo Codes** (Fixed, Percentage, or Free Loaf) directly from the ledger.
 - **Order Management**: Track orders through various stages: `PENDING`, `READY`/`SHIPPED`, and `COMPLETED`.
+- **Integrated Notifications**: Automatically send SMS updates to customers when orders are confirmed, ready for pickup, or out for delivery. Bakers also receive real-time alerts for new orders.
 
 ### 3. Marketing & Sales Tools
 - **Promo Codes**: Create fixed-amount, percentage-based, or "Free Loaf" discount codes.
