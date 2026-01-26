@@ -17,6 +17,10 @@ export interface Tenant {
   address?: string;
   phone?: string;
   email?: string;
+  subscription_status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+  subscription_plan?: 'BASIC' | 'PRO' | 'ENTERPRISE';
+  subscription_id?: string;
+  onboarding_completed?: boolean;
 }
 
 @Injectable({
@@ -108,20 +112,25 @@ export class TenantService {
   }
 
   updateTenantBranding(id: string, primary: string, secondary: string, oven_capacity: number = 6, address?: string, phone?: string, email?: string) {
-    return this.http.patch<Tenant>(`${this.apiUrl}/orders/info`, {
+    return this.updateTenant(id, {
       primary_color: primary,
       secondary_color: secondary,
       oven_capacity: oven_capacity,
       address: address,
       phone: phone,
       email: email
-    }, {
+    });
+  }
+
+  updateTenant(id: string, updates: Partial<Tenant>) {
+    return this.http.patch<Tenant>(`${this.apiUrl}/orders/info`, updates, {
       headers: { 'x-tenant-id': id }
     }).subscribe({
       next: (updated) => {
         this.currentTenant.set(updated);
         this.applyBranding(updated);
-      }
+      },
+      error: (err) => console.error('[TenantService] Failed to update tenant:', err)
     });
   }
 

@@ -27,7 +27,7 @@ export class BakerDashboardComponent {
   protected modalService = inject(ModalService);
   private http = inject(HttpClient);
 
-  activeTab = signal<'orders' | 'ledger' | 'recipes' | 'settings' | 'inventory' | 'forecast'>('orders');
+  activeTab = signal<'orders' | 'ledger' | 'recipes' | 'settings' | 'inventory' | 'forecast' | 'billing'>('orders');
   currentTenant = this.tenantService.tenant;
 
   savedRecipes = signal<CalculatedRecipe[]>([]);

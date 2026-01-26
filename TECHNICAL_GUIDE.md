@@ -9,8 +9,9 @@ The application is built as a decoupled system with an **Angular** frontend and 
 ### 1. Multi-Tenancy (SaaS Model)
 The app uses a **Single Database, Shared Schema** approach with a `tenant_id` for data isolation.
 
-- **Tenants Table**: Stores bakery-specific info (name, slug, colors, logo).
+- **Tenants Table**: Stores bakery-specific info (name, slug, colors, logo, subscription status).
 - **Slug Identification**: The `TenantService` on the frontend identifies the current bakery based on the URL path (`/b/slug`) or subdomain.
+- **Onboarding Flow**: New bakers are automatically redirected to the `SetupWizardComponent` upon registration to configure their branding, oven capacity, and select a SaaS subscription plan.
 - **Backend Enforcement**: The `tenantMiddleware` in `server/routes/orders.js` extracts the `x-tenant-slug` header from requests and injects the corresponding `tenant_id` into the database queries.
 
 ### 2. Authentication & Roles
@@ -33,8 +34,10 @@ The app is designed with a **mobile-first** approach:
 - **Responsive Layouts**: 
   - **Baker Dashboard**: Uses a sticky horizontal navigation on mobile to maximize workspace.
   - **Grid Systems**: Automatically transition from multi-column to single-column layouts on small screens.
-  - **Touch-Friendly**: Buttons and inputs are sized (min 48px height) for easy interaction on mobile devices.
+  - **Touch-Friendly**: Buttons and inputs are sized (min 48px to 52px height) for easy interaction on mobile devices.
+  - **iOS Optimization**: Inputs use `font-size: 16px` to prevent automatic zooming on Safari.
 - **App Icons**: Stored in `public/` and `src/assets/`.
+- **Custom Install Prompt**: For iOS and other browsers, a custom guided "Install App" prompt is implemented to improve discoverability and user experience.
 
 ### 5. Hosting & URL Rewriting (SPA Refresh Fix)
 Since this is a Single Page Application (SPA), traditional servers (Apache/Bluehost) need to be told how to handle sub-routes. I have added a `.htaccess` file in the `public/` directory.

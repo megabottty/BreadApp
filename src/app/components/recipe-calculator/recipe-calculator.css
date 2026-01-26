@@ -89,7 +89,8 @@ label {
 
 input[type="text"],
 input[type="number"],
-select {
+select,
+textarea {
   width: 100%;
   padding: 0.75rem 1rem;
   border: 1px solid #E0DCCF;
@@ -98,6 +99,7 @@ select {
   background-color: #FEFDFB;
   color: #4A4A4A;
   transition: border-color 0.2s, box-shadow 0.2s;
+  font-size: 16px; /* Prevents auto-zoom on iOS */
 }
 
 input:focus, select:focus {

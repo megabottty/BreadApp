@@ -1,0 +1,268 @@
+.wizard-container {
+  min-height: 100vh;
+  background-color: #FAF9F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.wizard-card {
+  background: white;
+  width: 100%;
+  max-width: 700px;
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(125, 143, 105, 0.1);
+  padding: 2.5rem;
+  border: 1px solid #E9E5D9;
+}
+
+.wizard-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.logo {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.wizard-header h1 {
+  font-family: 'Serif', Georgia, serif;
+  color: #5F6F52;
+  font-size: 2rem;
+  margin: 0 0 0.5rem;
+}
+
+.wizard-header p {
+  color: #8C967D;
+  margin: 0;
+}
+
+.progress-stepper {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.step {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #F1F3EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8C967D;
+  font-weight: 700;
+  transition: all 0.3s;
+}
+
+.step.active {
+  background: #7D8F69;
+  color: white;
+  transform: scale(1.1);
+}
+
+.step.completed {
+  background: #A9B388;
+  color: white;
+}
+
+.wizard-body {
+  min-height: 350px;
+  margin-bottom: 2rem;
+}
+
+.step-content h2 {
+  font-family: 'Serif', Georgia, serif;
+  color: #5F6F52;
+  margin-bottom: 1rem;
+}
+
+.step-content p {
+  color: #6C7A5C;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #5F6F52;
+  margin-bottom: 0.5rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #DDE3D5;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.branding-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.color-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #F8F7F2;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #DDE3D5;
+}
+
+input[type="color"] {
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.branding-preview {
+  height: 80px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.info-box {
+  background: #F1F3EB;
+  padding: 1rem;
+  border-radius: 12px;
+  color: #5F6F52;
+  font-size: 0.9rem;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.plan-card {
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 2px solid #F1F3EB;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.plan-card:hover {
+  border-color: #DDE3D5;
+}
+
+.plan-card.selected {
+  border-color: #7D8F69;
+  background: #FDFDFB;
+}
+
+.plan-header h3 {
+  margin: 0;
+  color: #5F6F52;
+}
+
+.plan-header .price {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #7D8F69;
+}
+
+.plan-card ul {
+  padding: 0;
+  list-style: none;
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: #6C7A5C;
+}
+
+.plan-card li {
+  margin-bottom: 0.5rem;
+}
+
+.badge {
+  position: absolute;
+  top: -12px;
+  right: 12px;
+  background: #D88569;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.trial-note {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #8C967D;
+}
+
+.wizard-footer {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #F1F3EB;
+  padding-top: 2rem;
+}
+
+.btn-primary {
+  background: #7D8F69;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: #5F6F52;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #DDE3D5;
+  color: #8C967D;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .form-grid, .branding-grid, .plan-grid {
+    grid-template-columns: 1fr;
+  }
+}

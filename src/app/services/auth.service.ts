@@ -106,7 +106,9 @@ export class AuthService {
       console.log('[Auth Debug] Login successful, user metadata:', data.user.user_metadata);
       const role = data.user.user_metadata['role'] as UserRole;
       if (role === 'BAKER') {
-        this.router.navigate(['/dashboard']);
+        const tenant = this.currentUser()?.tenant_id;
+        // Check if onboarding is completed if you have that flag, otherwise go to setup
+        this.router.navigate(['/setup-wizard']);
       } else {
         this.router.navigate(['/front']);
       }
@@ -183,7 +185,7 @@ export class AuthService {
       }
 
       if (role === 'BAKER') {
-        this.router.navigate(['/calculator']);
+        this.router.navigate(['/setup-wizard']);
       } else {
         this.router.navigate(['/front']);
       }

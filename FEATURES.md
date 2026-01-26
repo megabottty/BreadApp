@@ -4,9 +4,11 @@ The Daily Dough is a multi-tenant SaaS (Software as a Service) platform designed
 
 ## 🚀 For Bakers (The Business Side)
 
-### 1. Multi-Tenant Onboarding
-- **Baker Registration**: New bakers can sign up and claim a unique "Shop URL Slug" (e.g., `dailydough.app/mamas-sourdough`).
-- **Instant Storefront**: Creating an account automatically sets up a dedicated database tenant and a public storefront.
+### 1. SaaS Multi-Tenant Platform
+- **Self-Service Onboarding**: New bakers can register, claim their slug, and are guided through a **Setup Wizard** to configure their bakery in minutes.
+- **Dynamic Storefront**: Instantly generated branded storefront for every baker.
+- **Subscription Model**: Tiered SaaS plans (Basic vs. Pro) with automatic trial periods for bakers.
+- **Billing Management**: Integrated billing portal for bakers to manage their platform subscription.
 
 ### 2. Baker Dashboard ("Baker Central")
 A unified command center for managing everything:

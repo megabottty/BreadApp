@@ -7,11 +7,13 @@ import { SplashScreenComponent } from './components/splash-screen/splash-screen'
 import { NotificationModalComponent } from './components/notification-modal/notification-modal';
 import { ProductCustomizationModalComponent } from './components/product-customization-modal/product-customization-modal';
 import { FooterComponent } from './components/footer/footer';
+import { InstallPromptComponent } from './components/install-prompt/install-prompt';
+import { PwaService } from './services/pwa.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationModalComponent, ProductCustomizationModalComponent, FooterComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationModalComponent, ProductCustomizationModalComponent, FooterComponent, InstallPromptComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -20,6 +22,7 @@ export class App {
   protected readonly cartService = inject(CartService);
   protected readonly authService = inject(AuthService);
   protected readonly themeService = inject(ThemeService);
+  protected readonly pwaService = inject(PwaService);
 
   isMenuOpen = signal(false);
 

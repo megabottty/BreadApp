@@ -6,6 +6,7 @@ import { ProfileComponent } from './components/profile/profile';
 import { OrdersManagerComponent } from './components/orders-manager/orders-manager';
 import { LoginComponent } from './components/login/login';
 import { RegisterComponent } from './components/register/register';
+import { SetupWizardComponent } from './components/setup-wizard/setup-wizard';
 import { AboutComponent } from './components/about/about';
 import { BakeryLedgerComponent } from './components/bakery-ledger/bakery-ledger';
 import { SubscriptionManagerComponent } from './components/subscription-manager/subscription-manager';
@@ -17,6 +18,7 @@ export const routes: Routes = [
   { path: '', redirectTo: 'front', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
+  { path: 'setup-wizard', component: SetupWizardComponent, canActivate: [bakerGuard] },
   { path: 'about', component: AboutComponent },
   {
     path: 'dashboard',

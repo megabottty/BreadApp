@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS bakery_tenants (
     phone TEXT,
     email TEXT,
     stripe_account_id TEXT, -- For Stripe Connect or separate accounts
+    subscription_status TEXT DEFAULT 'TRIAL', -- 'TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED'
+    subscription_plan TEXT DEFAULT 'BASIC', -- 'BASIC', 'PRO', 'ENTERPRISE'
+    subscription_id TEXT, -- Stripe Subscription ID
     twilio_config JSONB, -- Optional bakery-specific Twilio credentials
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

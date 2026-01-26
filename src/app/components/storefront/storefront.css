@@ -554,7 +554,7 @@ h2 {
   white-space: nowrap;
 }
 
-.btn-add {
+.btn-add, .btn-subscribe, .btn-edit {
   background: var(--accent-sage);
   color: white;
   border: none;
@@ -568,105 +568,45 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 48px;
+  height: 52px; /* Increased from 48px for better mobile touch */
   flex: 2;
   min-width: 90px;
   max-width: 150px;
   white-space: nowrap;
 }
 
-.btn-add:hover {
-  background: var(--accent-sage-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(125, 143, 105, 0.3);
-}
-
-.btn-add:active {
-  transform: translateY(0);
-}
-
 .btn-subscribe {
   background: var(--btn-secondary);
   color: var(--accent-sage);
   border: 1.5px solid var(--accent-sage);
-  padding: 0 0.5rem;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.8rem;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
   flex: 1;
   min-width: 80px;
-}
-
-.btn-subscribe:hover {
-  background: var(--accent-sage);
-  color: white;
-}
-
-.btn-review {
-  background: var(--tag-bg);
-  color: var(--accent-terracotta);
-  border: 1.5px solid var(--accent-terracotta);
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  font-size: 1.4rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.btn-review:hover {
-  background: var(--accent-terracotta);
-  color: white;
-  transform: scale(1.05);
 }
 
 .btn-edit {
   background: var(--btn-secondary);
   color: var(--text-secondary);
   border: 1px solid var(--btn-secondary-border);
-  padding: 0 0.75rem;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
   flex: 1;
-  font-size: 0.85rem;
 }
 
-.btn-edit:hover {
-  background: var(--border-color);
-}
-
-.btn-delete-product {
-  background: #FDF9F7;
-  color: #A65D45;
-  border: 1px solid #F5EAE6;
-  width: 48px;
-  height: 48px;
+.btn-review, .btn-delete-product {
+  width: 52px; /* Increased from 48px */
+  height: 52px; /* Increased from 48px */
   border-radius: 12px;
-  font-size: 1.25rem;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
   flex-shrink: 0;
+}
+
+.btn-review {
+  background: var(--tag-bg);
+  color: var(--accent-terracotta);
+  border: 1.5px solid var(--accent-terracotta);
+  font-size: 1.4rem;
+  cursor: pointer;
 }
 
 .btn-delete-product:hover {

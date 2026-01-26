@@ -23,6 +23,9 @@
       <button [class.active]="activeTab() === 'forecast'" (click)="activeTab.set('forecast')">
         <span class="icon">📈</span> Forecast
       </button>
+      <button [class.active]="activeTab() === 'billing'" (click)="activeTab.set('billing')">
+        <span class="icon">💳</span> Billing
+      </button>
     </nav>
     <div class="sidebar-footer">
       @if (currentTenant(); as tenant) {
@@ -316,6 +319,61 @@
           <div class="chart-labels">
             <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
           </div>
+        </div>
+      </div>
+    }
+
+    @if (activeTab() === 'billing') {
+      <div class="billing-view">
+        <header>
+          <h1>Subscription & Billing</h1>
+          <p>Manage your SaaS subscription and bakery plan.</p>
+        </header>
+
+        <div class="card current-plan-card" style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="plan-info">
+            <span class="status-badge active" style="background: #ecfdf5; color: #059669; margin-bottom: 0.5rem; display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">{{currentTenant()?.subscription_status || 'TRIAL'}}</span>
+            <h3 style="margin: 0.5rem 0;">{{currentTenant()?.subscription_plan || 'BASIC'}} Plan</h3>
+            <p style="margin: 0; color: #6C7A5C;">Your next billing date is <strong>February 15, 2026</strong>.</p>
+          </div>
+          <button class="btn-outline" (click)="modalService.showAlert('Plan selection modal would open here.', 'Change Plan', 'info')">Change Plan</button>
+        </div>
+
+        <div class="billing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+          <div class="card">
+            <h3 style="margin-top: 0;">💳 Payment Method</h3>
+            @if (currentTenant()?.stripe_account_id) {
+              <div class="payment-method-info" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Visa ending in 4242</span>
+                <button class="btn-small">Update</button>
+              </div>
+            } @else {
+              <p style="color: #8C967D; font-size: 0.9rem;">No payment method on file. Your trial is active.</p>
+              <button class="btn-primary" style="width: 100%;" (click)="modalService.showAlert('Stripe Checkout would open here to link your card.', 'Add Payment', 'info')">Link Card</button>
+            }
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top: 0;">📑 Recent Invoices</h3>
+            <div class="invoice-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <div class="invoice-item" style="display: flex; justify-content: space-between; font-size: 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f3eb;">
+                <span>Jan 15, 2026</span>
+                <span>$29.00</span>
+                <button class="btn-text" style="color: #7D8F69; background: none; border: none; cursor: pointer; text-decoration: underline;">PDF</button>
+              </div>
+              <div class="invoice-item" style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                <span>Dec 15, 2025</span>
+                <span>$0.00 (Trial)</span>
+                <button class="btn-text" style="color: #7D8F69; background: none; border: none; cursor: pointer; text-decoration: underline;">PDF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card danger-zone" style="margin-top: 3rem; border: 1px solid #fee2e2; background: #fffafb;">
+          <h3 style="color: #dc2626; margin-top: 0;">Danger Zone</h3>
+          <p style="color: #991b1b; font-size: 0.9rem;">Permanently close your bakery and cancel your subscription. This cannot be undone.</p>
+          <button class="btn-outline" style="color: #dc2626; border-color: #fecaca;" (click)="modalService.showConfirm('Are you sure you want to cancel? Your storefront will be disabled immediately.', 'Cancel Subscription')">Cancel Subscription</button>
         </div>
       </div>
     }

@@ -344,12 +344,13 @@ h1 {
   font-weight: 500;
 }
 
-.form-group input {
+.form-group input, .notes-textarea, .promo-input-group input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #E0DCCF;
   border-radius: 10px;
   box-sizing: border-box;
+  font-size: 16px; /* Prevents auto-zoom on iOS */
 }
 
 .form-group input.invalid {

@@ -170,6 +170,38 @@ router.get('/info', async (req, res) => {
   }
 });
 
+// PATCH: Update Bakery Info (Branding, Oven, Subscription, etc)
+router.patch('/info', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  const updates = req.body;
+  const tenantId = req.headers['x-tenant-id'];
+
+  if (!tenantId) {
+    return res.status(400).json({ error: 'Tenant ID is required for updates' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('bakery_tenants')
+      .update(updates)
+      .eq('id', tenantId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Supabase Error] Bakery Update Failed:', error.message);
+      throw error;
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error updating bakery info:', error);
+    res.status(500).json({ error: 'Failed to update bakery info' });
+  }
+});
+
 // POST: Register a new bakery
 router.post('/register-bakery', async (req, res) => {
   if (!supabase) {
