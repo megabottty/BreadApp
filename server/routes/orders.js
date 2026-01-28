@@ -204,6 +204,7 @@ router.patch('/info', async (req, res) => {
 
 // POST: Register a new bakery
 router.post('/register-bakery', async (req, res) => {
+  console.log('[DEBUG LOG] POST /api/orders/register-bakery hit with body:', req.body);
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
