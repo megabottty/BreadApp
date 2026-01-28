@@ -16,8 +16,15 @@ const supabase = (supabaseUrl && supabaseKey)
 
 // Middleware to extract tenant_id from headers
 const tenantMiddleware = async (req, res, next) => {
+  if (req.url === '/register-bakery' || req.method === 'OPTIONS') {
+    return next();
+  }
+
   const tenantSlug = req.headers['x-tenant-slug'];
   if (!tenantSlug) {
+    if (req.url === '/info') {
+      return res.status(400).json({ error: 'x-tenant-slug header is required for /info' });
+    }
     console.warn(`[Tenant Middleware] Missing x-tenant-slug header for ${req.method} ${req.originalUrl}`);
     req.tenantId = null;
     return next();
@@ -34,6 +41,14 @@ const tenantMiddleware = async (req, res, next) => {
       if (tenantSlug !== 'thedailydough') {
         console.warn(`[Tenant Middleware] Bakery not found for slug: "${tenantSlug}". Ensure the bakery is registered.`);
       }
+
+      // If it's the /info route, we want to return the 404 with a specific message
+      if (req.url === '/info') {
+        return res.status(404).json({ error: 'Bakery not found' });
+      }
+
+      // For other routes, we might want to continue but with null tenantId
+      // OR return 404. Given current logic, we return 404.
       return res.status(404).json({ error: 'Bakery not found' });
     }
 
@@ -206,14 +221,17 @@ router.patch('/info', async (req, res) => {
 router.post('/register-bakery', async (req, res) => {
   console.log('[DEBUG LOG] POST /api/orders/register-bakery hit with body:', req.body);
   if (!supabase) {
+    console.error('[Supabase Error] Database connection not configured');
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   const { name, slug } = req.body;
   if (!name || !slug) {
+    console.warn('[Validation Warning] Missing name or slug in registration');
     return res.status(400).json({ error: 'Name and slug are required' });
   }
 
   try {
+    console.log('[Supabase Debug] Registering bakery:', name, 'with slug:', slug);
     const { data, error } = await supabase
       .from('bakery_tenants')
       .insert([{ name, slug }])
@@ -221,25 +239,26 @@ router.post('/register-bakery', async (req, res) => {
       .single();
 
     if (error) {
-      console.error('[Supabase Error] Bakery Registration Failed:', error.message, error.details);
+      console.error('[Supabase Error] Bakery Registration Failed:', error.message, 'Code:', error.code, 'Details:', error.details);
 
       // Check for missing table error
-      if (error.message.includes("Could not find the table 'public.bakery_tenants'")) {
+      if (error.message && error.message.includes("Could not find the table 'public.bakery_tenants'")) {
         return res.status(500).json({
           error: 'Database table missing. Please ensure you have run the latest supabase_schema.sql in your Supabase SQL Editor.'
         });
       }
 
       if (error.code === '23505') { // Unique violation
-        return res.status(400).json({ error: 'This bakery slug is already taken' });
+        return res.status(400).json({ error: `The slug "${slug}" is already taken. Please choose another one.` });
       }
-      throw error;
+      return res.status(500).json({ error: error.message || 'Unknown database error' });
     }
 
+    console.log('[Supabase Debug] Bakery registered successfully:', data.id);
     res.status(201).json(data);
   } catch (error) {
-    console.error('Error registering bakery:', error);
-    res.status(500).json({ error: 'Failed to register bakery' });
+    console.error('[Server Error] Unexpected error during bakery registration:', error);
+    res.status(500).json({ error: 'An unexpected server error occurred while registering your bakery.' });
   }
 });
 

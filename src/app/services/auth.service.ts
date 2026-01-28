@@ -142,19 +142,41 @@ export class AuthService {
     // 2. If Baker, create their Bakery Tenant via the backend API
     if (role === 'BAKER' && bakeryName && bakerySlug) {
       try {
-        const tenantResponse = await fetch(`${environment.apiUrl}/orders/register-bakery`, {
+        console.log('[Auth Debug] Creating bakery for tenant:', bakerySlug);
+
+        // Use an absolute URL if we are in development to be 100% sure we hit the backend
+        // In production, /api works because they are on the same domain
+        const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+        const apiUrl = `${baseUrl}${environment.apiUrl}/orders/register-bakery`;
+
+        console.log('[Auth Debug] Calling API:', apiUrl, 'with body:', { name: bakeryName, slug: bakerySlug });
+
+        const tenantResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: bakeryName, slug: bakerySlug })
         });
 
+        console.log('[Auth Debug] API Response Status:', tenantResponse.status);
+
         if (!tenantResponse.ok) {
-          const errData = await tenantResponse.json();
-          throw new Error(errData.error || 'Failed to create bakery');
+          const rawResponse = await tenantResponse.text();
+          console.error('[Auth Error] Server returned error response:', rawResponse);
+
+          let errData;
+          try {
+            errData = JSON.parse(rawResponse);
+          } catch (e) {
+            errData = { error: `Server returned ${tenantResponse.status} (Not JSON)` };
+          }
+          throw new Error(errData.error || `Server returned ${tenantResponse.status}`);
         }
 
         const tenant = await tenantResponse.json();
         console.log('[Auth Debug] Bakery created:', tenant.slug);
+
+        // Save slug to localStorage so TenantService can find it immediately
+        localStorage.setItem('bakery_slug', tenant.slug);
 
         // Update user metadata with tenant_id if possible, or just rely on the slug in the URL later
         await this.supabase.auth.updateUser({

@@ -45,6 +45,12 @@ export class TenantService {
 
     let slug = 'thedailydough'; // Updated default to match registered slug
 
+    // Check if we have a saved slug from registration
+    const savedSlug = localStorage.getItem('bakery_slug');
+    if (savedSlug) {
+      slug = savedSlug;
+    }
+
     // Path-based logic: /b/slug/...
     if (path.startsWith('/b/')) {
       const parts = path.split('/');
@@ -70,8 +76,9 @@ export class TenantService {
     }
 
     // Clean slug from any trailing slashes or junk
-    slug = slug.replace(/\/$/, '').trim();
+    slug = slug.replace(/\/$/, '').trim().toLowerCase();
 
+    console.log(`[Tenant Service] Identified slug: ${slug} from host: ${host}, path: ${path}`);
     this.loadTenantInfo(slug);
   }
 
@@ -80,8 +87,19 @@ export class TenantService {
       console.warn('[TenantService] No slug provided to loadTenantInfo');
       return;
     }
+
+    // Check if we are already loading this slug or if it's already loaded to avoid infinite loops if loadTenantInfo is called repeatedly
+    if (this.currentTenant()?.slug === slug) {
+      return;
+    }
+
     console.log(`[TenantService] Loading info for slug: ${slug}`);
-    this.http.get<Tenant>(`${this.apiUrl}/orders/info`, {
+
+    // Use absolute URL if on localhost to ensure we hit the backend
+    const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+    const url = `${baseUrl}${this.apiUrl}/orders/info`;
+
+    this.http.get<Tenant>(url, {
       headers: { 'x-tenant-slug': slug }
     }).subscribe({
       next: (tenant) => {
