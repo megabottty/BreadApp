@@ -51,7 +51,7 @@ export class TenantService {
       if (parts[2]) {
         slug = parts[2];
       }
-    } else if (host !== 'localhost' && !host.includes('bluehost.com')) {
+    } else if (host !== 'localhost' && !host.includes('bluehost.com') && !host.includes('thedailydough.store')) {
       // Subdomain logic: slug.daily-dough.com
       const parts = host.split('.');
 
