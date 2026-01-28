@@ -159,6 +159,7 @@
       <button type="button" class="btn-primary" (click)="addIngredient()">Add Ingredient</button>
 
       <div class="save-section">
+        <button type="button" class="btn-outline" (click)="resetForm()">Clear / New Recipe</button>
         @if (hasUnsavedChanges()) {
           <p class="unsaved-hint">⚠️ You have unsaved changes in this recipe.</p>
         }

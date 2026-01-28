@@ -2,6 +2,7 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { Review, Recipe } from '../logic/bakers-math';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { TenantService } from './tenant.service';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -9,7 +10,7 @@ import { TenantService } from './tenant.service';
 export class ReviewService {
   private http = inject(HttpClient);
   private tenantService = inject(TenantService);
-  private apiUrl = 'http://localhost:3000/api/orders';
+  private apiUrl = environment.apiUrl + '/orders';
   private allReviews = signal<Review[]>([]);
 
   private get headers() {

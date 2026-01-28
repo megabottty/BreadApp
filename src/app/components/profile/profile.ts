@@ -10,6 +10,7 @@ import { TenantService } from '../../services/tenant.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-profile',
@@ -100,7 +101,7 @@ export class ProfileComponent implements OnInit {
     if (user) {
       const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
       const headers = new HttpHeaders().set('x-tenant-slug', slug);
-      this.http.get<Order[]>(`http://localhost:3000/api/orders`, { headers }).subscribe({
+      this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe({
         next: (orders) => {
           // Filter orders for this specific customer
           const myOrders = orders.filter(o => o.customerId === user.id);

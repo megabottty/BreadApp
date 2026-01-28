@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TenantService } from '../../services/tenant.service';
 import { DomSanitizer } from '@angular/platform-browser';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-footer',
@@ -14,6 +16,7 @@ import { DomSanitizer } from '@angular/platform-browser';
 export class FooterComponent {
   tenantService = inject(TenantService);
   private sanitizer = inject(DomSanitizer);
+  private http = inject(HttpClient);
 
   contactName = signal('');
   contactEmail = signal('');
@@ -39,7 +42,7 @@ export class FooterComponent {
   // let's use the iframe search approach which is free and doesn't require a key
   displayMapUrl = computed(() => {
     const tenant = this.tenantService.tenant();
-    const address = tenant?.address || '863 west diamond rose circle, slc, ut 84116';
+    const address = tenant?.address || '863 West Diamond Rose Circle, SLC, UT 84116';
     const businessName = tenant?.name || 'The Daily Dough';
 
     // Combine name and address for better map labeling
@@ -56,23 +59,31 @@ export class FooterComponent {
 
     this.isSubmitting.set(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Contact form submitted:', {
-        name: this.contactName(),
-        email: this.contactEmail(),
-        message: this.contactMessage()
-      });
-      this.isSubmitting.set(false);
-      this.submitSuccess.set(true);
+    const payload = {
+      name: this.contactName(),
+      email: this.contactEmail(),
+      message: this.contactMessage(),
+      tenantSlug: this.tenantService.tenant()?.slug
+    };
 
-      // Reset form
-      this.contactName.set('');
-      this.contactEmail.set('');
-      this.contactMessage.set('');
+    this.http.post(`${environment.apiUrl}/contact-us`, payload).subscribe({
+      next: () => {
+        this.isSubmitting.set(false);
+        this.submitSuccess.set(true);
 
-      // Clear success message after 5 seconds
-      setTimeout(() => this.submitSuccess.set(false), 5000);
-    }, 1500);
+        // Reset form
+        this.contactName.set('');
+        this.contactEmail.set('');
+        this.contactMessage.set('');
+
+        // Clear success message after 5 seconds
+        setTimeout(() => this.submitSuccess.set(false), 5000);
+      },
+      error: (err) => {
+        console.error('Failed to send contact message:', err);
+        this.isSubmitting.set(false);
+        alert('Something went wrong. Please try again later.');
+      }
+    });
   }
 }

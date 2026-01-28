@@ -6,6 +6,12 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Global Request Logger (to see exactly what hits the server)
+app.use((req, res, next) => {
+  console.log(`[DEBUG LOG] ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(cors());
 app.options(/.*/, cors()); // Enable pre-flight across-the-board
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -13,17 +19,19 @@ app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
 // Basic sanity check
 app.get('/', (req, res) => {
-  res.send('The Daily Dough API is running! 🥖');
+  res.send('The Daily Dough API is running! [DEBUG VERSION 2.0] 🥖');
 });
 
 // We will add real routes here in a moment
 const orderRoutes = require('./routes/orders');
 const paymentRoutes = require('./routes/payments');
 const notificationRoutes = require('./routes/notifications');
+const contactRoutes = require('./routes/contact');
 
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/contact-us', contactRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is rising on port ${PORT}`);

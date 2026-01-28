@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { environment } from '../../../environments/environment';
 import { OrdersManagerComponent } from '../orders-manager/orders-manager';
 import { BakeryLedgerComponent } from '../bakery-ledger/bakery-ledger';
 import { RecipeCalculatorComponent } from '../recipe-calculator/recipe-calculator';
@@ -52,8 +53,8 @@ export class BakerDashboardComponent {
   loadData() {
     const headers = this.headers;
     if (headers.has('x-tenant-slug')) {
-      this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe(r => this.savedRecipes.set(r));
-      this.http.get<Order[]>('http://localhost:3000/api/orders', { headers }).subscribe(o => this.allOrders.set(o));
+      this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe(r => this.savedRecipes.set(r));
+      this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe(o => this.allOrders.set(o));
     } else {
       setTimeout(() => this.loadData(), 500); // Retry until tenant is loaded
     }

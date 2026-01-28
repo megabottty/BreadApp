@@ -33,6 +33,7 @@ Powered by **Twilio** with a built-in mock fallback for development.
 - **SMS Workflow**: The `NotificationService` handles automated customer updates for order milestones (`Order Confirmation`, `Ready for Pickup`, `Out for Delivery`) and `Baker Alerts` for new orders.
 - **Fail-safe Mocking**: If Twilio credentials are missing in the environment, the backend gracefully logs messages to the console instead of failing.
 - **Customer SMS Shortcuts**: Bakers can manually trigger SMS notifications from the dashboard using the `NotificationService`.
+- **Contact Form Emailing**: The 'Contact Us' form uses **Nodemailer** to route customer messages to the baker's registered email address. If no specific baker email is found, it defaults to the platform admin.
 
 ### 5. PWA & Mobile Optimization
 The app is designed with a **mobile-first** approach:
@@ -76,6 +77,30 @@ The Node.js server (`server/index.js`) exposes several key routes under the `/ap
 - **Promos**: `GET /api/orders/promos/all`, `POST /api/orders/promos`, `DELETE /api/orders/promos/:id`.
 - **Notifications**: `POST /api/notifications/send-sms`.
 - **Onboarding**: `POST /api/orders/register-bakery`.
+- **Contact Us**: `POST /api/contact` (routes messages to baker/admin email).
+
+---
+
+## ⚙️ Environment Variables (Server)
+To enable full functionality, ensure your `.env` file includes the following:
+
+### 1. Database (Supabase)
+- `SUPABASE_URL`: Your project URL.
+- `SUPABASE_KEY`: Your service_role or anon key.
+
+### 2. Notifications (Twilio)
+- `TWILIO_ACCOUNT_SID`: Your account SID.
+- `TWILIO_AUTH_TOKEN`: Your auth token.
+- `TWILIO_PHONE_NUMBER`: Your Twilio number.
+
+### 3. Email (Nodemailer/SMTP)
+- `SMTP_HOST`: e.g., `smtp.gmail.com` or `smtp.sendgrid.net`.
+- `SMTP_PORT`: e.g., `587` or `465`.
+- `SMTP_USER`: Your SMTP username.
+- `SMTP_PASS`: Your SMTP password.
+- `SMTP_SECURE`: `true` for port 465, `false` otherwise.
+- `CONTACT_EMAIL_FROM`: The address that appears as the sender (e.g., `"The Daily Dough" <noreply@yourdomain.com>`).
+- `DEFAULT_CONTACT_EMAIL`: Fallback recipient for general inquiries.
 
 ---
 

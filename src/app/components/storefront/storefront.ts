@@ -1,5 +1,6 @@
 import { Component, OnInit, signal, inject, computed, effect } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe } from '@angular/common';
+import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../logic/bakers-math';
@@ -148,7 +149,7 @@ export class StorefrontComponent implements OnInit {
       return;
     }
     const headers = new HttpHeaders().set('x-tenant-slug', slug);
-    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
+    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
       next: (recipes: CalculatedRecipe[]) => {
         this.products.set(recipes);
         // Sync local storage just in case other parts of the app still rely on it
@@ -243,7 +244,7 @@ export class StorefrontComponent implements OnInit {
     const product = this.productToDelete();
     if (!product || !product.id) return;
 
-    this.http.delete(`http://localhost:3000/api/orders/recipes/${product.id}`).subscribe({
+    this.http.delete(`${environment.apiUrl}/orders/recipes/${product.id}`).subscribe({
       next: () => {
         console.log('Product deleted from cloud:', product.id);
         const updated = this.products().filter(p => p.id !== product.id);

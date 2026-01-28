@@ -33,6 +33,7 @@
     "@angular/router": "^21.1.0",
     "@supabase/supabase-js": "^2.90.1",
     "dotenv": "^17.2.3",
+    "nodemailer": "^7.0.12",
     "rxjs": "~7.8.0",
     "stripe": "^20.2.0",
     "tslib": "^2.3.0",

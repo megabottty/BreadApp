@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe, KeyValuePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
 import { Order, CalculatedRecipe, aggregateOrders, calculateMasterDough } from '../../logic/bakers-math';
 import { NotificationService } from '../../services/notification.service';
@@ -203,7 +204,7 @@ export class OrdersManagerComponent implements OnInit {
       console.warn('[OrdersManager] Skipping loadSavedRecipes: No tenant slug identified yet.');
       return;
     }
-    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
+    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
       next: (recipes) => this.savedRecipes.set(recipes),
       error: (err) => console.error('Error loading recipes', err)
     });
@@ -215,14 +216,14 @@ export class OrdersManagerComponent implements OnInit {
       console.warn('[OrdersManager] Skipping loadRealOrders: No tenant slug identified yet.');
       return;
     }
-    this.http.get<Order[]>('http://localhost:3000/api/orders', { headers }).subscribe({
+    this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe({
       next: (orders) => this.allOrders.set(orders),
       error: (err) => console.error('Failed to load orders:', err)
     });
   }
 
   updateOrderStatus(orderId: string, status: Order['status']): void {
-    this.http.patch(`http://localhost:3000/api/orders/${orderId}/status`, { status }).subscribe({
+    this.http.patch(`${environment.apiUrl}/orders/${orderId}/status`, { status }).subscribe({
       next: () => {
         this.allOrders.update(orders =>
           orders.map(o => o.id === orderId ? { ...o, status } : o)
@@ -253,7 +254,7 @@ export class OrdersManagerComponent implements OnInit {
   saveBakerNotes() {
     const order = this.selectedOrder();
     if (!order) return;
-    this.http.patch(`http://localhost:3000/api/orders/${order.id}/notes`, { notes: this.bakerNotes() }).subscribe({
+    this.http.patch(`${environment.apiUrl}/orders/${order.id}/notes`, { notes: this.bakerNotes() }).subscribe({
       next: () => {
         this.allOrders.update(orders =>
           orders.map(o => o.id === order.id ? { ...o, notes: this.bakerNotes() } : o)
@@ -356,7 +357,7 @@ export class OrdersManagerComponent implements OnInit {
       createdAt: new Date().toISOString()
     };
 
-    this.http.post('http://localhost:3000/api/orders', finalOrder, { headers: this.headers }).subscribe({
+    this.http.post(`${environment.apiUrl}/orders`, finalOrder, { headers: this.headers }).subscribe({
       next: () => {
         this.allOrders.update(prev => [finalOrder, ...prev]);
         this.showManualOrderModal.set(false);

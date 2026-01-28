@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { Order, PromoCode } from '../../logic/bakers-math';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
@@ -94,14 +95,14 @@ export class BakeryLedgerComponent implements OnInit {
   }
 
   loadOrders() {
-    this.http.get<Order[]>('http://localhost:3000/api/orders', { headers: this.headers() }).subscribe({
+    this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers: this.headers() }).subscribe({
       next: (orders) => this.allOrders.set(orders),
       error: (err) => console.error('Failed to load ledger orders:', err)
     });
   }
 
   loadPromos() {
-    this.http.get<any[]>('http://localhost:3000/api/orders/promos/all', { headers: this.headers() }).subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/orders/promos/all`, { headers: this.headers() }).subscribe({
       next: (data) => {
         const mapped: PromoCode[] = data.map(p => ({
           id: p.id,
@@ -122,7 +123,7 @@ export class BakeryLedgerComponent implements OnInit {
     const promo = this.newPromo();
     if (!promo.code) return;
 
-    this.http.post('http://localhost:3000/api/orders/promos', promo, { headers: this.headers() }).subscribe({
+    this.http.post(`${environment.apiUrl}/orders/promos`, promo, { headers: this.headers() }).subscribe({
       next: () => {
         this.loadPromos();
         this.newPromo.set({ code: '', type: 'FIXED', value: 5, description: '', isActive: true });
@@ -133,7 +134,7 @@ export class BakeryLedgerComponent implements OnInit {
 
   deletePromo(id: string) {
     if (confirm('Are you sure you want to delete this promo code?')) {
-      this.http.delete(`http://localhost:3000/api/orders/promos/${id}`, { headers: this.headers() }).subscribe({
+      this.http.delete(`${environment.apiUrl}/orders/promos/${id}`, { headers: this.headers() }).subscribe({
         next: () => this.loadPromos()
       });
     }

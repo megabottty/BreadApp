@@ -18,6 +18,7 @@ A unified command center for managing everything:
 - **Bakery Ledger**: A financial overview showing total revenue, pending sales, and average order value. Manage **Promo Codes** (Fixed, Percentage, or Free Loaf) directly from the ledger.
 - **Order Management**: Track orders through various stages: `PENDING`, `READY`/`SHIPPED`, and `COMPLETED`.
 - **Integrated Notifications**: Automatically send SMS updates to customers when orders are confirmed, ready for pickup, or out for delivery. Bakers also receive real-time alerts for new orders.
+- **Direct Contact Messaging**: Customers can contact bakers directly through a functional contact form in the footer, with messages routed to the baker's email.
 
 ### 3. Marketing & Sales Tools
 - **Promo Codes**: Create fixed-amount, percentage-based, or "Free Loaf" discount codes.

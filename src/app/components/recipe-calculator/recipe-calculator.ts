@@ -2,6 +2,7 @@ import { Component, OnInit, signal, computed, inject, effect, OnDestroy } from '
 import { CommonModule, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { calculateBakersMath, Recipe, CalculatedRecipe, IngredientType, scaleRecipe, MOCK_INGREDIENTS_DB, RecipeCategory, FlavorProfile } from '../../logic/bakers-math';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
@@ -230,7 +231,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       return;
     }
     const headers = new HttpHeaders().set('x-tenant-slug', slug);
-    this.http.get<CalculatedRecipe[]>('http://localhost:3000/api/orders/recipes', { headers }).subscribe({
+    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
       next: (recipes) => {
         this.savedRecipes.set(recipes);
         try {
@@ -256,12 +257,51 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     }));
   }
 
+  resetForm(): void {
+    this.recipeForm.reset({
+      id: null,
+      name: 'New Recipe',
+      category: 'BREAD',
+      flavorProfile: null,
+      description: 'A handcrafted loaf featuring organic ingredients and long fermentation for depth of flavor.',
+      price: 12,
+      imageUrl: '',
+      levainHydration: 100,
+      servingSizeGrams: 50,
+      prepTimeMinutes: 0,
+      bakeTimeMinutes: 45,
+      isHidden: false,
+      currentUnits: 1,
+      targetUnits: 1
+    });
+
+    // Clear images FormArray
+    const imagesArray = this.recipeForm.get('images') as FormArray;
+    while (imagesArray.length !== 0) {
+      imagesArray.removeAt(0);
+    }
+
+    // Reset ingredients to defaults
+    const ingredientsArray = this.recipeForm.get('ingredients') as FormArray;
+    while (ingredientsArray.length !== 0) {
+      ingredientsArray.removeAt(0);
+    }
+    ingredientsArray.push(this.createIngredient('Bread Flour', 400, 'FLOUR', 0.15));
+    ingredientsArray.push(this.createIngredient('Water', 300, 'WATER', 0));
+    ingredientsArray.push(this.createIngredient('Starter', 75, 'LEVAIN', 0.15));
+    ingredientsArray.push(this.createIngredient('Salt', 10, 'SALT', 0.05));
+
+    this.hasUnsavedChanges.set(false);
+    localStorage.removeItem('recipe_calculator_draft');
+    this.updateCalculations();
+  }
+
   saveRecipe(): void {
     const current = this.calculatedRecipe();
     const slug = this.tenantService.tenant()?.slug;
     if (current && slug) {
       const headers = new HttpHeaders().set('x-tenant-slug', slug);
-      this.http.post<CalculatedRecipe>('http://localhost:3000/api/orders/recipes', current, { headers }).subscribe({
+      this.http.post<CalculatedRecipe>(`${environment.apiUrl}/orders/recipes`, current, { headers }).subscribe({
         next: (saved: CalculatedRecipe) => {
           this.savedRecipes.update(prev => {
             const updated = saved.id ? prev.map(r => r.id === saved.id ? saved : r) : prev;
@@ -359,7 +399,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     if (!id) return;
     console.log('Attempting to delete recipe with ID:', id);
     const headers = new HttpHeaders().set('x-tenant-slug', this.tenantService.tenant()?.slug || 'the-daily-dough');
-    this.http.delete(`http://localhost:3000/api/orders/recipes/${id}`, { headers }).subscribe({
+    this.http.delete(`${environment.apiUrl}/orders/recipes/${id}`, { headers }).subscribe({
       next: () => {
         console.log('Delete successful for ID:', id);
         const updated = this.savedRecipes().filter(r => r.id !== id);
