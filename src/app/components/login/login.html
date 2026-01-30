@@ -33,7 +33,7 @@
     </form>
 
     <footer>
-      <p>Don't have an account? <a routerLink="/register">Create one</a></p>
+      <p>Don't have an account? <a [routerLink]="['/register']" [queryParams]="{ role: selectedRole() }">Create one</a></p>
     </footer>
   </div>
 </div>

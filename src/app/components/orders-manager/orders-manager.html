@@ -174,7 +174,7 @@
         <p class="subtitle">Optimized batches for the oven.</p>
 
         <div class="batch-list">
-          @for (batch of productionBatches(); track $index) {
+          @for (batch of productionBatches(); track batch) {
             <div class="batch-card">
               <div class="batch-header">
                 <span class="batch-number">Batch #{{$index + 1}}</span>
@@ -187,6 +187,16 @@
                   </div>
                 }
               </div>
+              @if (batch.notes && batch.notes.length > 0) {
+                <div class="batch-notes">
+                  <strong>Notes:</strong>
+                  <ul>
+                    @for (note of batch.notes; track note) {
+                      <li>{{note}}</li>
+                    }
+                  </ul>
+                </div>
+              }
               <div class="batch-footer">
                 <span>🔥 Temp: {{batch.temp}}°F</span>
                 <span>⏲️ Steam: {{batch.steamMinutes}}m</span>

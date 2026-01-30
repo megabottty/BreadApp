@@ -153,61 +153,51 @@
     @if (activeTab() === 'inventory') {
       <div class="inventory-view">
         <header>
-          <h1>Ingredient Inventory</h1>
-          <p>Track your stock levels for flour, yeast, and inclusions.</p>
+          <div class="header-with-actions">
+            <div>
+              <h1>Ingredient Inventory</h1>
+              <p>Track your stock levels for flour, yeast, and inclusions.</p>
+            </div>
+            <button class="btn-primary" (click)="addManualIngredient()">+ Add New Ingredient</button>
+          </div>
         </header>
 
         <div class="inventory-grid">
-          <div class="card inventory-card">
-            <div class="item-header">
-              <h3>Organic Bread Flour</h3>
-              <span class="status-tag low">Low Stock</span>
-            </div>
-            <div class="stock-level">
-              <div class="progress-bar">
-                <div class="progress" style="width: 15%"></div>
+          @for (item of inventoryStatus(); track item.name) {
+            <div class="card inventory-card">
+              <div class="item-header">
+                <h3>{{item.name}}</h3>
+                @if (item.isLow) {
+                  <span class="status-tag low">Low Stock</span>
+                } @else {
+                  <span class="status-tag ok">In Stock</span>
+                }
               </div>
-              <span>15kg / 100kg</span>
-            </div>
-            <button class="btn-small">Order More</button>
-          </div>
-
-          <div class="card inventory-card">
-            <div class="item-header">
-              <h3>Active Dry Yeast</h3>
-              <span class="status-tag ok">In Stock</span>
-            </div>
-            <div class="stock-level">
-              <div class="progress-bar">
-                <div class="progress" style="width: 80%"></div>
+              <div class="stock-level">
+                <div class="progress-bar">
+                  <div class="progress" [style.width.%]="item.percentage" [class.low]="item.isLow"></div>
+                </div>
+                <span>{{item.stock | number:'1.0-0'}}g / {{item.needed | number:'1.0-0'}}g needed</span>
               </div>
-              <span>4kg / 5kg</span>
+              <button class="btn-small" (click)="updateStock(item.name)">Update Stock</button>
             </div>
-            <button class="btn-small">Update Stock</button>
-          </div>
-
-          <div class="card inventory-card">
-            <div class="item-header">
-              <h3>Sea Salt</h3>
-              <span class="status-tag ok">In Stock</span>
+          } @empty {
+            <div class="card empty-state">
+              <p>No ingredients found. Ingredients are automatically tracked from your saved recipes.</p>
             </div>
-            <div class="stock-level">
-              <div class="progress-bar">
-                <div class="progress" style="width: 60%"></div>
-              </div>
-              <span>6kg / 10kg</span>
-            </div>
-            <button class="btn-small">Update Stock</button>
-          </div>
+          }
         </div>
 
         <div class="card replenishment-logic">
           <h3>📦 Auto-Replenishment (ERP)</h3>
-          <p>Based on your <strong>Production Plan</strong> for the next 7 days, you will need approximately <strong>45kg</strong> of Bread Flour. Would you like to generate a purchase order?</p>
-          <div class="btn-group">
-            <button class="btn-primary" (click)="generatePO()">Generate PO</button>
-            <button class="btn-outline" (click)="showInventoryDocs()">How it works</button>
-          </div>
+          <p>The system analyzes your <strong>Production Plan</strong> for the next 7 days and compares it to your current stock levels.</p>
+
+          @if (inventoryStatus().length > 0) {
+            <div class="btn-group">
+              <button class="btn-primary" (click)="generatePO()">Generate & Email PO</button>
+              <button class="btn-outline" (click)="showInventoryDocs()">How it works</button>
+            </div>
+          }
         </div>
       </div>
     }

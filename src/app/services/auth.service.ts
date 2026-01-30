@@ -2,6 +2,7 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { createClient, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
+import { TenantService } from './tenant.service';
 
 export type UserRole = 'BAKER' | 'CUSTOMER' | null;
 
@@ -18,6 +19,7 @@ export interface User {
 })
 export class AuthService {
   private router = inject(Router);
+  private tenantService = inject(TenantService);
   private supabase: SupabaseClient;
   private currentUser = signal<User | null>(null);
 
@@ -77,16 +79,27 @@ export class AuthService {
     if (supabaseUser) {
       console.log('[Auth Debug] Supabase User Metadata:', supabaseUser.user_metadata);
 
+      const role = supabaseUser.user_metadata['role'] || 'CUSTOMER';
+      const onboardingCompleted = supabaseUser.user_metadata['onboarding_completed'];
+
       const user: User = {
         id: supabaseUser.id,
         name: supabaseUser.user_metadata['full_name'] || supabaseUser.email?.split('@')[0] || 'User',
         email: supabaseUser.email || '',
-        role: supabaseUser.user_metadata['role'] || 'CUSTOMER',
+        role: role,
         tenant_id: supabaseUser.user_metadata['tenant_id']
       };
 
       console.log('[Auth Debug] Final User Object with Role:', user);
       this.currentUser.set(user);
+
+      // Proactive redirection for BAKERs who haven't finished setup
+      // Only redirect if we are on a page that isn't the wizard itself or the front
+      const path = window.location.pathname;
+      if (role === 'BAKER' && !onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
+        console.log('[Auth Debug] Redirecting BAKER to Setup Wizard');
+        this.router.navigate(['/setup-wizard']);
+      }
     } else {
       this.currentUser.set(null);
     }
@@ -108,9 +121,12 @@ export class AuthService {
       console.log('[Auth Debug] Login successful, user metadata:', data.user.user_metadata);
       const role = data.user.user_metadata['role'] as UserRole;
       if (role === 'BAKER') {
-        const tenant = this.currentUser()?.tenant_id;
-        // Check if onboarding is completed if you have that flag, otherwise go to setup
-        this.router.navigate(['/setup-wizard']);
+        const onboardingCompleted = data.user.user_metadata['onboarding_completed'];
+        if (onboardingCompleted) {
+          this.router.navigate(['/dashboard']);
+        } else {
+          this.router.navigate(['/setup-wizard']);
+        }
       } else {
         this.router.navigate(['/front']);
       }
@@ -128,7 +144,8 @@ export class AuthService {
         data: {
           full_name: name,
           role: role
-        }
+        },
+        emailRedirectTo: window.location.origin + '/login'
       }
     });
 
@@ -177,6 +194,9 @@ export class AuthService {
 
         // Save slug to localStorage so TenantService can find it immediately
         localStorage.setItem('bakery_slug', tenant.slug);
+
+        // Explicitly load the new tenant info
+        this.tenantService.loadTenantInfo(tenant.slug);
 
         // Update user metadata with tenant_id if possible, or just rely on the slug in the URL later
         await this.supabase.auth.updateUser({

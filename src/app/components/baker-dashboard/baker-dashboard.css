@@ -303,6 +303,20 @@ nav button.active {
 }
 
 /* Inventory Styles */
+.inventory-view .header-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .inventory-view .header-with-actions {
+    flex-direction: column;
+  }
+}
+
 .inventory-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -594,6 +608,16 @@ nav button.active {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.progress-bar .progress.low {
+  background: var(--accent-terracotta);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #8C967D;
 }
 
 .form-hint {

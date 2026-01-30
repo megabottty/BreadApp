@@ -89,47 +89,60 @@
       @if (currentStep() === 4) {
         <div class="step-content">
           <h2>🥖 Choose Your Plan</h2>
-          <p>Select a plan that fits your bakery's scale. All plans start with a 14-day free trial.</p>
+          <p>Select a plan that fits your bakery's scale. Includes a 14-day free trial.</p>
 
           <div class="plan-grid">
-            <div class="plan-card" [class.selected]="selectedPlan() === 'BASIC'" (click)="selectedPlan.set('BASIC')">
-              <div class="plan-header">
-                <h3>Basic</h3>
-                <span class="price">$29/mo</span>
+            @for (plan of plans; track plan.id) {
+              <div class="plan-card" [class.selected]="selectedPlan() === plan.id" (click)="selectedPlan.set(plan.id)">
+                <div class="plan-header">
+                  @if (plan.id === 'PRO') { <span class="badge">Recommended</span> }
+                  <h3>{{plan.name}}</h3>
+                  <span class="price">${{plan.price}}/mo</span>
+                </div>
+                <ul class="plan-features">
+                  @for (feature of plan.features; track feature) {
+                    <li>✓ {{feature}}</li>
+                  }
+                </ul>
+                <div class="selection-indicator"></div>
               </div>
-              <ul>
-                <li>✓ Professional Storefront</li>
-                <li>✓ Recipe Calculator</li>
-                <li>✓ Daily Production Plans</li>
-                <li>✓ 2.9% + 30¢ Transaction Fee</li>
-              </ul>
-              <div class="selection-indicator"></div>
+            }
+          </div>
+
+          <div class="payment-section card" style="margin-top: 2rem; background: #fdfdfd; border: 1px solid #7D8F69;">
+            <h3>💳 Credit Card Information</h3>
+            <p class="description">Your card will NOT be charged today. Your 14-day free trial starts now, and you can cancel anytime before it ends.</p>
+
+            @if (isTestMode()) {
+              <div class="test-mode-alert" style="background: #fff4e5; color: #663c00; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; border-left: 4px solid #ff9800;">
+                🧪 <strong>Test Mode Active:</strong> You can use <code>4242 4242 4242 4242</code> as a test card.
+              </div>
+            }
+
+            <div id="card-element" style="padding: 1.25rem; border: 1px solid #eee; border-radius: 8px; background: white; margin: 1rem 0;">
+              <!-- Stripe Card Element -->
             </div>
 
-            <div class="plan-card" [class.selected]="selectedPlan() === 'PRO'" (click)="selectedPlan.set('PRO')">
-              <div class="plan-header">
-                <span class="badge">Recommended</span>
-                <h3>Pro</h3>
-                <span class="price">$79/mo</span>
+            @if (stripeError()) {
+              <div class="error-message" style="color: #fa755a; font-size: 0.9rem; margin-bottom: 1rem;">
+                {{ stripeError() }}
               </div>
-              <ul>
-                <li>✓ Everything in Basic</li>
-                <li>✓ Advanced Sales Forecasts</li>
-                <li>✓ Inventory Management</li>
-                <li>✓ Lower 1.5% Platform Fee</li>
-              </ul>
-              <div class="selection-indicator"></div>
-            </div>
+            }
+
+            <p class="trial-note">By clicking Finish, you agree to the 14-day trial. Automatic billing begins after the trial period.</p>
           </div>
-          <p class="trial-note">Your trial ends 14 days from today. No card required to start.</p>
         </div>
       }
     </main>
 
     <footer class="wizard-footer">
-      <button class="btn-outline" (click)="prevStep()" [disabled]="currentStep() === 1">Back</button>
-      <button class="btn-primary" (click)="nextStep()">
-        {{ currentStep() === totalSteps ? 'Finish Setup' : 'Continue' }}
+      <button class="btn-outline" (click)="prevStep()" [disabled]="currentStep() === 1 || isProcessingPayment()">Back</button>
+      <button class="btn-primary" (click)="nextStep()" [disabled]="isProcessingPayment() || !isStepValid()">
+        @if (isProcessingPayment()) {
+          <span class="spinner"></span> Processing...
+        } @else {
+          {{ currentStep() === totalSteps ? 'Finish & Start Trial' : 'Continue' }}
+        }
       </button>
     </footer>
   </div>

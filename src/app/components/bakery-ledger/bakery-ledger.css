@@ -59,6 +59,10 @@
   color: var(--accent-terracotta);
 }
 
+.stat-card .value.cost {
+  color: #8b4513; /* SaddleBrown */
+}
+
 .stat-card .sub-label {
   font-size: 0.85rem;
   color: var(--text-muted);

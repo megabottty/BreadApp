@@ -36,12 +36,24 @@ export class OrdersManagerComponent implements OnInit {
   productionBatches = computed(() => {
     const agg = this.aggregatedOrders();
     const subs = this.subscriptionOrders();
+    const orders = this.filteredOrders();
     const totalAgg = { ...agg };
     Object.entries(subs).forEach(([name, qty]) => {
       totalAgg[name] = (totalAgg[name] || 0) + qty;
     });
 
     if (Object.keys(totalAgg).length === 0) return [];
+
+    // Map order notes to recipe names for this date
+    const notesByRecipe: Record<string, string[]> = {};
+    orders.forEach(o => {
+      if (o.notes) {
+        o.items.forEach(item => {
+          if (!notesByRecipe[item.name]) notesByRecipe[item.name] = [];
+          notesByRecipe[item.name].push(`${o.customerName}: ${o.notes}`);
+        });
+      }
+    });
 
     // Simple heuristic for batches: Group by category and max capacity per batch
     const capacity = this.tenantService.tenant()?.oven_capacity || 6;
@@ -51,6 +63,7 @@ export class OrdersManagerComponent implements OnInit {
 
     const batches: any[] = [];
     let currentBatch: any[] = [];
+    let currentBatchNotes: string[] = [];
     let countInBatch = 0;
 
     Object.entries(totalAgg).forEach(([name, qty]) => {
@@ -60,12 +73,17 @@ export class OrdersManagerComponent implements OnInit {
             items: this.summarizeItems(currentBatch),
             temp: defaultTemp,
             steamMinutes: defaultSteam,
-            estimatedTime: defaultTime
+            estimatedTime: defaultTime,
+            notes: [...new Set(currentBatchNotes)] // Unique notes
           });
           currentBatch = [];
+          currentBatchNotes = [];
           countInBatch = 0;
         }
         currentBatch.push(name);
+        if (notesByRecipe[name]) {
+          currentBatchNotes.push(...notesByRecipe[name]);
+        }
         countInBatch++;
       }
     });
@@ -75,7 +93,8 @@ export class OrdersManagerComponent implements OnInit {
         items: this.summarizeItems(currentBatch),
         temp: defaultTemp,
         steamMinutes: defaultSteam,
-        estimatedTime: defaultTime
+        estimatedTime: defaultTime,
+        notes: [...new Set(currentBatchNotes)]
       });
     }
 

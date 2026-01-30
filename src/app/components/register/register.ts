@@ -1,9 +1,9 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService, UserRole } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-register',
@@ -12,10 +12,11 @@ import { Router, RouterLink } from '@angular/router';
   templateUrl: './register.html',
   styleUrls: ['./register.css']
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   private authService = inject(AuthService);
   private modalService = inject(ModalService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   name = signal('');
   email = signal('');
@@ -28,6 +29,15 @@ export class RegisterComponent {
   // Baker specific signals
   bakeryName = signal('');
   bakerySlug = signal('');
+
+  ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      const role = params['role'] as UserRole;
+      if (role === 'BAKER' || role === 'CUSTOMER') {
+        this.selectedRole.set(role);
+      }
+    });
+  }
 
   passwordErrors = computed(() => {
     const p = this.password();

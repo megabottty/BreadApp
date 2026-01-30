@@ -6,20 +6,25 @@
 
   <!-- Summary Cards -->
   <div class="stats-grid">
+    <div class="stat-card highlight">
+      <span class="label">Total Profit</span>
+      <span class="value">{{ stats().totalProfit | currency }}</span>
+      <span class="sub-label">Margin: {{ stats().profitMargin | number:'1.1-1' }}%</span>
+    </div>
     <div class="stat-card">
       <span class="label">Total Collected</span>
       <span class="value">{{ stats().totalRevenue | currency }}</span>
       <span class="sub-label">{{ stats().completedCount }} completed orders</span>
     </div>
     <div class="stat-card">
+      <span class="label">Total Ingredient Cost</span>
+      <span class="value cost">{{ stats().totalCost | currency }}</span>
+      <span class="sub-label">Cost of goods sold</span>
+    </div>
+    <div class="stat-card">
       <span class="label">Pending Revenue</span>
       <span class="value pending">{{ stats().pendingRevenue | currency }}</span>
       <span class="sub-label">Active orders in production</span>
-    </div>
-    <div class="stat-card">
-      <span class="label">Total Orders</span>
-      <span class="value">{{ stats().totalOrders }}</span>
-      <span class="sub-label">Lifetime order count</span>
     </div>
     <div class="stat-card">
       <span class="label">Avg Order Value</span>

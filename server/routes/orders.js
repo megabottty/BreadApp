@@ -187,13 +187,17 @@ router.get('/info', async (req, res) => {
 
 // PATCH: Update Bakery Info (Branding, Oven, Subscription, etc)
 router.patch('/info', async (req, res) => {
+  console.log('[Tenant Debug] PATCH /api/orders/info hit');
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   const updates = req.body;
   const tenantId = req.headers['x-tenant-id'];
 
+  console.log('[Tenant Debug] Updating tenant ID:', tenantId, 'with data:', updates);
+
   if (!tenantId) {
+    console.warn('[Tenant Warning] Missing x-tenant-id header');
     return res.status(400).json({ error: 'Tenant ID is required for updates' });
   }
 
@@ -206,14 +210,22 @@ router.patch('/info', async (req, res) => {
       .single();
 
     if (error) {
-      console.error('[Supabase Error] Bakery Update Failed:', error.message);
+      console.error('[Supabase Error] Bakery Update Failed:', error.message, 'Code:', error.code);
+      // Check for missing column error
+      if (error.code === '42703') {
+        return res.status(400).json({
+          error: 'Database schema mismatch',
+          message: 'The column "onboarding_completed" is missing. Please run the SQL update command provided.'
+        });
+      }
       throw error;
     }
 
+    console.log('[Tenant Debug] Update successful for:', data.slug);
     res.json(data);
   } catch (error) {
     console.error('Error updating bakery info:', error);
-    res.status(500).json({ error: 'Failed to update bakery info' });
+    res.status(500).json({ error: 'Failed to update bakery info', details: error.message });
   }
 });
 
@@ -325,6 +337,67 @@ router.delete('/recipes/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting recipe:', error);
     res.status(500).json({ error: 'Failed to delete recipe' });
+  }
+});
+
+// --- INVENTORY ROUTES ---
+
+// GET: All inventory for tenant
+router.get('/inventory', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+  try {
+    const { data, error } = await supabase
+      .from('bakery_inventory')
+      .select('*')
+      .eq('tenant_id', req.tenantId);
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch inventory' });
+  }
+});
+
+// POST: Update inventory stock
+router.post('/inventory', async (req, res) => {
+  console.log('[Inventory Debug] POST /api/orders/inventory hit with body:', req.body);
+  if (!supabase) {
+    console.error('[Inventory Error] Database connection not configured');
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    console.warn('[Inventory Warning] Tenant not identified for inventory update');
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+  const { ingredient_name, current_stock, min_stock_threshold } = req.body;
+  try {
+    console.log('[Inventory Debug] Upserting for tenant:', req.tenantId, 'ingredient:', ingredient_name);
+    const { data, error } = await supabase
+      .from('bakery_inventory')
+      .upsert({
+        tenant_id: req.tenantId,
+        ingredient_name,
+        current_stock,
+        min_stock_threshold,
+        last_updated: new Date().toISOString()
+      }, { onConflict: 'tenant_id, ingredient_name' })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Inventory Supabase Error] Upsert failed:', error.message, 'Details:', error.details);
+      throw error;
+    }
+    console.log('[Inventory Debug] Upsert successful:', data.id);
+    res.json(data);
+  } catch (error) {
+    console.error('[Inventory Server Error] Failed to update inventory:', error);
+    res.status(500).json({ error: 'Failed to update inventory', details: error.message });
   }
 });
 
@@ -494,7 +567,7 @@ router.post('/reviews', async (req, res) => {
           tenant_id: req.tenantId,
           recipe_id: review.recipeId,
           customer_id: review.customerId,
-          customer_name: review.customerName,
+          customer_name: review.customer_name,
           rating: review.rating,
           comment: review.comment
         }
@@ -782,6 +855,81 @@ router.delete('/promos/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete promo code' });
+  }
+});
+
+// POST: Generate and Email PO
+router.post('/generate-po', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  const { poItems, supplierEmail } = req.body;
+
+  try {
+    // 1. Get Tenant Info for Branding
+    const { data: tenant } = await supabase
+      .from('bakery_tenants')
+      .select('*')
+      .eq('id', req.tenantId)
+      .single();
+
+    const recipient = supplierEmail || tenant.email || process.env.DEFAULT_CONTACT_EMAIL;
+
+    // 2. Configure Nodemailer (similar to contact.js)
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const itemsHtml = poItems.map(item => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.amountNeeded}g</td>
+      </tr>
+    `).join('');
+
+    const mailOptions = {
+      from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
+      to: recipient,
+      subject: `Purchase Order: ${tenant.name}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
+          <h2 style="color: #7D8F69;">Purchase Order</h2>
+          <p><strong>From:</strong> ${tenant.name}</p>
+          <p><strong>Address:</strong> ${tenant.address || 'Not provided'}</p>
+          <hr>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f9f9f9;">
+                <th style="text-align: left; padding: 8px;">Ingredient</th>
+                <th style="text-align: left; padding: 8px;">Amount Needed</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <p style="margin-top: 20px; color: #666; font-size: 12px;">This PO was generated automatically by The Daily Dough Production Engine.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.json({ success: true, message: `PO sent to ${recipient}` });
+
+  } catch (error) {
+    console.error('[PO Error]', error);
+    res.status(500).json({ error: 'Failed to generate or send PO' });
   }
 });
 

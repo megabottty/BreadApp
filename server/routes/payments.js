@@ -72,4 +72,61 @@ router.post('/create-checkout-session', async (req, res) => {
   }
 });
 
+// POST: Create Subscription with 14-day trial
+router.post('/create-subscription', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+
+  const { paymentMethodId, planId, email, tenantId } = req.body;
+
+  try {
+    // 1. Create a Customer
+    const customer = await stripe.customers.create({
+      payment_method: paymentMethodId,
+      email: email,
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+      metadata: {
+        tenantId: tenantId
+      }
+    });
+
+    // 2. Map planId to Stripe Price ID
+    // TODO: The user should replace these with actual Price IDs from their Stripe Dashboard
+    let priceId = '';
+    if (planId === 'PRO') {
+      priceId = process.env.STRIPE_PRICE_PRO || 'price_1QqcqcCSuAWgXtUtInProductionExample';
+    } else {
+      priceId = process.env.STRIPE_PRICE_BASIC || 'price_1QqcqBCSuAWgXtUtInProductionExample';
+    }
+
+    // Fallback for development if no price ID is provided yet
+    if (priceId.includes('Example') && !stripeKey.startsWith('sk_live')) {
+       console.warn('[Stripe Warning] Using placeholder Price ID in development.');
+    }
+
+    // 3. Create Subscription
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: priceId }],
+      trial_period_days: 14,
+      expand: ['latest_invoice.payment_intent'],
+    });
+
+    console.log(`[Stripe Debug] Subscription created: ${subscription.id} for customer ${customer.id}`);
+
+    res.json({
+      subscriptionId: subscription.id,
+      customerId: customer.id,
+      status: subscription.status
+    });
+
+  } catch (error) {
+    console.error('[Stripe Subscription Error]:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS bakery_tenants (
     subscription_status TEXT DEFAULT 'TRIAL', -- 'TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED'
     subscription_plan TEXT DEFAULT 'BASIC', -- 'BASIC', 'PRO', 'ENTERPRISE'
     subscription_id TEXT, -- Stripe Subscription ID
+    onboarding_completed BOOLEAN DEFAULT FALSE,
     twilio_config JSONB, -- Optional bakery-specific Twilio credentials
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -104,4 +105,16 @@ CREATE TABLE IF NOT EXISTS bakery_promos (
     usage_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(tenant_id, code)
+);
+
+-- 7. Inventory Table
+CREATE TABLE IF NOT EXISTS bakery_inventory (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES bakery_tenants(id) ON DELETE CASCADE,
+    ingredient_name TEXT NOT NULL,
+    current_stock DECIMAL(10, 2) DEFAULT 0, -- in grams
+    unit TEXT DEFAULT 'g',
+    min_stock_threshold DECIMAL(10, 2) DEFAULT 0,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, ingredient_name)
 );

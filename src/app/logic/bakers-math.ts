@@ -155,19 +155,22 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
+  // Ensure price is a number
+  const price = Number(recipe.price) || 0;
+
   const totalCost = recipe.ingredients.reduce((acc, ing) => {
     let ingCost = 0;
-    if (ing.bulkPrice && ing.bulkWeight && ing.bulkWeight > 0) {
+    if (ing.bulkPrice && ing.bulkWeight && Number(ing.bulkWeight) > 0) {
       // (Bulk Price / Bulk Weight) * weight in recipe
-      ingCost = (ing.bulkPrice / ing.bulkWeight) * ing.weight;
+      ingCost = (Number(ing.bulkPrice) / Number(ing.bulkWeight)) * Number(ing.weight);
     } else {
       // Fallback to legacy costPerUnit (cost per 100g)
-      ingCost = (ing.weight / 100) * (ing.costPerUnit || 0);
+      ingCost = (Number(ing.weight) / 100) * (Number(ing.costPerUnit) || 0);
     }
     return acc + ingCost;
   }, 0);
 
-  const profitMargin = recipe.price > 0 ? ((recipe.price - totalCost) / recipe.price) * 100 : 0;
+  const profitMargin = price > 0 ? ((price - totalCost) / price) * 100 : 0;
 
   const totalWeight = recipe.ingredients.reduce((acc, ing) => acc + ing.weight, 0);
   let nutritionPerServing;
@@ -184,6 +187,7 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
 
   return {
     ...recipe,
+    price,
     totalFlour,
     totalWater,
     trueHydration,

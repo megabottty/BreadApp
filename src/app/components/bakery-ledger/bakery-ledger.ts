@@ -2,7 +2,7 @@ import { Component, OnInit, signal, computed, inject, effect } from '@angular/co
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Order, PromoCode } from '../../logic/bakers-math';
+import { Order, PromoCode, CalculatedRecipe, calculateBakersMath } from '../../logic/bakers-math';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
@@ -19,6 +19,7 @@ export class BakeryLedgerComponent implements OnInit {
   private modalService = inject(ModalService);
 
   allOrders = signal<Order[]>([]);
+  savedRecipes = signal<CalculatedRecipe[]>([]);
   searchTerm = signal<string>('');
   statusFilter = signal<string>('ALL');
 
@@ -38,17 +39,39 @@ export class BakeryLedgerComponent implements OnInit {
   // Statistics
   stats = computed(() => {
     const orders = this.allOrders();
+    const recipes = this.savedRecipes();
+
     const completedOrders = orders.filter(o => o.status === 'COMPLETED');
 
     const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
     const pendingRevenue = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED')
                                  .reduce((sum, o) => sum + (o.totalPrice || 0), 0);
 
+    // Calculate total cost and profit
+    let totalCost = 0;
+    completedOrders.forEach(o => {
+      o.items.forEach(item => {
+        // Try to find recipe by ID first, then by name as fallback
+        const recipe = recipes.find(r => r.id === item.recipeId) ||
+                       recipes.find(r => r.name === item.name);
+
+        if (recipe) {
+          totalCost += (Number(recipe.totalCost) || 0) * (Number(item.quantity) || 1);
+        }
+      });
+    });
+
+    const totalProfit = totalRevenue - totalCost;
+    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
     return {
       totalOrders: orders.length,
       completedCount: completedOrders.length,
       totalRevenue,
       pendingRevenue,
+      totalCost,
+      totalProfit,
+      profitMargin,
       averageOrderValue: completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0
     };
   });
@@ -87,11 +110,33 @@ export class BakeryLedgerComponent implements OnInit {
         console.log('[BakeryLedger] Tenant identified, loading orders and promos:', tenant.slug);
         this.loadOrders();
         this.loadPromos();
+        this.loadSavedRecipes();
       }
     });
   }
 
   ngOnInit() {
+  }
+
+  loadSavedRecipes(): void {
+    const slug = this.tenantService.tenant()?.slug;
+    if (!slug) return;
+    const headers = new HttpHeaders().set('x-tenant-slug', slug);
+    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
+      next: (recipes) => {
+        // Ensure all recipes are fully calculated with costs
+        const fullyCalculated = recipes.map(r => {
+          try {
+            return calculateBakersMath(r);
+          } catch (e) {
+            console.error('Error re-calculating recipe for ledger:', r.name, e);
+            return r;
+          }
+        });
+        this.savedRecipes.set(fullyCalculated);
+      },
+      error: (err) => console.error('Error loading recipes for ledger', err)
+    });
   }
 
   loadOrders() {

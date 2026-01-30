@@ -1,6 +1,8 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpContextToken } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+
+export const SKIP_NOTIFICATION = new HttpContextToken<boolean>(() => false);
 
 export interface Tenant {
   id: string;
@@ -75,23 +77,34 @@ export class TenantService {
       }
     }
 
-    // Clean slug from any trailing slashes or junk
-    slug = slug.replace(/\/$/, '').trim().toLowerCase();
+    // Only load if we have a saved slug or if we are on a path that requires it
+    const isRegistrationOrLogin = path.includes('/register') || path.includes('/login') || path === '/';
 
-    console.log(`[Tenant Service] Identified slug: ${slug} from host: ${host}, path: ${path}`);
-    this.loadTenantInfo(slug);
+    if (savedSlug) {
+      this.loadTenantInfo(savedSlug);
+    } else if (!isRegistrationOrLogin) {
+      // If we are on a specific route that isn't the home/auth pages, try to load the default
+      this.loadTenantInfo(slug);
+    } else {
+      console.log('[Tenant Service] First visit or home page - waiting for registration/login to confirm tenant.');
+    }
   }
 
   loadTenantInfo(slug: string) {
     if (!slug) {
-      console.warn('[TenantService] No slug provided to loadTenantInfo');
       return;
     }
 
-    // Check if we are already loading this slug or if it's already loaded to avoid infinite loops if loadTenantInfo is called repeatedly
+    // Clean slug
+    slug = slug.replace(/\/$/, '').trim().toLowerCase();
+
+    // Check if we are already loading this slug or if it's already loaded
     if (this.currentTenant()?.slug === slug) {
       return;
     }
+
+    // If we've already tried this slug and it failed recently, don't spam it
+    // (Optional: add a basic cache or "tried" set if needed)
 
     console.log(`[TenantService] Loading info for slug: ${slug}`);
 
@@ -100,7 +113,8 @@ export class TenantService {
     const url = `${baseUrl}${this.apiUrl}/orders/info`;
 
     this.http.get<Tenant>(url, {
-      headers: { 'x-tenant-slug': slug }
+      headers: { 'x-tenant-slug': slug },
+      context: new HttpContext().set(SKIP_NOTIFICATION, true)
     }).subscribe({
       next: (tenant) => {
         console.log(`[TenantService] Tenant info loaded:`, tenant);
@@ -115,11 +129,13 @@ export class TenantService {
         }
         // If it's a 404, we don't want to spam error logs, just a warning is enough
         if (err.status === 404) {
+          this.currentTenant.set(null);
           // No warning needed for the default tenant if not found, it might be the first run
           if (slug !== 'thedailydough') {
             console.warn(`[TenantService] Bakery not found for slug: ${slug}. This usually means the bakery hasn't been registered yet.`);
           }
         } else {
+          this.currentTenant.set(null);
           console.error(`[TenantService] Failed to load tenant info for slug: ${slug}`, err);
         }
       }
@@ -142,7 +158,10 @@ export class TenantService {
   }
 
   updateTenant(id: string, updates: Partial<Tenant>) {
-    return this.http.patch<Tenant>(`${this.apiUrl}/orders/info`, updates, {
+    const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+    const url = `${baseUrl}${this.apiUrl}/orders/info`;
+
+    return this.http.patch<Tenant>(url, updates, {
       headers: { 'x-tenant-id': id }
     }).subscribe({
       next: (updated) => {
