@@ -6,7 +6,7 @@ import { Router } from '@angular/router';
 import { ModalService } from '../../services/modal.service';
 import { environment } from '../../../environments/environment';
 
-import { firstValueFrom } from 'rxjs';
+// import { firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 
 declare var Stripe: any;
