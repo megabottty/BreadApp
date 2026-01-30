@@ -95,7 +95,7 @@
             @for (plan of plans; track plan.id) {
               <div class="plan-card" [class.selected]="selectedPlan() === plan.id" (click)="selectedPlan.set(plan.id)">
                 <div class="plan-header">
-                  @if (plan.id === 'PRO') { <span class="badge">Recommended</span> }
+                  @if (plan.id === 'PROFESSIONAL') { <span class="badge">Recommended</span> }
                   <h3>{{plan.name}}</h3>
                   <span class="price">${{plan.price}}/mo</span>
                 </div>

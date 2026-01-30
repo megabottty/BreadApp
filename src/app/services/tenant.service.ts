@@ -21,7 +21,7 @@ export interface Tenant {
   email?: string;
   stripe_account_id?: string;
   subscription_status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'TRIAL_BYPASS';
-  subscription_plan?: 'BASIC' | 'PRO' | 'ENTERPRISE';
+  subscription_plan?: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
   subscription_id?: string;
   onboarding_completed?: boolean;
 }

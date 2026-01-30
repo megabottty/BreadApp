@@ -12,7 +12,7 @@ import { HttpClient } from '@angular/common/http';
 declare var Stripe: any;
 
 interface Plan {
-  id: 'BASIC' | 'PRO';
+  id: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
   name: string;
   price: number;
   features: string[];
@@ -48,7 +48,7 @@ export class SetupWizardComponent implements AfterViewInit {
   email = signal('');
 
   // Step 4: Plan Selection
-  selectedPlan = signal<'BASIC' | 'PRO'>('BASIC');
+  selectedPlan = signal<'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'>('STARTER');
   isProcessingPayment = signal(false);
   isTestMode = computed(() => environment.stripePublicKey.startsWith('pk_test'));
 
@@ -60,32 +60,46 @@ export class SetupWizardComponent implements AfterViewInit {
 
   plans: Plan[] = [
     {
-      id: 'BASIC',
-      name: 'Bread Baker (Basic)',
+      id: 'STARTER',
+      name: 'Starter Baker',
       price: 29,
       features: [
         'Up to 50 active recipes',
         'Automatic Inventory Tracking',
-        'Basic Sales Reporting',
         'Email Order Notifications',
         'Direct Online Payments (Stripe)',
-        'Custom Shop Branding (Colors)'
+        'Custom Shop Branding (Colors)',
+        'Standard Email Support'
       ],
-      stripePriceId: 'price_basic_id'
+      stripePriceId: 'price_starter_id'
     },
     {
-      id: 'PRO',
-      name: 'Master Baker (Pro)',
+      id: 'PROFESSIONAL',
+      name: 'Professional Baker',
       price: 79,
       features: [
         'Unlimited Recipes',
         'Advanced Inventory + PO Generation',
         'Revenue & Profit Analytics',
         'SMS Customer Notifications',
-        'Toast POS Integration Support',
-        'Priority Technical Support'
+        'Priority Email Support',
+        'Custom Domain Support'
       ],
-      stripePriceId: 'price_pro_id'
+      stripePriceId: 'price_professional_id'
+    },
+    {
+      id: 'ENTERPRISE',
+      name: 'Enterprise Bakery',
+      price: 199,
+      features: [
+        'Everything in Professional',
+        'Multi-User/Staff Accounts',
+        'Multi-Location Management',
+        'Toast POS Integration Support',
+        'Advanced API Access',
+        'Dedicated Success Manager'
+      ],
+      stripePriceId: 'price_enterprise_id'
     }
   ];
 

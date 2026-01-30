@@ -11,7 +11,7 @@ The app uses a **Single Database, Shared Schema** approach with a `tenant_id` fo
 
 - **Tenants Table**: Stores bakery-specific info (name, slug, colors, logo, subscription status).
 - **Slug Identification**: The `TenantService` on the frontend identifies the current bakery based on the URL path (`/b/slug`) or subdomain.
-- **Onboarding Flow**: New bakers are automatically redirected to the `SetupWizardComponent` upon registration to configure their branding, oven capacity, and select a SaaS subscription plan.
+- **Onboarding Flow**: New bakers are automatically redirected to the `SetupWizardComponent` upon registration to configure their branding, oven capacity, and select a SaaS subscription plan (**Starter**, **Professional**, or **Enterprise**).
   - **Development Bypass**: For testing purposes, the Stripe credit card requirement in the Setup Wizard can be bypassed. Look for `// --- START STRIPE BYPASS ---` in `setup-wizard.ts` to toggle between mock and real payment flows.
 - **Backend Enforcement**: The `tenantMiddleware` in `server/routes/orders.js` extracts the `x-tenant-slug` header from requests and injects the corresponding `tenant_id` into the database queries.
 

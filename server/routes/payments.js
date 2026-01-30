@@ -96,10 +96,12 @@ router.post('/create-subscription', async (req, res) => {
     // 2. Map planId to Stripe Price ID
     // TODO: The user should replace these with actual Price IDs from their Stripe Dashboard
     let priceId = '';
-    if (planId === 'PRO') {
-      priceId = process.env.STRIPE_PRICE_PRO || 'price_1QqcqcCSuAWgXtUtInProductionExample';
+    if (planId === 'ENTERPRISE') {
+      priceId = process.env.STRIPE_PRICE_ENTERPRISE || 'price_1QqcqeCSuAWgXtUtInProductionExample';
+    } else if (planId === 'PROFESSIONAL') {
+      priceId = process.env.STRIPE_PRICE_PROFESSIONAL || 'price_1QqcqcCSuAWgXtUtInProductionExample';
     } else {
-      priceId = process.env.STRIPE_PRICE_BASIC || 'price_1QqcqBCSuAWgXtUtInProductionExample';
+      priceId = process.env.STRIPE_PRICE_STARTER || 'price_1QqcqBCSuAWgXtUtInProductionExample';
     }
 
     // Fallback for development if no price ID is provided yet
