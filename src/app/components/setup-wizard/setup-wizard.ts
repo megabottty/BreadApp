@@ -91,10 +91,20 @@ export class SetupWizardComponent implements AfterViewInit {
 
   isStepValid = computed(() => {
     const step = this.currentStep();
+    console.log(`[SetupWizard Debug] Validating Step ${step}. CardComplete: ${this.isCardComplete()}, StripeError: ${this.stripeError()}`);
     if (step === 1) return !!this.primaryColor() && !!this.secondaryColor();
     if (step === 2) return this.ovenCapacity() > 0;
     if (step === 3) return !!this.address() && !!this.phone() && !!this.email();
-    if (step === 4) return this.isCardComplete() && !this.stripeError() && !!this.stripe;
+    if (step === 4) {
+      // --- START STRIPE BYPASS ---
+      return true;
+      // --- END STRIPE BYPASS ---
+
+      /*
+      // --- UNCOMMENT FOR PRODUCTION ---
+      return this.isCardComplete() && !this.stripeError() && !!this.stripe;
+      */
+    }
     return true;
   });
 
@@ -122,12 +132,20 @@ export class SetupWizardComponent implements AfterViewInit {
 
     try {
       const key = environment.stripePublicKey;
+
+      // DEEP DEBUG LOG FOR USER
+      console.log('%c [Stripe Key Audit] ', 'background: #222; color: #bada55; font-size: 14px');
+      console.log('Current Key:', key);
+      console.log('Is Test Key:', key.startsWith('pk_test'));
+      console.log('Is Live Key:', key.startsWith('pk_live'));
+
       if (!key || key.includes('your_public_key_here')) {
         this.stripeError.set('Stripe Public Key is not configured in environment.ts');
         return;
       }
 
       this.stripe = Stripe(key);
+      console.log('[Stripe Debug] Initializing with key:', key);
       const elements = this.stripe.elements();
 
       const style = {
@@ -201,6 +219,15 @@ export class SetupWizardComponent implements AfterViewInit {
     this.isProcessingPayment.set(true);
 
     try {
+      // --- START STRIPE BYPASS ---
+      // This section allows finishing without a real Stripe card
+      let subscriptionId = 'SUB_MOCK_' + Math.random().toString(36).substring(7);
+      let customerId = 'CUS_MOCK_' + Math.random().toString(36).substring(7);
+      let status: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'TRIAL_BYPASS' = 'TRIAL_BYPASS';
+      // --- END STRIPE BYPASS ---
+
+      /*
+      // --- UNCOMMENT FOR PRODUCTION ---
       // 1. Create Payment Method with Stripe
       const { paymentMethod, error } = await this.stripe.createPaymentMethod({
         type: 'card',
@@ -226,6 +253,11 @@ export class SetupWizardComponent implements AfterViewInit {
         email: this.email() || tenant.email,
         tenantId: tenant.id
       }));
+      subscriptionId = response.subscriptionId;
+      customerId = response.customerId;
+      status = 'TRIAL';
+      // --- END UNCOMMENT FOR PRODUCTION ---
+      */
 
       // 3. Update Bakery Info
       this.tenantService.updateTenant(tenant.id, {
@@ -236,8 +268,8 @@ export class SetupWizardComponent implements AfterViewInit {
         phone: this.phone(),
         email: this.email(),
         subscription_plan: this.selectedPlan(),
-        subscription_id: response.subscriptionId,
-        subscription_status: 'TRIAL',
+        subscription_id: subscriptionId,
+        subscription_status: status,
         onboarding_completed: true
       });
 

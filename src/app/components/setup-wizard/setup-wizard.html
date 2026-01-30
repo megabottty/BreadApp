@@ -110,26 +110,17 @@
           </div>
 
           <div class="payment-section card" style="margin-top: 2rem; background: #fdfdfd; border: 1px solid #7D8F69;">
-            <h3>💳 Credit Card Information</h3>
-            <p class="description">Your card will NOT be charged today. Your 14-day free trial starts now, and you can cancel anytime before it ends.</p>
+            <h3>💳 Subscription Setup (Skipped for Now)</h3>
+            <p class="description" style="color: #666; font-style: italic;">We've temporarily bypassed the credit card requirement as requested. You can set up your payments later in your dashboard.</p>
 
-            @if (isTestMode()) {
-              <div class="test-mode-alert" style="background: #fff4e5; color: #663c00; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; border-left: 4px solid #ff9800;">
-                🧪 <strong>Test Mode Active:</strong> You can use <code>4242 4242 4242 4242</code> as a test card.
-              </div>
-            }
-
-            <div id="card-element" style="padding: 1.25rem; border: 1px solid #eee; border-radius: 8px; background: white; margin: 1rem 0;">
-              <!-- Stripe Card Element -->
+            <div class="test-mode-alert" style="background: #eefbff; color: #004d66; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; border-left: 4px solid #00a3d4;">
+              ✅ <strong>Ready to Go:</strong> You can now click "Finish" below to enter your dashboard immediately.
             </div>
 
-            @if (stripeError()) {
-              <div class="error-message" style="color: #fa755a; font-size: 0.9rem; margin-bottom: 1rem;">
-                {{ stripeError() }}
-              </div>
-            }
+            <!-- Stripe Card Element (Hidden for bypass) -->
+            <div id="card-element" style="display: none;"></div>
 
-            <p class="trial-note">By clicking Finish, you agree to the 14-day trial. Automatic billing begins after the trial period.</p>
+            <p class="trial-note">By clicking Finish, you will complete your setup and gain access to your baker dashboard.</p>
           </div>
         </div>
       }

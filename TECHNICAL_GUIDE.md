@@ -12,6 +12,7 @@ The app uses a **Single Database, Shared Schema** approach with a `tenant_id` fo
 - **Tenants Table**: Stores bakery-specific info (name, slug, colors, logo, subscription status).
 - **Slug Identification**: The `TenantService` on the frontend identifies the current bakery based on the URL path (`/b/slug`) or subdomain.
 - **Onboarding Flow**: New bakers are automatically redirected to the `SetupWizardComponent` upon registration to configure their branding, oven capacity, and select a SaaS subscription plan.
+  - **Development Bypass**: For testing purposes, the Stripe credit card requirement in the Setup Wizard can be bypassed. Look for `// --- START STRIPE BYPASS ---` in `setup-wizard.ts` to toggle between mock and real payment flows.
 - **Backend Enforcement**: The `tenantMiddleware` in `server/routes/orders.js` extracts the `x-tenant-slug` header from requests and injects the corresponding `tenant_id` into the database queries.
 
 ### 2. Authentication & Roles
@@ -111,6 +112,10 @@ ToastTab is used to sync in-store POS data with the bakery dashboard.
 - **Setup**: In the Baker Dashboard (Settings), enter your Toast Client ID.
 - **Workflow**: Orders from Toast sync automatically to the 'Orders' tab for production planning.
 - **Payments**: Toast handles physical POS payments, while **Stripe** handles all online storefront transactions.
+  - **Payment Bypass (Dev Mode)**: To skip Stripe validation in the Setup Wizard during development:
+    1. Open `src/app/components/setup-wizard/setup-wizard.ts`.
+    2. Ensure the code under `// --- START STRIPE BYPASS ---` is active (returns `true` and uses `SUB_MOCK_`).
+    3. To reactivate, uncomment the sections labeled `// --- UNCOMMENT FOR PRODUCTION ---`.
 
 ### 2. Inventory & Production
 - **Batch Production List**: Automatically calculated in the 'Orders' tab. It aggregates all individual customer orders into a total gram-count for each recipe.
