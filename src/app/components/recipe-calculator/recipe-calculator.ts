@@ -77,6 +77,9 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       prepTimeMinutes: [0],
       bakeTimeMinutes: [45],
       isHidden: [false],
+      sku: [''],
+      barcode: [''],
+      productType: ['PHYSICAL'],
       currentUnits: [1],
       targetUnits: [1],
       ingredients: this.fb.array([

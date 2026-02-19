@@ -50,6 +50,28 @@
         </label>
       </div>
 
+      @if (recipeForm.get('category')?.value !== 'BREAD') {
+        <div class="scaling-grid">
+          <div class="form-group">
+            <label for="recipe-sku">SKU</label>
+            <input id="recipe-sku" type="text" formControlName="sku" placeholder="e.g. BREAD-001">
+          </div>
+          <div class="form-group">
+            <label for="recipe-barcode">Barcode</label>
+            <input id="recipe-barcode" type="text" formControlName="barcode" placeholder="e.g. 123456789">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="product-type">Product Type</label>
+          <select id="product-type" formControlName="productType">
+            <option value="PHYSICAL">Physical Goods</option>
+            <option value="SERVICE">Service</option>
+            <option value="DIGITAL">Digital Item</option>
+          </select>
+        </div>
+      }
+
       <div class="form-group">
         <label>Recipe Photos</label>
         <div class="image-upload-wrapper">

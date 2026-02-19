@@ -8,6 +8,7 @@ export interface Tenant {
   id: string;
   name: string;
   slug: string;
+  business_type?: 'BAKERY' | 'RETAIL' | 'RESTAURANT';
   description?: string;
   logo_url?: string;
   primary_color: string;
@@ -146,14 +147,15 @@ export class TenantService {
     return this.http.post<Tenant>(`${this.apiUrl}/orders/register-bakery`, { name, slug });
   }
 
-  updateTenantBranding(id: string, primary: string, secondary: string, oven_capacity: number = 6, address?: string, phone?: string, email?: string) {
+  updateTenantBranding(id: string, primary: string, secondary: string, oven_capacity: number = 6, address?: string, phone?: string, email?: string, business_type: string = 'BAKERY') {
     return this.updateTenant(id, {
       primary_color: primary,
       secondary_color: secondary,
       oven_capacity: oven_capacity,
       address: address,
       phone: phone,
-      email: email
+      email: email,
+      business_type: business_type as any
     });
   }
 

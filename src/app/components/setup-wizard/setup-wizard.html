@@ -2,11 +2,11 @@
   <div class="wizard-card">
     <header class="wizard-header">
       <div class="logo">🥖</div>
-      <h1>Welcome to The Daily Dough</h1>
-      <p>Let's get your bakery set up and ready for orders.</p>
+      <h1>Welcome to BreadApp Business</h1>
+      <p>Let's get your business set up and ready to scale.</p>
 
       <div class="progress-stepper">
-        @for (step of [1,2,3,4]; track step) {
+        @for (step of [1,2,3,4,5]; track step) {
           <div class="step" [class.active]="currentStep() === step" [class.completed]="currentStep() > step">
             <span class="step-num">{{currentStep() > step ? '✓' : step}}</span>
           </div>
@@ -15,22 +15,48 @@
     </header>
 
     <main class="wizard-body">
-      <!-- Step 1: Branding -->
+      <!-- Step 1: Business Type -->
       @if (currentStep() === 1) {
         <div class="step-content">
-          <h2>🎨 Your Bakery Branding</h2>
+          <h2>🏢 Choose Your Business Type</h2>
+          <p>BreadApp helps all kinds of businesses grow. Select yours below.</p>
+
+          <div class="business-type-grid">
+            <div class="type-card" [class.selected]="businessType() === 'BAKERY'" (click)="businessType.set('BAKERY')">
+              <div class="icon">🥖</div>
+              <h3>Bakery</h3>
+              <p>For artisan bakers and bread shops.</p>
+            </div>
+            <div class="type-card" [class.selected]="businessType() === 'RETAIL'" (click)="businessType.set('RETAIL')">
+              <div class="icon">🛍️</div>
+              <h3>Retail</h3>
+              <p>For boutiques and local shops.</p>
+            </div>
+            <div class="type-card" [class.selected]="businessType() === 'RESTAURANT'" (click)="businessType.set('RESTAURANT')">
+              <div class="icon">🍽️</div>
+              <h3>Restaurant</h3>
+              <p>For cafes and dining establishments.</p>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Step 2: Branding -->
+      @if (currentStep() === 2) {
+        <div class="step-content">
+          <h2>🎨 Your Brand Identity</h2>
           <p>Choose the colors that represent your brand. These will be used for your storefront.</p>
 
           <div class="branding-grid">
             <div class="form-group">
-              <label>Primary Color (Main Accents)</label>
+              <label>Primary Color</label>
               <div class="color-input-wrapper">
                 <input type="color" [(ngModel)]="primaryColor">
                 <code>{{primaryColor()}}</code>
               </div>
             </div>
             <div class="form-group">
-              <label>Secondary Color (Highlights)</label>
+              <label>Secondary Color</label>
               <div class="color-input-wrapper">
                 <input type="color" [(ngModel)]="secondaryColor">
                 <code>{{secondaryColor()}}</code>
@@ -43,33 +69,47 @@
         </div>
       }
 
-      <!-- Step 2: Oven -->
-      @if (currentStep() === 2) {
+      <!-- Step 3: Capacity / Specifics -->
+      @if (currentStep() === 3) {
         <div class="step-content">
-          <h2>🔥 Oven Configuration</h2>
-          <p>Tell us about your oven capacity so we can optimize your "Smart Batches".</p>
+          @if (businessType() === 'BAKERY') {
+            <h2>🔥 Oven Configuration</h2>
+            <p>Tell us about your oven capacity so we can optimize your "Smart Batches".</p>
 
-          <div class="form-group">
-            <label>Oven Capacity (Loaves per batch)</label>
-            <input type="number" [(ngModel)]="ovenCapacity" class="form-control" min="1">
-            <small class="hint">How many loaves can you bake at the same time?</small>
-          </div>
+            <div class="form-group">
+              <label>Oven Capacity (Loaves per batch)</label>
+              <input type="number" [(ngModel)]="ovenCapacity" class="form-control" min="1">
+              <small class="hint">How many loaves can you bake at the same time?</small>
+            </div>
 
-          <div class="info-box">
-             💡 <strong>Smart Batches</strong> automatically groups your orders to maximize your oven's efficiency.
-          </div>
+            <div class="info-box">
+               💡 <strong>Smart Batches</strong> automatically groups your orders to maximize your oven's efficiency.
+            </div>
+          } @else if (businessType() === 'RETAIL') {
+            <h2>📦 Inventory Settings</h2>
+            <p>Configure how you want to manage your retail stock.</p>
+            <div class="info-box">
+              Retail mode enables advanced SKU tracking and shelf-life management.
+            </div>
+          } @else {
+            <h2>🍽️ Table Management</h2>
+            <p>Set up your restaurant floor plan and seating capacity.</p>
+            <div class="info-box">
+              Restaurant mode includes table-side ordering and kitchen display support.
+            </div>
+          }
         </div>
       }
 
-      <!-- Step 3: Location -->
-      @if (currentStep() === 3) {
+      <!-- Step 4: Location -->
+      @if (currentStep() === 4) {
         <div class="step-content">
           <h2>📍 Location & Contact</h2>
           <p>This information helps customers find you and get in touch.</p>
 
           <div class="form-group">
-            <label>Shop Address</label>
-            <input type="text" [(ngModel)]="address" placeholder="e.g. 123 Baker St, Salt Lake City, UT" class="form-control">
+            <label>Business Address</label>
+            <input type="text" [(ngModel)]="address" placeholder="e.g. 123 Main St, Salt Lake City, UT" class="form-control">
           </div>
 
           <div class="form-grid">
@@ -79,17 +119,17 @@
             </div>
             <div class="form-group">
               <label>Public Email</label>
-              <input type="email" [(ngModel)]="email" placeholder="hello@mybakery.com" class="form-control">
+              <input type="email" [(ngModel)]="email" placeholder="hello@mybusiness.com" class="form-control">
             </div>
           </div>
         </div>
       }
 
-      <!-- Step 4: Plan Selection -->
-      @if (currentStep() === 4) {
+      <!-- Step 5: Plan Selection -->
+      @if (currentStep() === 5) {
         <div class="step-content">
-          <h2>🥖 Choose Your Plan</h2>
-          <p>Select a plan that fits your bakery's scale. Includes a 14-day free trial.</p>
+          <h2>📈 Choose Your Plan</h2>
+          <p>Select a plan that fits your business scale. Includes a 14-day free trial.</p>
 
           <div class="plan-grid">
             @for (plan of plans; track plan.id) {
@@ -110,17 +150,16 @@
           </div>
 
           <div class="payment-section card" style="margin-top: 2rem; background: #fdfdfd; border: 1px solid #7D8F69;">
-            <h3>💳 Subscription Setup (Skipped for Now)</h3>
-            <p class="description" style="color: #666; font-style: italic;">We've temporarily bypassed the credit card requirement as requested. You can set up your payments later in your dashboard.</p>
+            <h3>💳 Subscription Setup (Skipped)</h3>
+            <p class="description" style="color: #666; font-style: italic;">We've temporarily bypassed the credit card requirement. You can set up your payments later.</p>
 
             <div class="test-mode-alert" style="background: #eefbff; color: #004d66; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; border-left: 4px solid #00a3d4;">
-              ✅ <strong>Ready to Go:</strong> You can now click "Finish" below to enter your dashboard immediately.
+              ✅ <strong>Ready:</strong> Click "Finish" to enter your dashboard.
             </div>
 
-            <!-- Stripe Card Element (Hidden for bypass) -->
             <div id="card-element" style="display: none;"></div>
 
-            <p class="trial-note">By clicking Finish, you will complete your setup and gain access to your baker dashboard.</p>
+            <p class="trial-note">By clicking Finish, you will complete your setup and gain access to your dashboard.</p>
           </div>
         </div>
       }

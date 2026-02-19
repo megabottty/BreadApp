@@ -1,0 +1,125 @@
+<div class="pos-container">
+  <!-- Left Side: Product Selection -->
+  <div class="product-selection">
+    <header class="pos-header">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          placeholder="Search products..."
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+        >
+      </div>
+      <div class="category-tabs">
+        @for (cat of categories(); track cat) {
+          <button
+            [class.active]="categoryFilter() === cat"
+            (click)="categoryFilter.set(cat)"
+          >
+            {{cat}}
+          </button>
+        }
+      </div>
+    </header>
+
+    <div class="product-grid">
+      @for (product of filteredProducts(); track product.id) {
+        <div class="product-card" (click)="addToCart(product)">
+          <div class="product-info">
+            <h3>{{product.name}}</h3>
+            <p class="category">{{product.category}}</p>
+          </div>
+          <div class="product-price">
+            {{product.price | currency}}
+          </div>
+        </div>
+      } @empty {
+        <div class="empty-state">
+          <p>No products found in this category.</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Right Side: Cart & Checkout -->
+  <aside class="pos-cart">
+    <div class="cart-header">
+      <h2>Current Order</h2>
+      <button class="btn-clear" (click)="clearCart()" [disabled]="cart().length === 0">Clear</button>
+    </div>
+
+    <div class="cart-items">
+      @for (item of cartWithPrices(); track item.recipeId; let i = $index) {
+        <div class="cart-item">
+          <div class="item-info">
+            <span class="item-name">{{item.name}}</span>
+            <span class="item-price">{{item.price | currency}}</span>
+          </div>
+          <div class="item-controls">
+            <button (click)="updateQuantity(i, -1)">-</button>
+            <span class="quantity">{{item.quantity}}</span>
+            <button (click)="updateQuantity(i, 1)">+</button>
+            <button class="btn-remove" (click)="removeFromCart(i)">×</button>
+          </div>
+        </div>
+      } @empty {
+        <div class="cart-empty">
+          <span class="icon">🛒</span>
+          <p>Your cart is empty</p>
+          <p class="hint">Click a product to add it to the order</p>
+        </div>
+      }
+    </div>
+
+    <div class="cart-footer">
+      <div class="customer-details">
+        <input type="text" placeholder="Customer Name (Optional)" [(ngModel)]="customerName">
+        <input type="tel" placeholder="Phone Number (Optional)" [(ngModel)]="customerPhone">
+        @if (tenantService.tenant()?.business_type === 'RESTAURANT') {
+          <input type="text" placeholder="Table Number" [(ngModel)]="tableNumber">
+        }
+      </div>
+
+      <div class="totals">
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span>{{cartTotal() | currency}}</span>
+        </div>
+        <div class="total-row main">
+          <span>Total</span>
+          <span>{{cartTotal() | currency}}</span>
+        </div>
+      </div>
+
+      <div class="payment-methods">
+        <button
+          class="method-btn"
+          [class.active]="paymentMethod() === 'CARD'"
+          (click)="paymentMethod.set('CARD')"
+        >
+          💳 Card
+        </button>
+        <button
+          class="method-btn"
+          [class.active]="paymentMethod() === 'CASH'"
+          (click)="paymentMethod.set('CASH')"
+        >
+          💵 Cash
+        </button>
+      </div>
+
+      <button
+        class="btn-checkout"
+        [disabled]="cart().length === 0 || isProcessing()"
+        (click)="checkout()"
+      >
+        @if (isProcessing()) {
+          <span class="spinner"></span> Processing...
+        } @else {
+          Complete Sale ({{cartTotal() | currency}})
+        }
+      </button>
+    </div>
+  </aside>
+</div>

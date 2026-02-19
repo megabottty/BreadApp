@@ -1,14 +1,16 @@
-# 🥖 The Daily Dough
+# 📈 BreadApp Business
 
-The Daily Dough is a multi-tenant SaaS (Software as a Service) platform designed for artisan bakers. It provides a complete solution for bakers to manage their production and for customers to order fresh, handmade bread through a beautiful, branded storefront.
+BreadApp Business is a multi-tenant SaaS consulting and management platform designed for small businesses (Bakeries, Retail, and Restaurants). It mimics the comprehensive ecosystem of professional platforms like Lightspeed, providing business owners with tools to manage production, finances, and growth through a unified dashboard.
 
 ## 🌟 Key Features
 
-- **Multi-Tenant Architecture**: Each baker gets their own branded storefront and isolated data.
-- **Baker Dashboard**: Manage recipes, track daily production (auto-calculated ingredients), and view financial ledgers.
-- **Recipe Calculator**: Professional baker's math with scaling and hydration tracking.
-- **PWA Ready**: Installable on mobile devices for an app-like experience.
-- **Customer Storefront**: Subscriptions, reviews, and easy checkout.
+- **Multi-Tenant Architecture**: Every business gets its own branded storefront and isolated data.
+- **Smart Onboarding**: A setup wizard that tailors the platform to your specific business type (Bakery, Retail, or Restaurant).
+- **Business Hub Dashboard**: Manage orders, track inventory, and view professional financial ledgers.
+- **POS Terminal**: Integrated Point of Sale for handling walk-in customers and in-person payments.
+- **Recipe & Inventory Management**: Specialized tools for bakers (scaling, hydration) and retail (SKU tracking).
+- **Modern UI/UX**: A clean, professional interface inspired by enterprise-grade business software.
+- **PWA Ready**: Installable on mobile devices for a native app experience.
 
 See [FEATURES.md](./FEATURES.md) for a full list of capabilities and [TESTING_GUIDE.md](./TESTING_GUIDE.md) for instructions on how to test the app on your phone.
 
@@ -106,6 +108,20 @@ The app is configured as a Progressive Web App. After building for production an
 
 ### Deployment Note (URL Refreshing)
 If you are hosting on a traditional server (like Apache/Bluehost), you must ensure that all requests are redirected to `index.html` so that Angular can handle the routing. I have included a `.htaccess` file in the `public/` directory which will be automatically included in your build.
+
+---
+
+## 🛠️ Keep Supabase Awake
+
+To prevent your Supabase project from being paused due to inactivity, a GitHub Action has been added that pings your database once a week.
+
+**Setup Instructions:**
+1. Go to your GitHub repository **Settings** > **Secrets and variables** > **Actions**.
+2. Add the following **New repository secrets**:
+   - `SUPABASE_URL`: Your Supabase Project URL.
+   - `SUPABASE_ANON_KEY`: Your Supabase Anon/Public Key.
+
+The workflow is located at `.github/workflows/keep-supabase-awake.yml`.
 
 ---
 

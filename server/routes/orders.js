@@ -86,7 +86,9 @@ router.post('/', async (req, res) => {
           notes: orderData.notes,
           pickup_date: orderData.pickupDate,
           order_source: orderData.orderSource || 'ONLINE',
-          status: 'PENDING',
+          status: orderData.status || 'PENDING',
+          payment_status: orderData.paymentStatus || 'PENDING',
+          table_number: orderData.tableNumber,
           promo_code: orderData.promoCode,
           discount_applied: orderData.discountApplied,
           payment_method: orderData.paymentMethod
@@ -150,6 +152,9 @@ router.get('/recipes', async (req, res) => {
       ingredients: recipe.ingredients,
       images: recipe.images,
       available_addons: recipe.available_addons,
+      sku: recipe.sku,
+      barcode: recipe.barcode,
+      product_type: recipe.product_type,
       prepTimeMinutes: recipe.prep_time_minutes,
       bakeTimeMinutes: recipe.bake_time_minutes,
       createdAt: recipe.created_at
@@ -297,6 +302,9 @@ router.post('/recipes', async (req, res) => {
         ingredients: recipe.ingredients,
         images: recipe.images,
         available_addons: recipe.available_addons,
+        sku: recipe.sku,
+        barcode: recipe.barcode,
+        product_type: recipe.productType || 'PHYSICAL',
         prep_time_minutes: recipe.prepTimeMinutes,
         bake_time_minutes: recipe.bakeTimeMinutes
       })

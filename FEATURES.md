@@ -1,29 +1,26 @@
-# Features of The Daily Dough
+# Features of BreadApp Business
 
-The Daily Dough is a multi-tenant SaaS (Software as a Service) platform designed specifically for artisan bakers. It enables individual bakers to manage their production and finances while providing customers with a beautiful, branded storefront.
+BreadApp Business is a multi-tenant SaaS (Software as a Service) platform designed to empower small business owners. Inspired by the professional ecosystem of lightspeedhq.com, it provides an all-in-one solution for Bakeries, Retail Shops, and Restaurants to manage their operations and finances.
 
-## 🚀 For Bakers (The Business Side)
+## 🚀 For Business Owners
 
-### 1. SaaS Multi-Tenant Platform
-- **Self-Service Onboarding**: New bakers can register, claim their slug, and are guided through a **Setup Wizard** to configure their bakery in minutes.
-- **Dynamic Storefront**: Instantly generated branded storefront for every baker.
-- **Subscription Model**: Tiered SaaS plans (Basic vs. Pro) with automatic trial periods for bakers.
-- **Billing Management**: Integrated billing portal for bakers to manage their platform subscription.
+### 1. Smart Onboarding & Multi-Tenancy
+- **Business Type Selection**: Tailor your experience by choosing between **Bakery**, **Retail**, or **Restaurant** modes during setup.
+- **Self-Service Onboarding**: Claim your slug and get guided through a 5-step **Setup Wizard** to configure your brand and business specifics in minutes.
+- **Dynamic Storefront**: Instantly generated branded storefront for every tenant.
 
-### 2. Baker Dashboard ("Baker Central")
-A unified command center for managing everything:
-- **Production Brain**: A daily view of orders. It automatically aggregates ingredients across all orders for a specific "Bake Date," telling the baker exactly how many grams of flour, water, salt, and starter they need for the day.
-- **Recipe Calculator**: A professional baker's math calculator that handles hydration percentages and scales recipes based on desired loaf count. Now includes **Time Tracking** (Prep vs. Bake) to power your production schedule and **Nutrition Tracking** with real-time data from the **USDA FoodData Central API**.
-- **Production Timeline Planner**: Located in the Forecast tab, this tool calculates exactly when you need to start your day based on your target finish time and the specific recipes in your production plan.
-- **Bakery Ledger**: A financial overview showing total revenue, pending sales, and average order value. Manage **Promo Codes** (Fixed, Percentage, or Free Loaf) directly from the ledger.
-- **Order Management**: Track orders through various stages: `PENDING`, `READY`/`SHIPPED`, and `COMPLETED`.
-- **Integrated Notifications**: Automatically send SMS updates to customers when orders are confirmed, ready for pickup, or out for delivery. Bakers also receive real-time alerts for new orders.
-- **Direct Contact Messaging**: Customers can contact bakers directly through a functional contact form in the footer, with messages routed to the baker's email.
+### 2. Business Hub (The Command Center)
+A unified dashboard for managing everything:
+- **Context-Aware Dashboard**: The interface adapts based on your business type (e.g., "Production" for bakers, "Orders" for retail).
+- **Business Ledger**: A professional financial overview showing total revenue, COGS (Cost of Goods Sold), profit margins, and average order value.
+- **Inventory Management**: Track stock levels and generate Purchase Orders (POs) automatically.
+- **Analytics & Forecasting**: Professional data visualization to help you understand your business health.
+- **POS Terminal**: A touch-optimized Point of Sale interface for in-person sales with instant checkout.
 
-### 3. Marketing & Sales Tools
-- **Promo Codes**: Create fixed-amount, percentage-based, or "Free Loaf" discount codes.
-- **Customer Communication**: Integrated SMS shortcuts to notify customers when their bread is ready.
-- **Dynamic Branding**: Bakers can customize their shop's primary and secondary colors and logo to match their brand.
+### 3. Industry-Specific Tools
+- **Bakery Mode**: Professional baker's math calculator, hydration tracking, and oven-optimized "Smart Batching".
+- **Retail Mode**: (In Development) Advanced SKU tracking and inventory life-cycle management.
+- **Restaurant Mode**: (In Development) Table management and seating capacity optimization.
 
 ---
 

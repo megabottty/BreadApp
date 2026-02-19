@@ -33,9 +33,12 @@ export class SetupWizardComponent implements AfterViewInit {
   private http = inject(HttpClient);
 
   currentStep = signal(1);
-  totalSteps = 4;
+  totalSteps = 5;
 
-  // Step 1: Branding
+  // Step 1: Business Type
+  businessType = signal<'BAKERY' | 'RETAIL' | 'RESTAURANT'>('BAKERY');
+
+  // Step 2: Branding
   primaryColor = signal('#7D8F69');
   secondaryColor = signal('#D88569');
 
@@ -106,10 +109,11 @@ export class SetupWizardComponent implements AfterViewInit {
   isStepValid = computed(() => {
     const step = this.currentStep();
     console.log(`[SetupWizard Debug] Validating Step ${step}. CardComplete: ${this.isCardComplete()}, StripeError: ${this.stripeError()}`);
-    if (step === 1) return !!this.primaryColor() && !!this.secondaryColor();
-    if (step === 2) return this.ovenCapacity() > 0;
-    if (step === 3) return !!this.address() && !!this.phone() && !!this.email();
-    if (step === 4) {
+    if (step === 1) return !!this.businessType();
+    if (step === 2) return !!this.primaryColor() && !!this.secondaryColor();
+    if (step === 3) return this.ovenCapacity() > 0;
+    if (step === 4) return !!this.address() && !!this.phone() && !!this.email();
+    if (step === 5) {
       // --- START STRIPE BYPASS ---
       return true;
       // --- END STRIPE BYPASS ---
@@ -198,8 +202,8 @@ export class SetupWizardComponent implements AfterViewInit {
     if (this.currentStep() < this.totalSteps) {
       this.currentStep.update(s => s + 1);
 
-      // If moving to step 4, init Stripe
-      if (this.currentStep() === 4) {
+      // If moving to step 5, init Stripe
+      if (this.currentStep() === 5) {
         setTimeout(() => this.initStripe(), 100);
       }
     } else {
@@ -226,7 +230,7 @@ export class SetupWizardComponent implements AfterViewInit {
     }
 
     if (!tenant) {
-      this.modalService.showAlert('No bakery profile found to update. Please try refreshing the page.', 'Setup Error', 'error');
+      this.modalService.showAlert('No business profile found to update. Please try refreshing the page.', 'Setup Error', 'error');
       return;
     }
 
@@ -273,8 +277,9 @@ export class SetupWizardComponent implements AfterViewInit {
       // --- END UNCOMMENT FOR PRODUCTION ---
       */
 
-      // 3. Update Bakery Info
+      // 3. Update Business Info
       this.tenantService.updateTenant(tenant.id, {
+        business_type: this.businessType(),
         primary_color: this.primaryColor(),
         secondary_color: this.secondaryColor(),
         oven_capacity: this.ovenCapacity(),
@@ -294,7 +299,7 @@ export class SetupWizardComponent implements AfterViewInit {
         data: { onboarding_completed: true }
       });
 
-      this.modalService.showAlert('Your bakery is now ready! 🥖 Your 14-day trial has started.', 'Setup Complete', 'success');
+      this.modalService.showAlert('Your business is now ready! Your 14-day trial has started.', 'Setup Complete', 'success');
       this.router.navigate(['/dashboard']);
 
     } catch (error: any) {

@@ -4,6 +4,8 @@ import { environment } from '../../../environments/environment';
 import { OrdersManagerComponent } from '../orders-manager/orders-manager';
 import { BakeryLedgerComponent } from '../bakery-ledger/bakery-ledger';
 import { RecipeCalculatorComponent } from '../recipe-calculator/recipe-calculator';
+import { BusinessAnalyticsComponent } from '../business-analytics/business-analytics';
+import { PosTerminalComponent } from '../pos-terminal/pos-terminal';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
 import { InventoryService, InventoryItem } from '../../services/inventory.service';
@@ -19,7 +21,9 @@ import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '
     FormsModule,
     OrdersManagerComponent,
     BakeryLedgerComponent,
-    RecipeCalculatorComponent
+    RecipeCalculatorComponent,
+    BusinessAnalyticsComponent,
+    PosTerminalComponent
   ],
   templateUrl: './baker-dashboard.html',
   styleUrls: ['./baker-dashboard.css']
@@ -30,7 +34,9 @@ export class BakerDashboardComponent {
   private inventoryService = inject(InventoryService);
   private http = inject(HttpClient);
 
-  activeTab = signal<'orders' | 'ledger' | 'recipes' | 'settings' | 'inventory' | 'forecast' | 'billing'>('orders');
+  ovenCapacityValue = signal<number>(6);
+
+  activeTab = signal<'orders' | 'pos' | 'ledger' | 'recipes' | 'settings' | 'inventory' | 'forecast' | 'billing'>('orders');
   currentTenant = this.tenantService.tenant;
 
   savedRecipes = signal<CalculatedRecipe[]>([]);
@@ -114,6 +120,10 @@ export class BakerDashboardComponent {
       this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe(r => this.savedRecipes.set(r));
       this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe(o => this.allOrders.set(o));
       this.inventoryService.loadInventory();
+      const tenant = this.currentTenant();
+      if (tenant) {
+        this.ovenCapacityValue.set(tenant.oven_capacity || 6);
+      }
     } else {
       setTimeout(() => this.loadData(), 500); // Retry until tenant is loaded
     }

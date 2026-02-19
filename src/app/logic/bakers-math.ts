@@ -45,6 +45,9 @@ export interface Recipe {
   images?: string[];
   ingredients: Ingredient[];
   available_addons?: { name: string; price: number }[];
+  sku?: string;
+  barcode?: string;
+  productType?: 'PHYSICAL' | 'SERVICE' | 'DIGITAL';
   servingSizeGrams?: number;
   levainDetails?: {
     hydration: number; // e.g., 1.0 for 100%
@@ -238,6 +241,8 @@ export interface Order {
   trackingNumber?: string;
   items: OrderItem[];
   notes?: string;
+  tableNumber?: string;
+  paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
   totalPrice: number;
   promoCode?: string;
   discountApplied?: number;

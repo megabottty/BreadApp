@@ -1,0 +1,117 @@
+<div class="analytics-container">
+  <header class="analytics-header">
+    <div class="header-info">
+      <h1>Business Analytics & Insights</h1>
+      <p>Performance tracking across revenue, products, and channels.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-outline" (click)="loadData()">🔄 Refresh Data</button>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Analyzing your business data...</p>
+    </div>
+  } @else {
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="label">Total Revenue</span>
+        <span class="value">{{ summaryStats().totalRevenue | currency }}</span>
+        <span class="trend positive">Last 30 Days</span>
+      </div>
+      <div class="kpi-card">
+        <span class="label">Total Profit</span>
+        <span class="value">{{ summaryStats().totalProfit | currency }}</span>
+        <span class="trend" [class.positive]="summaryStats().margin > 20">
+          {{ summaryStats().margin | number:'1.1-1' }}% Margin
+        </span>
+      </div>
+      <div class="kpi-card">
+        <span class="label">Avg Order Value</span>
+        <span class="value">{{ summaryStats().aov | currency }}</span>
+        <span class="trend">{{ summaryStats().orderCount }} total orders</span>
+      </div>
+    </div>
+
+    <!-- Main Charts -->
+    <div class="charts-main-grid">
+      <!-- Revenue Trend -->
+      <div class="card chart-card revenue-trend">
+        <div class="card-header">
+          <h3>Revenue & Profit Trend</h3>
+          <p>Daily performance for the last 30 days</p>
+        </div>
+        <div class="chart-wrapper">
+          <canvas baseChart
+            [data]="lineChartData"
+            [options]="lineChartOptions"
+            [type]="'line'">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Product Distribution -->
+      <div class="card chart-card product-mix">
+        <div class="card-header">
+          <h3>Top Products by Revenue</h3>
+          <p>Contribution of your best sellers</p>
+        </div>
+        <div class="chart-wrapper doughnut">
+          <canvas baseChart
+            [data]="doughnutChartData"
+            [type]="'doughnut'">
+          </canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-secondary-grid">
+      <!-- Order Sources -->
+      <div class="card chart-card order-sources">
+        <div class="card-header">
+          <h3>Sales Channels</h3>
+          <p>Where your orders are coming from</p>
+        </div>
+        <div class="chart-wrapper">
+          <canvas baseChart
+            [data]="barChartData"
+            [type]="'bar'">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Performance Table -->
+      <div class="card performance-table">
+        <div class="card-header">
+          <h3>Product Performance</h3>
+          <p>Detailed breakdown of sales by item</p>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Product Name</th>
+                <th>Units Sold</th>
+                <th>Revenue</th>
+                <th>% of Sales</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of productMetrics(); track item.name) {
+                <tr>
+                  <td><strong>{{item.name}}</strong></td>
+                  <td>{{item.count}}</td>
+                  <td>{{item.revenue | currency}}</td>
+                  <td>{{ (item.revenue / summaryStats().totalRevenue) | percent:'1.1-1' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</div>

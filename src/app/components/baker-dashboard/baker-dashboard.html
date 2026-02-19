@@ -1,27 +1,32 @@
 <div class="dashboard-container">
   <aside class="sidebar">
     <div class="sidebar-header">
-      <span class="logo">🥖</span>
-      <h2>Baker Central</h2>
+      <span class="logo">📈</span>
+      <h2>Business Hub</h2>
     </div>
     <nav>
+      <button [class.active]="activeTab() === 'pos'" (click)="activeTab.set('pos')" class="pos-nav-btn">
+        <span class="icon">🛒</span> Point of Sale
+      </button>
       <button [class.active]="activeTab() === 'orders'" (click)="activeTab.set('orders')">
-        <span class="icon">📋</span> Production
+        <span class="icon">📋</span> {{ currentTenant()?.business_type === 'BAKERY' ? 'Production' : 'Orders' }}
       </button>
       <button [class.active]="activeTab() === 'ledger'" (click)="activeTab.set('ledger')">
         <span class="icon">💰</span> Ledger
       </button>
-      <button [class.active]="activeTab() === 'recipes'" (click)="activeTab.set('recipes')">
-        <span class="icon">⚖️</span> Recipes
-      </button>
+      @if (currentTenant()?.business_type === 'BAKERY') {
+        <button [class.active]="activeTab() === 'recipes'" (click)="activeTab.set('recipes')">
+          <span class="icon">⚖️</span> Recipes
+        </button>
+      }
       <button [class.active]="activeTab() === 'settings'" (click)="activeTab.set('settings')">
-        <span class="icon">⚙️</span> Shop Settings
+        <span class="icon">⚙️</span> Business Settings
       </button>
       <button [class.active]="activeTab() === 'inventory'" (click)="activeTab.set('inventory')">
         <span class="icon">📦</span> Inventory
       </button>
       <button [class.active]="activeTab() === 'forecast'" (click)="activeTab.set('forecast')">
-        <span class="icon">📈</span> Forecast
+        <span class="icon">📊</span> Insights
       </button>
       <button [class.active]="activeTab() === 'billing'" (click)="activeTab.set('billing')">
         <span class="icon">💳</span> Billing
@@ -31,13 +36,16 @@
       @if (currentTenant(); as tenant) {
         <div class="bakery-badge">
           <p class="name">{{tenant.name}}</p>
-          <p class="status">● Online</p>
+          <p class="status">{{tenant.business_type | titlecase}} Mode</p>
         </div>
       }
     </div>
   </aside>
 
   <main class="content-area">
+    @if (activeTab() === 'pos') {
+      <app-pos-terminal></app-pos-terminal>
+    }
     @if (activeTab() === 'orders') {
       <app-orders-manager></app-orders-manager>
     }
@@ -50,12 +58,12 @@
     @if (activeTab() === 'settings') {
       <div class="settings-view">
         <header>
-          <h1>Shop Settings</h1>
-          <p>Customize how your customers see your bakery.</p>
+          <h1>Business Settings</h1>
+          <p>Customize your professional presence on BreadApp.</p>
         </header>
 
         <div class="card">
-          <h3>Shop Settings</h3>
+          <h3>Identity & Branding</h3>
           <div class="settings-grid">
             <div class="branding-section">
               <h4>Branding</h4>
@@ -71,22 +79,24 @@
               </div>
             </div>
 
-            <div class="oven-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1.5rem;">
-              <h4>🔥 Oven Configuration</h4>
-              <p class="description">Configure your oven capacity to optimize "Smart Batches".</p>
-              <div class="form-group">
-                <label>Oven Capacity (Loaves per batch)</label>
-                <input type="number" #ovenCap [ngModel]="currentTenant()?.oven_capacity || 6" class="form-control" style="max-width: 150px;">
-                <small class="form-hint">How many loaves can you bake at once?</small>
+            @if (currentTenant()?.business_type === 'BAKERY') {
+              <div class="oven-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1.5rem;">
+                <h4>🔥 Oven Configuration</h4>
+                <p class="description">Configure your oven capacity to optimize "Smart Batches".</p>
+                <div class="form-group">
+                  <label>Oven Capacity (Loaves per batch)</label>
+                  <input type="number" [(ngModel)]="ovenCapacityValue" class="form-control" style="max-width: 150px;">
+                  <small class="form-hint">How many loaves can you bake at once?</small>
+                </div>
               </div>
-            </div>
+            }
 
             <div class="location-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1.5rem;">
               <h4>📍 Location & Contact</h4>
               <p class="description">This information will appear in your storefront footer and on the map.</p>
               <div class="form-group">
-                <label>Shop Address</label>
-                <input type="text" #shopAddress [ngModel]="currentTenant()?.address" class="form-control" placeholder="e.g. 123 Baker St, London">
+                <label>Business Address</label>
+                <input type="text" #shopAddress [ngModel]="currentTenant()?.address" class="form-control" placeholder="e.g. 123 Main St, London">
               </div>
               <div class="branding-grid">
                 <div class="form-group">
@@ -95,12 +105,12 @@
                 </div>
                 <div class="form-group">
                   <label>Public Email</label>
-                  <input type="email" #shopEmail [ngModel]="currentTenant()?.email" class="form-control" placeholder="e.g. hello@mybakery.com">
+                  <input type="email" #shopEmail [ngModel]="currentTenant()?.email" class="form-control" placeholder="e.g. hello@mybusiness.com">
                 </div>
               </div>
             </div>
           </div>
-          <button class="btn-primary" style="margin-top: 1.5rem;" (click)="saveSettings(primaryCol.value, secondaryCol.value, ovenCap.value, shopAddress.value, shopPhone.value, shopEmail.value)">
+          <button class="btn-primary" style="margin-top: 1.5rem;" (click)="saveSettings(primaryCol.value, secondaryCol.value, ovenCapacityValue().toString(), shopAddress.value, shopPhone.value, shopEmail.value)">
             Save All Settings
           </button>
         </div>
@@ -203,114 +213,7 @@
     }
 
     @if (activeTab() === 'forecast') {
-      <div class="forecast-view">
-        <header>
-          <h1>Production & Sales Forecast</h1>
-          <p>Predicting demand and planning your bake day.</p>
-        </header>
-
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="label">Projected Total</span>
-            <span class="value">142</span>
-            <span class="sub-label">Total units for next bake</span>
-            <div class="channel-breakdown">
-              <small>🛒 45 Walk-in</small>
-              <small>🌐 75 Online</small>
-              <small>📞 22 Phone</small>
-            </div>
-          </div>
-          <div class="stat-card timeline-planner">
-            <span class="label">⏰ Start Time Planner</span>
-            <div class="target-time-input">
-              <label>Target Finish Time</label>
-              <input type="time" [ngModel]="targetDeliveryTime()" (ngModelChange)="targetDeliveryTime.set($event)">
-            </div>
-            @if (productionTimeline(); as timeline) {
-              <div class="start-time-result">
-                <span class="value">{{timeline.startTime}}</span>
-                <span class="sub-label">Recommended start to finish by {{targetDeliveryTime()}}</span>
-              </div>
-            } @else {
-              <p class="empty-hint">Add orders for tomorrow to calculate start time.</p>
-            }
-          </div>
-        </div>
-
-        @if (productionTimeline(); as timeline) {
-          <div class="card timeline-details">
-            <h3>🥖 Bake Day Schedule (Tomorrow)</h3>
-            <div class="timeline-items">
-              @for (item of timeline.items; track item.name) {
-                <div class="timeline-item">
-                  <div class="item-info">
-                    <strong>{{item.quantity}}x {{item.name}}</strong>
-                    <span>{{item.totalTime}} mins total</span>
-                  </div>
-                  <div class="time-segments">
-                    <span class="segment prep" [style.flex]="item.prepTime">Prep: {{item.prepTime}}m</span>
-                    <span class="segment bake" [style.flex]="item.bakeTime">Bake: {{item.bakeTime}}m</span>
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
-        }
-
-        <div class="forecast-grid">
-          <div class="card forecast-card">
-            <h3>🛒 Walk-in Forecast</h3>
-            <div class="forecast-metric">
-              <span class="metric-value">45</span>
-              <span class="metric-unit">loaves</span>
-            </div>
-            <div class="trend-indicator up">
-              <span>+12% vs last week</span>
-            </div>
-            <p class="description">Strong demand predicted for Saturday morning walk-ins.</p>
-          </div>
-
-          <div class="card forecast-card">
-            <h3>📞 Phone Forecast</h3>
-            <div class="forecast-metric">
-              <span class="metric-value">22</span>
-              <span class="metric-unit">orders</span>
-            </div>
-            <div class="trend-indicator stable">
-              <span>Stable</span>
-            </div>
-            <p class="description">Consistent call-in volume expected for pre-orders.</p>
-          </div>
-
-          <div class="card forecast-card">
-            <h3>🌐 Online Forecast</h3>
-            <div class="forecast-metric">
-              <span class="metric-value">75</span>
-              <span class="metric-unit">loaves</span>
-            </div>
-            <div class="trend-indicator up">
-              <span>+5% vs last week</span>
-            </div>
-            <p class="description">Digital sales continue to grow steadily.</p>
-          </div>
-        </div>
-
-        <div class="card forecast-chart-placeholder">
-          <h3>Weekly Demand Pattern</h3>
-          <div class="mock-chart">
-            <div class="bar" style="height: 40%" title="Mon: 30"></div>
-            <div class="bar" style="height: 35%" title="Tue: 25"></div>
-            <div class="bar" style="height: 20%" title="Wed: 15"></div>
-            <div class="bar" style="height: 50%" title="Thu: 45"></div>
-            <div class="bar" style="height: 80%" title="Fri: 90"></div>
-            <div class="bar highlight" style="height: 100%" title="Sat: 120"></div>
-            <div class="bar" style="height: 10%" title="Sun: Closed"></div>
-          </div>
-          <div class="chart-labels">
-            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
-          </div>
-        </div>
-      </div>
+      <app-business-analytics></app-business-analytics>
     }
 
     @if (activeTab() === 'billing') {
