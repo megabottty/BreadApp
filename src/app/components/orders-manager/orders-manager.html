@@ -1,6 +1,9 @@
 <div class="orders-container">
   <div class="header-section">
-    <h1>Order Management</h1>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <h1>Order Management</h1>
+      <button class="btn-hint" (click)="showHint()">💡 Help</button>
+    </div>
     <div class="header-actions">
       <button class="btn-primary" (click)="openManualOrder()">➕ Manual Order</button>
       <div class="date-picker">

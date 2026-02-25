@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, AfterViewInit } from '@angular/core';
+import { HelpService } from '../../services/help.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TenantService } from '../../services/tenant.service';
@@ -30,6 +31,7 @@ export class SetupWizardComponent implements AfterViewInit {
   private tenantService = inject(TenantService);
   private router = inject(Router);
   private modalService = inject(ModalService);
+  private helpService = inject(HelpService);
   private http = inject(HttpClient);
 
   currentStep = signal(1);
@@ -309,5 +311,10 @@ export class SetupWizardComponent implements AfterViewInit {
     } finally {
       this.isProcessingPayment.set(false);
     }
+  }
+
+  showHint() {
+    const hint = this.helpService.getHint('setup-wizard');
+    this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 }

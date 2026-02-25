@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, effect } from '@angular/core';
+import { HelpService } from '../../services/help.service';
 import { CommonModule } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { OrdersManagerComponent } from '../orders-manager/orders-manager';
@@ -31,6 +32,7 @@ import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '
 export class BakerDashboardComponent {
   private tenantService = inject(TenantService);
   protected modalService = inject(ModalService);
+  private helpService = inject(HelpService);
   private inventoryService = inject(InventoryService);
   private http = inject(HttpClient);
 
@@ -177,6 +179,11 @@ export class BakerDashboardComponent {
       maxTime: maxTotalTime
     };
   });
+
+  showHint(section: string) {
+    const hint = this.helpService.getHint(section);
+    this.modalService.showAlert(hint.content, hint.title, 'info');
+  }
 
   saveSettings(primary: string, secondary: string, ovenCapacity: string, address: string, phone: string, email: string) {
     const tenant = this.currentTenant();

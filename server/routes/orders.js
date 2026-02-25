@@ -312,13 +312,13 @@ router.post('/recipes', async (req, res) => {
 
     if (error) {
       console.error('[Supabase Error] Recipe Upsert Failed:', error.message, error.details);
-      throw error;
+      return res.status(500).json({ error: 'Failed to save recipe', details: error.message, code: error.code });
     }
     console.log('[Supabase Debug] Recipe saved successfully:', data[0].id);
     res.json(data[0]);
   } catch (error) {
     console.error('Error saving recipe:', error);
-    res.status(500).json({ error: 'Failed to save recipe' });
+    res.status(500).json({ error: 'Failed to save recipe', details: error.message, stack: error.stack });
   }
 });
 

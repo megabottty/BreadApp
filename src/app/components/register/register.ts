@@ -80,6 +80,13 @@ export class RegisterComponent implements OnInit {
 
       if (result?.needsVerification) {
         this.registrationSuccess.set(true);
+      } else {
+        // If not needing verification, redirecting is already handled by authService.register
+        // but we can add an extra safety check for returnUrl here if needed
+        const returnUrl = this.route.snapshot.queryParams['returnUrl'];
+        if (returnUrl) {
+          this.router.navigateByUrl(returnUrl);
+        }
       }
     } catch (error: any) {
       this.modalService.showAlert(error.message || 'Registration failed', 'Registration Error', 'error');

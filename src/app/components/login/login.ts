@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService, UserRole } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-login',
@@ -16,6 +16,7 @@ export class LoginComponent {
   private authService = inject(AuthService);
   private modalService = inject(ModalService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   email = signal('');
   password = signal('');
@@ -25,6 +26,12 @@ export class LoginComponent {
   async login() {
     try {
       await this.authService.login(this.email(), this.password());
+
+      // If the login was successful, check for a returnUrl
+      const returnUrl = this.route.snapshot.queryParams['returnUrl'];
+      if (returnUrl) {
+        this.router.navigateByUrl(returnUrl);
+      }
     } catch (error: any) {
       this.modalService.showAlert(error.message || 'Login failed', 'Login Error', 'error');
     }

@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { HelpService } from '../../services/help.service';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -17,6 +18,7 @@ import { TenantService } from '../../services/tenant.service';
 export class BakeryLedgerComponent implements OnInit {
   private http = inject(HttpClient);
   private modalService = inject(ModalService);
+  private helpService = inject(HelpService);
 
   allOrders = signal<Order[]>([]);
   savedRecipes = signal<CalculatedRecipe[]>([]);
@@ -187,5 +189,10 @@ export class BakeryLedgerComponent implements OnInit {
 
   getStatusClass(status: string): string {
     return `status-badge ${status.toLowerCase()}`;
+  }
+
+  showHint() {
+    const hint = this.helpService.getHint('ledger');
+    this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 }

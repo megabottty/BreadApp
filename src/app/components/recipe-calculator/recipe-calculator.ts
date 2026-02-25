@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect, OnDestroy } from '@angular/core';
+import { HelpService } from '../../services/help.service';
 import { CommonModule, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -27,9 +28,12 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private ingredientService = inject(IngredientService);
   private modalService = inject(ModalService);
+  private helpService = inject(HelpService);
   private tenantService = inject(TenantService);
   private http = inject(HttpClient);
   private fb = inject(FormBuilder);
+
+  currentTenant = this.tenantService.tenant;
 
   recipeForm: FormGroup;
   ingredientTypes: IngredientType[] = ['FLOUR', 'WATER', 'LEVAIN', 'SALT', 'INCLUSION'];
@@ -533,5 +537,10 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     } catch (e) {
       console.error('Calculation error', e);
     }
+  }
+
+  showHint() {
+    const hint = this.helpService.getHint('recipes');
+    this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 }

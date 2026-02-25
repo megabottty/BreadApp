@@ -164,6 +164,11 @@ USING (auth.uid() IN (
     SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_tenants.id
 ));
 
+-- Allow bakery registration (insert)
+CREATE POLICY "Allow bakery registration"
+ON bakery_tenants FOR INSERT
+WITH CHECK (true);
+
 -- 9.2 bakery_recipes Policies
 -- Anyone can view recipes (needed for storefronts)
 CREATE POLICY "Recipes are viewable by everyone"

@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, effect } from '@angular/core';
+import { HelpService } from '../../services/help.service';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -18,6 +19,7 @@ export class PosTerminalComponent {
   private http = inject(HttpClient);
   public tenantService = inject(TenantService);
   private modalService = inject(ModalService);
+  private helpService = inject(HelpService);
 
   savedRecipes = signal<CalculatedRecipe[]>([]);
   cart = signal<OrderItem[]>([]);
@@ -176,5 +178,10 @@ export class PosTerminalComponent {
         this.modalService.showAlert('Failed to record sale. Please try again.', 'Checkout Error', 'error');
       }
     });
+  }
+
+  showHint() {
+    const hint = this.helpService.getHint('pos');
+    this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 }

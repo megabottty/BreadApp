@@ -221,6 +221,17 @@
   margin-bottom: 1rem;
 }
 
+.cart-header .btn-hint-mini {
+  background: var(--bg-color);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.cart-header .btn-hint-mini:hover {
+  background: var(--tag-bg);
+  color: var(--text-primary);
+}
+
 .cart-footer {
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);

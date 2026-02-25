@@ -292,6 +292,37 @@ textarea:focus {
   padding: 0 1rem;
 }
 
+.ingredient-row-header {
+  display: grid;
+  grid-template-columns: 2fr 100px 1.5fr 1fr 40px;
+  gap: 1rem;
+  padding: 0 0 0.5rem;
+  border-bottom: 2px solid var(--accent-sage);
+  margin-bottom: 1rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--accent-sage);
+  letter-spacing: 0.05em;
+  align-items: flex-end;
+}
+
+.bulk-cost-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.desktop-only {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .desktop-only {
+    display: grid;
+  }
+}
+
 .bulk-cost-inputs {
   display: grid;
   grid-template-columns: 1fr 1fr;

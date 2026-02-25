@@ -1,4 +1,6 @@
 import { Component, OnInit, signal, inject, computed, effect } from '@angular/core';
+import { HelpService } from '../../services/help.service';
+import { ModalService } from '../../services/modal.service';
 import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
@@ -7,7 +9,6 @@ import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../l
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
-import { ModalService } from '../../services/modal.service';
 import { Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
 import { TenantService } from '../../services/tenant.service';
@@ -25,6 +26,8 @@ export class StorefrontComponent implements OnInit {
   protected reviewService = inject(ReviewService);
   private router = inject(Router);
   private http = inject(HttpClient);
+  private helpService = inject(HelpService);
+  private modalService = inject(ModalService);
 
   products = signal<CalculatedRecipe[]>([]);
   categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SPECIAL', 'OTHER']);
@@ -215,8 +218,6 @@ export class StorefrontComponent implements OnInit {
     this.editReviewRating.set(5);
   }
 
-  private modalService = inject(ModalService);
-
   addToCart(product: CalculatedRecipe): void {
     this.modalService.showCustomization(product);
   }
@@ -289,5 +290,10 @@ export class StorefrontComponent implements OnInit {
 
   getReviews(productId: string): Review[] {
     return this.reviewService.getReviewsForRecipe(productId)();
+  }
+
+  showHint() {
+    const hint = this.helpService.getHint('storefront');
+    this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 }

@@ -1,7 +1,10 @@
 <div class="wizard-container">
   <div class="wizard-card">
     <header class="wizard-header">
-      <div class="logo">🥖</div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div class="logo">🥖</div>
+        <button class="btn-hint" (click)="showHint()" style="margin-top: 1rem;">💡 Help</button>
+      </div>
       <h1>Welcome to BreadApp Business</h1>
       <p>Let's get your business set up and ready to scale.</p>
 

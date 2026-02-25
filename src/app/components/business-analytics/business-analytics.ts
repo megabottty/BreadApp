@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, effect, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { HelpService } from '../../services/help.service';
 import { CommonModule, CurrencyPipe, PercentPipe, DecimalPipe } from '@angular/common';
 import { AnalyticsService, RevenueMetric, CategoryMetric } from '../../services/analytics.service';
 import { Order, CalculatedRecipe } from '../../logic/bakers-math';
@@ -8,6 +9,7 @@ import { environment } from '../../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartData, ChartType, Chart } from 'chart.js';
 import { registerables } from 'chart.js';
+import { ModalService } from '../../services/modal.service';
 
 Chart.register(...registerables);
 
@@ -23,6 +25,8 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
   private analyticsService = inject(AnalyticsService);
   private tenantService = inject(TenantService);
   private http = inject(HttpClient);
+  private helpService = inject(HelpService);
+  private modalService = inject(ModalService);
 
   allOrders = signal<Order[]>([]);
   savedRecipes = signal<CalculatedRecipe[]>([]);
@@ -145,5 +149,10 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
       console.error('Failed to load analytics data', err);
       this.isLoading.set(false);
     });
+  }
+
+  showHint() {
+    const hint = this.helpService.getHint('analytics');
+    this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 }

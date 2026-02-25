@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { HelpService } from '../../services/help.service';
 import { CommonModule, DecimalPipe, DatePipe, KeyValuePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -23,6 +24,7 @@ export class OrdersManagerComponent implements OnInit {
   private http = inject(HttpClient);
   private subscriptionService = inject(SubscriptionService);
   private modalService = inject(ModalService);
+  private helpService = inject(HelpService);
 
   bakeDate = signal<string>(new Date().toISOString().split('T')[0]);
   allOrders = signal<Order[]>([]);
@@ -387,5 +389,10 @@ export class OrdersManagerComponent implements OnInit {
         this.modalService.showAlert('Failed to save order to cloud.', 'Error', 'error');
       }
     });
+  }
+
+  showHint() {
+    const hint = this.helpService.getHint('orders');
+    this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 }

@@ -45,7 +45,10 @@
   <!-- Right Side: Cart & Checkout -->
   <aside class="pos-cart">
     <div class="cart-header">
-      <h2>Current Order</h2>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <h2>Current Order</h2>
+        <button class="btn-hint-mini" (click)="showHint()">💡</button>
+      </div>
       <button class="btn-clear" (click)="clearCart()" [disabled]="cart().length === 0">Clear</button>
     </div>
 

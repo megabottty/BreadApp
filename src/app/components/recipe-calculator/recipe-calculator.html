@@ -1,5 +1,8 @@
 <div class="calculator-container">
-  <h1>Recipe Calculator</h1>
+  <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+    <h1 style="margin: 0;">{{ currentTenant()?.business_type === 'BAKERY' ? 'Recipe Calculator' : 'Product Manager' }}</h1>
+    <button class="btn-hint" (click)="showHint()">💡 Help</button>
+  </div>
 
   <div class="grid">
     <!-- Form Side -->
@@ -91,28 +94,32 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="levain-hydration">Levain Hydration (%)</label>
-        <input id="levain-hydration" type="number" formControlName="levainHydration">
-      </div>
+      @if (currentTenant()?.business_type === 'BAKERY') {
+        <div class="form-group">
+          <label for="levain-hydration">Levain Hydration (%)</label>
+          <input id="levain-hydration" type="number" formControlName="levainHydration">
+        </div>
+      }
 
       <div class="form-group">
         <label for="serving-size">Serving Size (g)</label>
         <input id="serving-size" type="number" formControlName="servingSizeGrams" placeholder="e.g. 50">
       </div>
 
-      <div class="scaling-grid">
-        <div class="form-group">
-          <label for="prep-time">Prep Time (mins)</label>
-          <input id="prep-time" type="number" formControlName="prepTimeMinutes">
-          <small class="form-hint">Mix, bulk, fold, shape...</small>
+      @if (currentTenant()?.business_type === 'BAKERY') {
+        <div class="scaling-grid">
+          <div class="form-group">
+            <label for="prep-time">Prep Time (mins)</label>
+            <input id="prep-time" type="number" formControlName="prepTimeMinutes">
+            <small class="form-hint">Mix, bulk, fold, shape...</small>
+          </div>
+          <div class="form-group">
+            <label for="bake-time">Bake Time (mins)</label>
+            <input id="bake-time" type="number" formControlName="bakeTimeMinutes">
+            <small class="form-hint">Time in oven</small>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="bake-time">Bake Time (mins)</label>
-          <input id="bake-time" type="number" formControlName="bakeTimeMinutes">
-          <small class="form-hint">Time in oven</small>
-        </div>
-      </div>
+      }
 
       <div class="scaling-grid">
         <div class="form-group">
@@ -126,9 +133,21 @@
       </div>
 
       <div class="ingredients-header">
-        <h3>Ingredients</h3>
-        <p class="section-hint">Enter the price and weight of the whole package for each ingredient (e.g., $15 for 5000g of Flour) to track costs.</p>
+        <h3>{{ currentTenant()?.business_type === 'BAKERY' ? 'Ingredients' : 'Product Components / Costs' }}</h3>
+        <p class="section-hint">Enter the price and weight of the whole package for each {{ currentTenant()?.business_type === 'BAKERY' ? 'ingredient' : 'component' }} (e.g., $15 for 5000g of Flour) to track costs.</p>
       </div>
+
+      <div class="ingredient-row-header desktop-only">
+        <span>Ingredient Name</span>
+        <span>Weight (g)</span>
+        <div class="bulk-cost-header">
+          <span>Package Price ($)</span>
+          <span>Package Weight (g)</span>
+        </div>
+        <span>Type</span>
+        <span></span>
+      </div>
+
       <div formArrayName="ingredients">
         @for (ingredient of ingredients.controls; track ingredient; let i = $index) {
           <div [formGroupName]="i" class="ingredient-row">
@@ -156,11 +175,11 @@
             </div>
             <div class="bulk-cost-inputs">
               <div class="input-with-label">
-                <span class="tiny-label">Package Price ($)</span>
+                <span class="tiny-label-mobile">Package Price ($)</span>
                 <input type="number" formControlName="bulkPrice" placeholder="Price Paid">
               </div>
               <div class="input-with-label">
-                <span class="tiny-label">Package Weight (g)</span>
+                <span class="tiny-label-mobile">Package Weight (g)</span>
                 <input type="number" formControlName="bulkWeight" placeholder="Full Weight">
               </div>
             </div>
@@ -193,22 +212,24 @@
     <div class="results-column">
       @if (calculatedRecipe(); as recipe) {
         <div class="card results">
-          <h2>Baker's Math Results</h2>
+          <h2>{{ currentTenant()?.business_type === 'BAKERY' ? "Baker's Math Results" : "Product Economics" }}</h2>
 
-          <div class="stats-grid">
-            <div class="stat-box">
-              <span class="label">Total Flour</span>
-              <span class="value">{{recipe.totalFlour | number:'1.0-2'}}g</span>
+          @if (currentTenant()?.business_type === 'BAKERY') {
+            <div class="stats-grid">
+              <div class="stat-box">
+                <span class="label">Total Flour</span>
+                <span class="value">{{recipe.totalFlour | number:'1.0-2'}}g</span>
+              </div>
+              <div class="stat-box">
+                <span class="label">Total Water</span>
+                <span class="value">{{recipe.totalWater | number:'1.0-2'}}g</span>
+              </div>
+              <div class="stat-box highlight">
+                <span class="label">True Hydration</span>
+                <span class="value">{{recipe.trueHydration | percent:'1.1-1'}}</span>
+              </div>
             </div>
-            <div class="stat-box">
-              <span class="label">Total Water</span>
-              <span class="value">{{recipe.totalWater | number:'1.0-2'}}g</span>
-            </div>
-            <div class="stat-box highlight">
-              <span class="label">True Hydration</span>
-              <span class="value">{{recipe.trueHydration | percent:'1.1-1'}}</span>
-            </div>
-          </div>
+          }
 
           <h3>Profitability</h3>
           <div class="stats-grid">

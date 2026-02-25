@@ -120,6 +120,10 @@ export class AuthService {
     if (data.user) {
       console.log('[Auth Debug] Login successful, user metadata:', data.user.user_metadata);
       const role = data.user.user_metadata['role'] as UserRole;
+
+      // Update the currentUser signal immediately
+      this.handleAuthChange(data.user);
+
       if (role === 'BAKER') {
         const onboardingCompleted = data.user.user_metadata['onboarding_completed'];
         if (onboardingCompleted) {
@@ -184,9 +188,9 @@ export class AuthService {
           try {
             errData = JSON.parse(rawResponse);
           } catch (e) {
-            errData = { error: `Server returned ${tenantResponse.status} (Not JSON)` };
+            errData = { error: `Server error (${tenantResponse.status}): ${rawResponse.substring(0, 100)}` };
           }
-          throw new Error(errData.error || `Server returned ${tenantResponse.status}`);
+          throw new Error(errData.error || errData.message || `Server returned ${tenantResponse.status}`);
         }
 
         const tenant = await tenantResponse.json();
@@ -207,11 +211,13 @@ export class AuthService {
         console.error('[Auth Error] Bakery creation failed:', tenantError.message);
 
         // Pass through specific backend errors if they exist
-        let errorMessage = 'Failed to create bakery setup. Please check your connection and try again.';
+        let errorMessage = tenantError.message || 'Failed to create bakery setup. Please check your connection and try again.';
 
         if (tenantError.message.includes('slug is already taken')) {
           errorMessage = tenantError.message;
         } else if (tenantError.message.includes('Database table missing')) {
+          errorMessage = tenantError.message;
+        } else if (tenantError.message.includes('Server error')) {
           errorMessage = tenantError.message;
         }
 
@@ -227,6 +233,9 @@ export class AuthService {
         console.log('[Auth Debug] No session after registration, likely needs email verification');
         return { needsVerification: true };
       }
+
+      // Update the currentUser signal immediately
+      this.handleAuthChange(data.user);
 
       if (role === 'BAKER') {
         this.router.navigate(['/setup-wizard']);
