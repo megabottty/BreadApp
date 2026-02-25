@@ -260,4 +260,34 @@ export class AuthService {
     this.currentUser.set(null);
     this.router.navigate(['/front']);
   }
+
+  // Helper method to sync tenant_id to user metadata (for existing users)
+  async syncTenantToMetadata(tenantId: string, bakerySlug: string) {
+    try {
+      const { data, error } = await this.supabase.auth.updateUser({
+        data: {
+          tenant_id: tenantId,
+          bakery_slug: bakerySlug
+        }
+      });
+
+      if (error) {
+        console.error('[Auth Error] Failed to sync tenant metadata:', error);
+        throw error;
+      }
+
+      console.log('[Auth Debug] Successfully synced tenant_id to user metadata');
+
+      // Refresh the session to get the updated JWT
+      const { data: sessionData } = await this.supabase.auth.refreshSession();
+      if (sessionData.user) {
+        this.handleAuthChange(sessionData.user);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[Auth Error] Unexpected error syncing tenant:', error);
+      throw error;
+    }
+  }
 }

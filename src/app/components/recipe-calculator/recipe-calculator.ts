@@ -303,10 +303,27 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.updateCalculations();
   }
 
-  saveRecipe(): void {
+  async saveRecipe(): Promise<void> {
     const current = this.calculatedRecipe();
-    const slug = this.tenantService.tenant()?.slug;
+    const tenant = this.tenantService.tenant();
+    const slug = tenant?.slug;
+
     if (current && slug) {
+      // Check if user has tenant_id in metadata, if not, sync it
+      const user = this.authService.user();
+      if (user && !user.tenant_id && tenant.id) {
+        console.log('[Recipe Calculator] Syncing tenant_id to user metadata...');
+        try {
+          await this.authService.syncTenantToMetadata(tenant.id, slug);
+          this.notificationService.show('User metadata synced. Please try saving again.', 'info');
+          return;
+        } catch (error) {
+          console.error('[Recipe Calculator] Failed to sync tenant metadata:', error);
+          this.modalService.showAlert('Failed to sync user permissions. Please try logging out and back in.', 'Error', 'error');
+          return;
+        }
+      }
+
       const headers = new HttpHeaders().set('x-tenant-slug', slug);
       this.http.post<CalculatedRecipe>(`${environment.apiUrl}/orders/recipes`, current, { headers }).subscribe({
         next: (saved: CalculatedRecipe) => {

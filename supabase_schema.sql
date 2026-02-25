@@ -160,9 +160,7 @@ USING (true);
 -- Only the bakery owner can update their profile
 CREATE POLICY "Users can update their own bakery profile"
 ON bakery_tenants FOR UPDATE
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_tenants.id
-));
+USING ((auth.jwt()->>'sub')::uuid = id OR (auth.jwt()->'user_metadata'->>'tenant_id')::uuid = id);
 
 -- Allow bakery registration (insert)
 CREATE POLICY "Allow bakery registration"
@@ -175,20 +173,26 @@ CREATE POLICY "Recipes are viewable by everyone"
 ON bakery_recipes FOR SELECT
 USING (true);
 
--- Only the bakery owner can manage recipes
-CREATE POLICY "Bakers can manage their own recipes"
-ON bakery_recipes FOR ALL
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_recipes.tenant_id
-));
+-- Only the bakery owner can insert recipes
+CREATE POLICY "Bakers can insert their own recipes"
+ON bakery_recipes FOR INSERT
+WITH CHECK ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+
+-- Only the bakery owner can update recipes
+CREATE POLICY "Bakers can update their own recipes"
+ON bakery_recipes FOR UPDATE
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+
+-- Only the bakery owner can delete recipes
+CREATE POLICY "Bakers can delete their own recipes"
+ON bakery_recipes FOR DELETE
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
 
 -- 9.3 bakery_orders Policies
 -- Bakers can see all orders for their bakery
 CREATE POLICY "Bakers can see their own bakery orders"
 ON bakery_orders FOR ALL
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_orders.tenant_id
-));
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
 
 -- Customers can see their own orders (if they are logged in)
 CREATE POLICY "Customers can see their own orders"
@@ -219,17 +223,13 @@ USING (auth.uid()::text = customer_id);
 -- Bakers can reply to reviews in their bakery
 CREATE POLICY "Bakers can manage reviews for their bakery"
 ON bakery_reviews FOR UPDATE
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_reviews.tenant_id
-));
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
 
 -- 9.5 bakery_subscriptions Policies
 -- Bakers can see all subscriptions for their bakery
 CREATE POLICY "Bakers can see their own bakery subscriptions"
 ON bakery_subscriptions FOR ALL
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_subscriptions.tenant_id
-));
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
 
 -- Customers can see their own subscriptions
 CREATE POLICY "Customers can see their own subscriptions"
@@ -245,22 +245,16 @@ USING (true);
 -- Only bakers can manage promos
 CREATE POLICY "Bakers can manage their own promos"
 ON bakery_promos FOR ALL
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_promos.tenant_id
-));
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
 
 -- 10.7 bakery_inventory Policies
 -- Only bakers can see/manage inventory
 CREATE POLICY "Bakers can manage their own inventory"
 ON bakery_inventory FOR ALL
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_inventory.tenant_id
-));
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
 
 -- 10.8 bakery_audit_logs Policies
 -- Only bakers can see their audit logs
 CREATE POLICY "Bakers can see their own audit logs"
 ON bakery_audit_logs FOR SELECT
-USING (auth.uid() IN (
-    SELECT id FROM auth.users WHERE (raw_user_meta_data->>'tenant_id')::uuid = bakery_audit_logs.tenant_id
-));
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
