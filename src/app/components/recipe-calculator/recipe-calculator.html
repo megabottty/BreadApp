@@ -204,8 +204,8 @@
         @if (hasUnsavedChanges()) {
           <p class="unsaved-hint">⚠️ You have unsaved changes in this recipe.</p>
         }
-        <button type="button" class="btn-save" (click)="saveRecipe()" [disabled]="isSaving">
-          {{ isSaving ? 'Saving...' : 'Save This Recipe' }}
+        <button type="button" class="btn-save" (click)="saveRecipe()" [disabled]="isSaving()">
+          {{ isSaving() ? 'Saving...' : 'Save This Recipe' }}
         </button>
       </div>
     </div>

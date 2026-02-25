@@ -245,12 +245,20 @@ textarea:focus {
 
 .scaling-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+  grid-template-columns: 1fr;
+  gap: 1rem;
   background: var(--bg-color);
-  padding: 1.5rem;
+  padding: 1rem;
   border-radius: 12px;
   margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+  .scaling-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
 }
 
 .ingredients-header {
@@ -271,14 +279,22 @@ textarea:focus {
 .ingredient-row {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.25rem;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
   background: #fdfdfb;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   position: relative;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+@media (min-width: 768px) {
+  .ingredient-row {
+    gap: 1.25rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
 }
 
 .ingredient-row .search-container input,
