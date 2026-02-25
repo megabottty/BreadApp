@@ -1,19 +1,30 @@
 import { Component, signal, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { TitleCasePipe } from '@angular/common';
 import { CartService } from './services/cart.service';
 import { AuthService } from './services/auth.service';
 import { ThemeService } from './services/theme.service';
-import { SplashScreenComponent } from './components/splash-screen/splash-screen';
 import { NotificationModalComponent } from './components/notification-modal/notification-modal';
 import { ProductCustomizationModalComponent } from './components/product-customization-modal/product-customization-modal';
 import { FooterComponent } from './components/footer/footer';
 import { InstallPromptComponent } from './components/install-prompt/install-prompt';
 import { PwaService } from './services/pwa.service';
+import { SplashScreenComponent } from './components/splash-screen/splash-screen';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationModalComponent, ProductCustomizationModalComponent, FooterComponent, InstallPromptComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    TitleCasePipe,
+    NotificationModalComponent,
+    ProductCustomizationModalComponent,
+    FooterComponent,
+    InstallPromptComponent,
+    SplashScreenComponent
+  ],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

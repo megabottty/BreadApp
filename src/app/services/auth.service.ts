@@ -81,6 +81,7 @@ export class AuthService {
 
       const role = supabaseUser.user_metadata['role'] || 'CUSTOMER';
       const onboardingCompleted = supabaseUser.user_metadata['onboarding_completed'];
+      const bakerySlug = supabaseUser.user_metadata['bakery_slug'];
 
       const user: User = {
         id: supabaseUser.id,
@@ -92,6 +93,14 @@ export class AuthService {
 
       console.log('[Auth Debug] Final User Object with Role:', user);
       this.currentUser.set(user);
+
+      // If we have a bakery slug in metadata, ensure TenantService loads it
+      if (bakerySlug) {
+        console.log('[Auth Debug] Found bakery slug in metadata, loading tenant:', bakerySlug);
+        localStorage.setItem('bakery_slug', bakerySlug);
+        // Force reload info to ensure signal is updated
+        this.tenantService.loadTenantInfo(bakerySlug);
+      }
 
       // Proactive redirection for BAKERs who haven't finished setup
       // Only redirect if we are on a page that isn't the wizard itself or the front

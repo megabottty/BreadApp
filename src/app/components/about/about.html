@@ -14,7 +14,7 @@
         <p>{{ whyIDoIt }}</p>
       </div>
       <div class="bio-image">
-        <img src="https://images.unsplash.com/photo-1517433367423-c7e5b0f35086?q=80&w=800" alt="Megan baking">
+        <img src="https://images.unsplash.com/photo-1517433367423-c7e5b0f35086?q=80&w=800&fm=webp" alt="Megan baking" fetchpriority="high" width="400" height="400">
       </div>
     </div>
   </section>
@@ -23,11 +23,11 @@
     <h2>From Our Kitchen</h2>
     <div class="photo-grid">
       @for (photo of photos; track photo.url) {
-        <div class="photo-card card">
-          <img [src]="photo.url" [alt]="photo.alt">
-          <div class="photo-caption">{{ photo.alt }}</div>
-        </div>
-      }
+      <div class="photo-card card">
+        <img [src]="photo.url + '&fm=webp&w=600&q=75'" [alt]="photo.alt" loading="lazy" width="300" height="250">
+        <div class="photo-caption">{{ photo.alt }}</div>
+      </div>
+    }
     </div>
   </section>
 

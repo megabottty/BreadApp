@@ -1,50 +1,98 @@
-<nav class="main-nav">
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+@defer (on timer(0s)) {
+  <app-splash-screen />
+}
+
+<nav class="main-nav" role="navigation" aria-label="Main Navigation">
   <a routerLink="/front" class="nav-brand" (click)="closeMenu()">{{title()}}</a>
 
-  <button class="menu-toggle" (click)="toggleMenu()" [attr.aria-expanded]="isMenuOpen()" aria-label="Toggle navigation">
-    <span class="hamburger"></span>
+  <button class="menu-toggle"
+          (click)="toggleMenu()"
+          [attr.aria-expanded]="isMenuOpen()"
+          aria-controls="nav-links"
+          aria-label="Toggle navigation menu">
+    <span class="hamburger" aria-hidden="true"></span>
   </button>
 
-  <div class="nav-links" [class.open]="isMenuOpen()">
-    @if (authService.isBaker()) {
-      <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMenu()">Baker Dashboard</a>
-    }
-    <a routerLink="/front" routerLinkActive="active" (click)="closeMenu()">Storefront</a>
-    <a routerLink="/about" routerLinkActive="active" (click)="closeMenu()">About Us</a>
-    <a routerLink="/cart" routerLinkActive="active" class="cart-link" (click)="closeMenu()">
-      Bag
-      @if (cartService.totalCount() > 0) {
-        <span class="cart-badge">{{cartService.totalCount()}}</span>
-      }
-    </a>
-    @if (authService.isCustomer()) {
-      <a routerLink="/profile" routerLinkActive="active" (click)="closeMenu()">My Orders</a>
-      <a routerLink="/subscriptions" routerLinkActive="active" (click)="closeMenu()">Subscriptions</a>
-    }
+  @if (isMenuOpen()) {
+    <div class="nav-backdrop" (click)="closeMenu()"></div>
+  }
 
-    <button class="btn-theme-toggle" (click)="themeService.toggleTheme()" [title]="'Switch Theme (Current: ' + themeService.theme() + ')'">
-      @if (themeService.theme() === 'natural') { 🌿 }
-      @else if (themeService.theme() === 'sunset') { 🌅 }
-      @else { 🌙 }
-    </button>
+  <div id="nav-links" class="nav-links" [class.open]="isMenuOpen()">
+    <header class="mobile-nav-header">
+      <span class="logo-text">{{title()}}</span>
+      <button class="btn-close-menu" (click)="closeMenu()" aria-label="Close menu">×</button>
+    </header>
 
-    <div class="auth-controls">
-      @if (!authService.isAuthenticated()) {
-        <a routerLink="/login" class="btn-auth" (click)="closeMenu()">Login</a>
-      } @else {
-        <div class="user-info">
-          <span class="user-role-badge" [class.baker]="authService.isBaker()">
-            {{ authService.isBaker() ? 'Head Baker' : 'Bread Lover' }}
+    <div class="nav-scroll-area">
+      <div class="nav-group">
+        <h4 class="nav-group-title">Main</h4>
+        @if (authService.isBaker()) {
+          <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMenu()">
+            <span class="icon">📊</span> Baker Dashboard
+          </a>
+        }
+        <a routerLink="/front" routerLinkActive="active" (click)="closeMenu()">
+          <span class="icon">🥖</span> Storefront
+        </a>
+        <a routerLink="/about" routerLinkActive="active" (click)="closeMenu()">
+          <span class="icon">📖</span> About Us
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <h4 class="nav-group-title">Shopping</h4>
+        <a routerLink="/cart" routerLinkActive="active" class="cart-link" (click)="closeMenu()">
+          <span class="icon">🛍️</span> Bag
+          @if (cartService.totalCount() > 0) {
+            <span class="cart-badge">{{cartService.totalCount()}}</span>
+          }
+        </a>
+        @if (authService.isCustomer()) {
+          <a routerLink="/profile" routerLinkActive="active" (click)="closeMenu()">
+            <span class="icon">📦</span> My Orders
+          </a>
+          <a routerLink="/subscriptions" routerLinkActive="active" (click)="closeMenu()">
+            <span class="icon">🔄</span> Subscriptions
+          </a>
+        }
+      </div>
+
+      <div class="nav-group">
+        <h4 class="nav-group-title">Preferences</h4>
+        <button class="btn-theme-nav" (click)="themeService.toggleTheme()">
+          <span class="icon">
+            @if (themeService.theme() === 'natural') { 🌿 }
+            @else if (themeService.theme() === 'sunset') { 🌅 }
+            @else { 🌙 }
           </span>
-          <span class="user-name">{{authService.user()?.name}}</span>
+          Switch Theme ({{themeService.theme() | titlecase}})
+        </button>
+      </div>
+    </div>
+
+    <div class="nav-footer">
+      @if (!authService.isAuthenticated()) {
+        <a routerLink="/login" class="btn-auth-full" (click)="closeMenu()">Login</a>
+        <a routerLink="/register" class="btn-auth-full outline" (click)="closeMenu()">Sign Up</a>
+      } @else {
+        <div class="user-info-mobile">
+          <div class="user-avatar" aria-hidden="true">{{authService.user()?.name?.charAt(0)}}</div>
+          <div class="user-details">
+            <span class="user-name">{{authService.user()?.name}}</span>
+            <span class="user-role-badge" [class.baker]="authService.isBaker()">
+              {{ authService.isBaker() ? 'Head Baker' : 'Bread Lover' }}
+            </span>
+          </div>
         </div>
-        <button (click)="logout()" class="btn-auth logout">Logout</button>
+        <button (click)="logout()" class="btn-logout-full">Logout</button>
       }
     </div>
   </div>
 </nav>
 
-<main>
+<main id="main-content">
   <router-outlet />
 </main>
 

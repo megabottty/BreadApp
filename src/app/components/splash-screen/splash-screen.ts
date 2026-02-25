@@ -22,14 +22,17 @@ export class SplashScreenComponent implements OnInit {
 
   ngOnInit() {
     let count = 0;
-    const interval = setInterval(() => {
+    const updateMessage = () => {
       if (count < this.messages.length) {
         this.message.set(this.messages[count]);
         count++;
+        setTimeout(updateMessage, 600);
       } else {
-        clearInterval(interval);
         setTimeout(() => this.isVisible.set(false), 500);
       }
-    }, 600);
+    };
+
+    // Use requestAnimationFrame or a small timeout to ensure we don't block initial paint
+    setTimeout(updateMessage, 100);
   }
 }

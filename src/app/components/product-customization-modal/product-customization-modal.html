@@ -10,7 +10,7 @@
         <div class="modal-body">
           @if (product.imageUrl || (product.images && product.images.length > 0)) {
             <div class="product-modal-image">
-              <img [src]="product.imageUrl || product.images![0]" [alt]="product.name">
+                <img [src]="product.imageUrl || product.images![0]" [alt]="product.name" loading="lazy" width="400" height="300">
             </div>
           }
 

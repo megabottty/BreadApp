@@ -54,7 +54,13 @@ export class StorefrontComponent implements OnInit {
     const search = this.searchTerm().toLowerCase();
     const isBaker = this.authService.isBaker();
 
-    return this.products().filter(p => {
+    return this.products().map(p => {
+      let imageUrl = p.imageUrl;
+      if (imageUrl && imageUrl.includes('unsplash.com')) {
+        imageUrl += imageUrl.includes('?') ? '&fm=webp&w=800&q=75' : '?fm=webp&w=800&q=75';
+      }
+      return { ...p, imageUrl };
+    }).filter(p => {
       // If baker, show everything. If customer, only show if not hidden.
       if (!isBaker && p.isHidden) return false;
 

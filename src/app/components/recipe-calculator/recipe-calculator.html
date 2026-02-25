@@ -81,7 +81,7 @@
           <div class="image-grid-edit">
             @for (img of recipeForm.get('images')?.value; track img; let i = $index) {
               <div class="image-preview-mini">
-                <img [src]="img" alt="Preview">
+                <img [src]="img" alt="Preview" loading="lazy" width="80" height="80">
                 <button type="button" class="btn-remove-image" (click)="removeImage(i)">×</button>
               </div>
             }

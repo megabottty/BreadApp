@@ -13,8 +13,8 @@
           <p>✉️ {{tenantService.tenant()?.email || 'megan@s56.net'}}</p>
         </div>
         <div class="social-links">
-          <a href="#" class="social-icon">Instagram</a>
-          <a href="#" class="social-icon">Facebook</a>
+          <a href="https://instagram.com" class="social-icon" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://facebook.com" class="social-icon" target="_blank" rel="noopener">Facebook</a>
         </div>
       </div>
 
@@ -22,19 +22,22 @@
       <div class="footer-section contact-form">
         <h3>Contact Us</h3>
         @if (submitSuccess()) {
-          <div class="success-message">
+          <div class="success-message" role="status">
             <p>🥖 Message received! We'll get back to you soon.</p>
           </div>
         } @else {
           <form (submit)="submitContactForm()">
             <div class="form-group">
-              <input type="text" [(ngModel)]="contactName" name="name" placeholder="Your Name" required>
+              <label for="contact-name" class="sr-only">Your Name</label>
+              <input type="text" id="contact-name" [(ngModel)]="contactName" name="name" placeholder="Your Name" required>
             </div>
             <div class="form-group">
-              <input type="email" [(ngModel)]="contactEmail" name="email" placeholder="Email Address" required>
+              <label for="contact-email" class="sr-only">Email Address</label>
+              <input type="email" id="contact-email" [(ngModel)]="contactEmail" name="email" placeholder="Email Address" required>
             </div>
             <div class="form-group">
-              <textarea [(ngModel)]="contactMessage" name="message" placeholder="What's on your mind?" required></textarea>
+              <label for="contact-message" class="sr-only">What's on your mind?</label>
+              <textarea id="contact-message" [(ngModel)]="contactMessage" name="message" placeholder="What's on your mind?" required></textarea>
             </div>
             <button type="submit" class="btn-submit" [disabled]="isSubmitting()">
               {{ isSubmitting() ? 'Sending...' : 'Send Message' }}
@@ -53,7 +56,8 @@
             height="100%"
             style="border:0;"
             allowfullscreen=""
-            loading="lazy">
+            loading="lazy"
+            title="Our Location Map">
           </iframe>
         </div>
       </div>

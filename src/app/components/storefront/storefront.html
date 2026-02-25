@@ -9,13 +9,14 @@
 
   <div class="filters-container">
     <div class="search-bar">
-      <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($any($event))" placeholder="Search for sourdough, cookies, muffins...">
+      <label for="product-search" class="sr-only">Search products</label>
+      <input type="text" id="product-search" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($any($event))" placeholder="Search for sourdough, cookies, muffins...">
     </div>
 
-    <div class="category-filters">
-      <button [class.active]="selectedCategory() === 'ALL'" (click)="setCategory('ALL')">All</button>
+    <div class="category-filters" role="group" aria-label="Product Categories">
+      <button [class.active]="selectedCategory() === 'ALL'" (click)="setCategory('ALL')" [attr.aria-pressed]="selectedCategory() === 'ALL'">All</button>
       @for (cat of categories(); track cat) {
-        <button [class.active]="selectedCategory() === cat" (click)="setCategory(cat)">
+        <button [class.active]="selectedCategory() === cat" (click)="setCategory(cat)" [attr.aria-pressed]="selectedCategory() === cat">
           {{cat === 'SPECIAL' ? 'Experimental' : (cat | titlecase)}}
         </button>
       }
@@ -23,33 +24,33 @@
 
     <div class="secondary-filters">
       @if (selectedCategory() === 'BREAD' || selectedCategory() === 'ALL') {
-        <div class="flavor-filters">
-          <button [class.active]="selectedFlavor() === 'ALL'" (click)="setFlavor('ALL')">All Flavors</button>
-          <button [class.active]="selectedFlavor() === 'SWEET'" (click)="setFlavor('SWEET')">Sweet</button>
-          <button [class.active]="selectedFlavor() === 'SAVORY'" (click)="setFlavor('SAVORY')">Savory</button>
-          <button [class.active]="selectedFlavor() === 'PLAIN'" (click)="setFlavor('PLAIN')">Plain</button>
+        <div class="flavor-filters" role="group" aria-label="Bread Flavors">
+          <button [class.active]="selectedFlavor() === 'ALL'" (click)="setFlavor('ALL')" [attr.aria-pressed]="selectedFlavor() === 'ALL'">All Flavors</button>
+          <button [class.active]="selectedFlavor() === 'SWEET'" (click)="setFlavor('SWEET')" [attr.aria-pressed]="selectedFlavor() === 'SWEET'">Sweet</button>
+          <button [class.active]="selectedFlavor() === 'SAVORY'" (click)="setFlavor('SAVORY')" [attr.aria-pressed]="selectedFlavor() === 'SAVORY'">Savory</button>
+          <button [class.active]="selectedFlavor() === 'PLAIN'" (click)="setFlavor('PLAIN')" [attr.aria-pressed]="selectedFlavor() === 'PLAIN'">Plain</button>
         </div>
       }
-      <button class="btn-info-circle" (click)="showSubscriptionInfo.set(true)" title="How Subscriptions Work">
+      <button class="btn-info-circle" (click)="showSubscriptionInfo.set(true)" title="How Subscriptions Work" aria-label="How Subscriptions Work">
         How Subscriptions Work 🔄
       </button>
     </div>
   </div>
 
   @if (showSubscriptionInfo()) {
-    <div class="subscription-modal-overlay" (click)="showSubscriptionInfo.set(false)">
+    <div class="subscription-modal-overlay" (click)="showSubscriptionInfo.set(false)" role="dialog" aria-modal="true" aria-labelledby="sub-info-title">
       <div class="subscription-info-card card" (click)="$event.stopPropagation()">
-        <button class="btn-close-modal" (click)="showSubscriptionInfo.set(false)">×</button>
+        <button class="btn-close-modal" (click)="showSubscriptionInfo.set(false)" aria-label="Close modal">×</button>
 
         <header class="modal-header-pro">
-          <div class="icon-circle">🔄</div>
-          <h2>Artisan Bread Subscriptions</h2>
+          <div class="icon-circle" aria-hidden="true">🔄</div>
+          <h2 id="sub-info-title">Artisan Bread Subscriptions</h2>
           <p class="tagline">The freshest way to enjoy your daily bread, automated.</p>
         </header>
 
         <div class="benefit-grid">
           <div class="benefit-item">
-            <span class="benefit-icon">📅</span>
+            <span class="benefit-icon" aria-hidden="true">📅</span>
             <div class="benefit-content">
               <h4>Weekly Delivery</h4>
               <p>Your favorites are automatically prioritized in our bake schedule every week.</p>
@@ -57,7 +58,7 @@
           </div>
 
           <div class="benefit-item">
-            <span class="benefit-icon">🌿</span>
+            <span class="benefit-icon" aria-hidden="true">🌿</span>
             <div class="benefit-content">
               <h4>Peak Freshness</h4>
               <p>Dispatched every Monday & Tuesday. Hand-delivered or shipped within hours of leaving the oven.</p>
@@ -65,7 +66,7 @@
           </div>
 
           <div class="benefit-item">
-            <span class="benefit-icon">⚙️</span>
+            <span class="benefit-icon" aria-hidden="true">⚙️</span>
             <div class="benefit-content">
               <h4>Total Control</h4>
               <p>Pause, skip, or cancel anytime. Manage your subscription directly from your profile.</p>
@@ -73,7 +74,7 @@
           </div>
 
           <div class="benefit-item">
-            <span class="benefit-icon">✨</span>
+            <span class="benefit-icon" aria-hidden="true">✨</span>
             <div class="benefit-content">
               <h4>No Extra Cost</h4>
               <p>Standard product pricing. No hidden membership fees or recurring surcharges.</p>
@@ -96,11 +97,11 @@
           @if (product.images && product.images.length > 0) {
             <div class="image-scroller">
               @for (img of product.images; track img) {
-                <img [src]="img" [alt]="product.name" class="main-image">
+                <img [src]="img" [alt]="product.name" class="main-image" loading="lazy" width="400" height="250">
               }
             </div>
           } @else if (product.imageUrl) {
-            <img [src]="product.imageUrl" [alt]="product.name" class="main-image">
+            <img [src]="product.imageUrl" [alt]="product.name" class="main-image" loading="lazy" width="400" height="250">
           } @else {
             <div class="placeholder-icon">🍞</div>
           }
@@ -124,13 +125,18 @@
         <div class="product-info">
           <h2>{{product.name}}</h2>
 
-          <div class="rating-display" (click)="product.id && getReviews(product.id).length > 0 && toggleReviews(product.id)" [class.clickable]="product.id && getReviews(product.id).length > 0">
-            <span class="stars">
+          <div class="rating-display"
+               (click)="product.id && getReviews(product.id).length > 0 && toggleReviews(product.id)"
+               [class.clickable]="product.id && getReviews(product.id).length > 0"
+               [attr.role]="product.id && getReviews(product.id).length > 0 ? 'button' : null"
+               [attr.aria-expanded]="showReviewsForProduct() === product.id"
+               [attr.aria-label]="'Average rating ' + reviewService.getAverageRating(product.id || '')() + ' stars out of 5 based on ' + getReviews(product.id || '').length + ' reviews'">
+            <span class="stars" aria-hidden="true">
               @for (star of [1,2,3,4,5]; track star) {
                 <span class="star" [class.filled]="reviewService.getAverageRating(product.id || '')() >= star">★</span>
               }
             </span>
-            <span class="rating-count">({{getReviews(product.id || '').length}})</span>
+            <span class="rating-count" aria-hidden="true">({{getReviews(product.id || '').length}})</span>
             @if (product.id && getReviews(product.id).length > 0) {
               <small class="view-reviews-hint">{{ showReviewsForProduct() === product.id ? 'Hide' : 'View' }} Reviews</small>
             }

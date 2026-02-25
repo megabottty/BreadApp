@@ -26,3 +26,20 @@ export const bakerGuard: CanActivateFn = (route, state) => {
   router.navigate(['/front']);
   return false;
 };
+
+export const guestGuard: CanActivateFn = (route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.isAuthenticated()) {
+    const user = authService.user();
+    if (user?.role === 'BAKER') {
+      router.navigate(['/dashboard']);
+    } else {
+      router.navigate(['/front']);
+    }
+    return false;
+  }
+
+  return true;
+};

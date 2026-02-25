@@ -1,8 +1,8 @@
-<div class="cart-container">
+<div class="cart-container" id="main-content">
   <h1>Your Shopping Bag</h1>
 
   @if (items().length === 0) {
-    <div class="empty-cart">
+    <div class="empty-cart" role="status">
       <p>Your bag is empty. Head to the storefront to find something delicious!</p>
       <button class="btn-primary" routerLink="/front">Back to Store</button>
     </div>
@@ -11,32 +11,38 @@
       <div class="cart-items">
         <div class="card fulfillment-options">
           <h3>Fulfillment</h3>
-          <div class="toggle-group">
-            <button [class.active]="fulfillmentType() === 'PICKUP'" (click)="setFulfillment('PICKUP')">Local Pickup</button>
-            <button [class.active]="fulfillmentType() === 'SHIPPING'" (click)="setFulfillment('SHIPPING')">Nationwide Shipping</button>
+          <div class="toggle-group" role="radiogroup" aria-label="Select fulfillment method">
+            <button [class.active]="fulfillmentType() === 'PICKUP'"
+                    (click)="setFulfillment('PICKUP')"
+                    role="radio"
+                    [attr.aria-checked]="fulfillmentType() === 'PICKUP'">Local Pickup</button>
+            <button [class.active]="fulfillmentType() === 'SHIPPING'"
+                    (click)="setFulfillment('SHIPPING')"
+                    role="radio"
+                    [attr.aria-checked]="fulfillmentType() === 'SHIPPING'">Nationwide Shipping</button>
           </div>
 
           @if (fulfillmentType() === 'SHIPPING') {
             <div class="shipping-details">
               <div class="form-group">
-                <label>Destination Zip Code</label>
-                <input type="text" [value]="zipCode()" (input)="onZipChange($event)" placeholder="e.g. 90210">
+                <label for="zip-code">Destination Zip Code</label>
+                <input type="text" id="zip-code" [value]="zipCode()" (input)="onZipChange($event)" placeholder="e.g. 90210">
               </div>
               <div class="form-group">
-                <label>Dispatch Date (Mon/Tue Only)</label>
-                <input type="date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="dispatchDate() && !isDispatchDateValid(dispatchDate())">
+                <label for="dispatch-date">Dispatch Date (Mon/Tue Only)</label>
+                <input type="date" id="dispatch-date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="dispatchDate() && !isDispatchDateValid(dispatchDate())" aria-describedby="dispatch-hint">
                 @if (dispatchDate() && !isDispatchDateValid(dispatchDate())) {
-                  <small class="error-text">Bread only ships on Mondays and Tuesdays, with a 48-hour lead time.</small>
+                  <small id="dispatch-hint" class="error-text">Bread only ships on Mondays and Tuesdays, with a 48-hour lead time.</small>
                 }
               </div>
             </div>
           } @else {
             <div class="pickup-details">
               <div class="form-group">
-                <label>Pickup Date</label>
-                <input type="date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())">
+                <label for="pickup-date">Pickup Date</label>
+                <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())" aria-describedby="pickup-hint">
                 @if (pickupDate() && !isPickupDateValid(pickupDate())) {
-                  <small class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
+                  <small id="pickup-hint" class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
                 }
               </div>
               <label class="checkbox-label">
@@ -50,8 +56,9 @@
         </div>
 
         <div class="card notes-section">
-          <h3>Special Requests / Notes</h3>
+          <label for="order-notes"><h3>Special Requests / Notes</h3></label>
           <textarea
+            id="order-notes"
             class="notes-textarea"
             [ngModel]="notes()"
             (ngModelChange)="cartService.setNotes($event)"
@@ -59,17 +66,17 @@
         </div>
 
         <div class="card promo-section">
-          <h3>Promo Code</h3>
+          <label for="promo-code"><h3>Promo Code</h3></label>
           <div class="promo-input-group">
             @if (cartService.appliedPromo(); as promo) {
-              <div class="applied-promo">
+              <div class="applied-promo" role="status">
                 <span class="promo-info">
                   <strong>{{promo.code}}</strong> - {{promo.description}}
                 </span>
-                <button class="btn-remove-promo" (click)="removePromo()">×</button>
+                <button class="btn-remove-promo" (click)="removePromo()" aria-label="Remove promo code">×</button>
               </div>
             } @else {
-              <input type="text" [(ngModel)]="promoCodeInput" placeholder="Enter code">
+              <input type="text" id="promo-code" [(ngModel)]="promoCodeInput" placeholder="Enter code">
               <button class="btn-small" (click)="applyPromo()">Apply</button>
             }
           </div>
@@ -80,12 +87,12 @@
             <h3>Guest Checkout Details</h3>
             <p class="section-hint">No account? No problem. Just let us know who you are!</p>
             <div class="form-group">
-              <label>Name</label>
-              <input type="text" [(ngModel)]="guestName" placeholder="Your full name">
+              <label for="guest-name">Name</label>
+              <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Your full name">
             </div>
             <div class="form-group">
-              <label>Phone Number</label>
-              <input type="tel" [(ngModel)]="guestPhone" placeholder="For order updates via SMS">
+              <label for="guest-phone">Phone Number</label>
+              <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="For order updates via SMS">
             </div>
           </div>
         }
@@ -123,14 +130,14 @@
               </div>
               <div class="item-actions">
                 <div class="quantity-controls">
-                  <button (click)="updateQuantity(item, -1)">-</button>
-                  <span>{{item.quantity}}</span>
-                  <button (click)="updateQuantity(item, 1)">+</button>
+                  <button (click)="updateQuantity(item, -1)" aria-label="Decrease quantity">-</button>
+                  <span aria-live="polite" aria-label="Quantity">{{item.quantity}}</span>
+                  <button (click)="updateQuantity(item, 1)" aria-label="Increase quantity">+</button>
                 </div>
                 <span class="price">
                   {{((item.product.price || 12) + (item.selectedOptionsPrice || 0)) | currency}}
                 </span>
-                <button class="btn-remove" (click)="removeItem(item)">×</button>
+                <button class="btn-remove" (click)="removeItem(item)" aria-label="Remove item">×</button>
               </div>
             </div>
           }

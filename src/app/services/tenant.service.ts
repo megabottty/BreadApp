@@ -99,13 +99,10 @@ export class TenantService {
     // Clean slug
     slug = slug.replace(/\/$/, '').trim().toLowerCase();
 
-    // Check if we are already loading this slug or if it's already loaded
+    // If already loading/loaded this slug, skip unless forced or current is null
     if (this.currentTenant()?.slug === slug) {
       return;
     }
-
-    // If we've already tried this slug and it failed recently, don't spam it
-    // (Optional: add a basic cache or "tried" set if needed)
 
     console.log(`[TenantService] Loading info for slug: ${slug}`);
 

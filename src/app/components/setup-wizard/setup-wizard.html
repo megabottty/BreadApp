@@ -8,10 +8,11 @@
       <h1>Welcome to BreadApp Business</h1>
       <p>Let's get your business set up and ready to scale.</p>
 
-      <div class="progress-stepper">
+      <div class="progress-stepper" role="progressbar" [attr.aria-valuenow]="currentStep()" aria-valuemin="1" [attr.aria-valuemax]="totalSteps" [attr.aria-label]="'Step ' + currentStep() + ' of ' + totalSteps">
         @for (step of [1,2,3,4,5]; track step) {
-          <div class="step" [class.active]="currentStep() === step" [class.completed]="currentStep() > step">
+          <div class="step" [class.active]="currentStep() === step" [class.completed]="currentStep() > step" [attr.aria-current]="currentStep() === step ? 'step' : null">
             <span class="step-num">{{currentStep() > step ? '✓' : step}}</span>
+            <span class="sr-only">Step {{step}} {{currentStep() > step ? 'completed' : (currentStep() === step ? 'current' : '')}}</span>
           </div>
         }
       </div>
@@ -24,19 +25,40 @@
           <h2>🏢 Choose Your Business Type</h2>
           <p>BreadApp helps all kinds of businesses grow. Select yours below.</p>
 
-          <div class="business-type-grid">
-            <div class="type-card" [class.selected]="businessType() === 'BAKERY'" (click)="businessType.set('BAKERY')">
-              <div class="icon">🥖</div>
+          <div class="business-type-grid" role="radiogroup" aria-label="Select business type">
+            <div class="type-card"
+                 [class.selected]="businessType() === 'BAKERY'"
+                 (click)="businessType.set('BAKERY')"
+                 role="radio"
+                 [attr.aria-checked]="businessType() === 'BAKERY'"
+                 tabindex="0"
+                 (keydown.enter)="businessType.set('BAKERY')"
+                 (keydown.space)="$event.preventDefault(); businessType.set('BAKERY')">
+              <div class="icon" aria-hidden="true">🥖</div>
               <h3>Bakery</h3>
               <p>For artisan bakers and bread shops.</p>
             </div>
-            <div class="type-card" [class.selected]="businessType() === 'RETAIL'" (click)="businessType.set('RETAIL')">
-              <div class="icon">🛍️</div>
+            <div class="type-card"
+                 [class.selected]="businessType() === 'RETAIL'"
+                 (click)="businessType.set('RETAIL')"
+                 role="radio"
+                 [attr.aria-checked]="businessType() === 'RETAIL'"
+                 tabindex="0"
+                 (keydown.enter)="businessType.set('RETAIL')"
+                 (keydown.space)="$event.preventDefault(); businessType.set('RETAIL')">
+              <div class="icon" aria-hidden="true">🛍️</div>
               <h3>Retail</h3>
               <p>For boutiques and local shops.</p>
             </div>
-            <div class="type-card" [class.selected]="businessType() === 'RESTAURANT'" (click)="businessType.set('RESTAURANT')">
-              <div class="icon">🍽️</div>
+            <div class="type-card"
+                 [class.selected]="businessType() === 'RESTAURANT'"
+                 (click)="businessType.set('RESTAURANT')"
+                 role="radio"
+                 [attr.aria-checked]="businessType() === 'RESTAURANT'"
+                 tabindex="0"
+                 (keydown.enter)="businessType.set('RESTAURANT')"
+                 (keydown.space)="$event.preventDefault(); businessType.set('RESTAURANT')">
+              <div class="icon" aria-hidden="true">🍽️</div>
               <h3>Restaurant</h3>
               <p>For cafes and dining establishments.</p>
             </div>
@@ -52,16 +74,16 @@
 
           <div class="branding-grid">
             <div class="form-group">
-              <label>Primary Color</label>
+              <label for="primary-color">Primary Color</label>
               <div class="color-input-wrapper">
-                <input type="color" [(ngModel)]="primaryColor">
+                <input type="color" id="primary-color" [(ngModel)]="primaryColor">
                 <code>{{primaryColor()}}</code>
               </div>
             </div>
             <div class="form-group">
-              <label>Secondary Color</label>
+              <label for="secondary-color">Secondary Color</label>
               <div class="color-input-wrapper">
-                <input type="color" [(ngModel)]="secondaryColor">
+                <input type="color" id="secondary-color" [(ngModel)]="secondaryColor">
                 <code>{{secondaryColor()}}</code>
               </div>
             </div>
@@ -80,9 +102,9 @@
             <p>Tell us about your oven capacity so we can optimize your "Smart Batches".</p>
 
             <div class="form-group">
-              <label>Oven Capacity (Loaves per batch)</label>
-              <input type="number" [(ngModel)]="ovenCapacity" class="form-control" min="1">
-              <small class="hint">How many loaves can you bake at the same time?</small>
+              <label for="oven-capacity">Oven Capacity (Loaves per batch)</label>
+              <input type="number" id="oven-capacity" [(ngModel)]="ovenCapacity" class="form-control" min="1" aria-describedby="oven-hint">
+              <small id="oven-hint" class="hint">How many loaves can you bake at the same time?</small>
             </div>
 
             <div class="info-box">
@@ -111,18 +133,18 @@
           <p>This information helps customers find you and get in touch.</p>
 
           <div class="form-group">
-            <label>Business Address</label>
-            <input type="text" [(ngModel)]="address" placeholder="e.g. 123 Main St, Salt Lake City, UT" class="form-control">
+            <label for="biz-address">Business Address</label>
+            <input type="text" id="biz-address" [(ngModel)]="address" placeholder="e.g. 123 Main St, Salt Lake City, UT" class="form-control">
           </div>
 
           <div class="form-grid">
             <div class="form-group">
-              <label>Public Phone</label>
-              <input type="tel" [(ngModel)]="phone" placeholder="(555) 000-0000" class="form-control">
+              <label for="biz-phone">Public Phone</label>
+              <input type="tel" id="biz-phone" [(ngModel)]="phone" placeholder="(555) 000-0000" class="form-control">
             </div>
             <div class="form-group">
-              <label>Public Email</label>
-              <input type="email" [(ngModel)]="email" placeholder="hello@mybusiness.com" class="form-control">
+              <label for="biz-email">Public Email</label>
+              <input type="email" id="biz-email" [(ngModel)]="email" placeholder="hello@mybusiness.com" class="form-control">
             </div>
           </div>
         </div>
@@ -134,15 +156,22 @@
           <h2>📈 Choose Your Plan</h2>
           <p>Select a plan that fits your business scale. Includes a 14-day free trial.</p>
 
-          <div class="plan-grid">
+          <div class="plan-grid" role="radiogroup" aria-label="Select a plan">
             @for (plan of plans; track plan.id) {
-              <div class="plan-card" [class.selected]="selectedPlan() === plan.id" (click)="selectedPlan.set(plan.id)">
+              <div class="plan-card"
+                   [class.selected]="selectedPlan() === plan.id"
+                   (click)="selectedPlan.set(plan.id)"
+                   role="radio"
+                   [attr.aria-checked]="selectedPlan() === plan.id"
+                   tabindex="0"
+                   (keydown.enter)="selectedPlan.set(plan.id)"
+                   (keydown.space)="$event.preventDefault(); selectedPlan.set(plan.id)">
                 <div class="plan-header">
                   @if (plan.id === 'PROFESSIONAL') { <span class="badge">Recommended</span> }
                   <h3>{{plan.name}}</h3>
                   <span class="price">${{plan.price}}/mo</span>
                 </div>
-                <ul class="plan-features">
+                <ul class="plan-features" aria-label="Plan features">
                   @for (feature of plan.features; track feature) {
                     <li>✓ {{feature}}</li>
                   }

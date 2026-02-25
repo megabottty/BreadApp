@@ -311,8 +311,10 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       this.http.post<CalculatedRecipe>(`${environment.apiUrl}/orders/recipes`, current, { headers }).subscribe({
         next: (saved: CalculatedRecipe) => {
           this.savedRecipes.update(prev => {
-            const updated = saved.id ? prev.map(r => r.id === saved.id ? saved : r) : prev;
-            if (!prev.find(r => r.id === saved.id)) {
+            const index = prev.findIndex(r => r.id === saved.id);
+            if (index !== -1) {
+              prev[index] = saved;
+            } else {
               prev.push(saved);
             }
             try {
@@ -332,7 +334,13 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           console.error('Failed to save recipe to cloud:', err);
-          this.modalService.showAlert('Failed to save to cloud. Saving locally for now.', 'Offline Mode', 'warning');
+          let errorMessage = 'Failed to save to cloud. Saving locally for now.';
+          if (err.status === 404) {
+            errorMessage = 'Your bakery profile was not found. Please ensure you have completed the setup wizard.';
+          } else if (err.error?.details) {
+            errorMessage = `Cloud save failed: ${err.error.details}`;
+          }
+          this.modalService.showAlert(errorMessage, 'Save Warning', 'warning');
           // Fallback to old local save logic
           this.saveLocally(current);
         }

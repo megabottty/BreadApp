@@ -1,25 +1,27 @@
 import { Routes } from '@angular/router';
-import { RecipeCalculatorComponent } from './components/recipe-calculator/recipe-calculator';
-import { StorefrontComponent } from './components/storefront/storefront';
-import { CartComponent } from './components/cart/cart';
-import { ProfileComponent } from './components/profile/profile';
-import { OrdersManagerComponent } from './components/orders-manager/orders-manager';
-import { LoginComponent } from './components/login/login';
-import { RegisterComponent } from './components/register/register';
-import { SetupWizardComponent } from './components/setup-wizard/setup-wizard';
-import { AboutComponent } from './components/about/about';
-import { BakeryLedgerComponent } from './components/bakery-ledger/bakery-ledger';
-import { SubscriptionManagerComponent } from './components/subscription-manager/subscription-manager';
-import { authGuard, bakerGuard } from './guards/auth.guard';
-
-import { OrderConfirmationComponent } from './components/order-confirmation/order-confirmation';
+import { authGuard, bakerGuard, guestGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'front', pathMatch: 'full' },
-  { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
-  { path: 'setup-wizard', component: SetupWizardComponent, canActivate: [bakerGuard] },
-  { path: 'about', component: AboutComponent },
+  {
+    path: 'login',
+    loadComponent: () => import('./components/login/login').then(m => m.LoginComponent),
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'register',
+    loadComponent: () => import('./components/register/register').then(m => m.RegisterComponent),
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'setup-wizard',
+    loadComponent: () => import('./components/setup-wizard/setup-wizard').then(m => m.SetupWizardComponent),
+    canActivate: [bakerGuard]
+  },
+  {
+    path: 'about',
+    loadComponent: () => import('./components/about/about').then(m => m.AboutComponent)
+  },
   {
     path: 'dashboard',
     loadComponent: () => import('./components/baker-dashboard/baker-dashboard').then(m => m.BakerDashboardComponent),
@@ -27,35 +29,44 @@ export const routes: Routes = [
   },
   {
     path: 'calculator',
-    component: RecipeCalculatorComponent,
+    loadComponent: () => import('./components/recipe-calculator/recipe-calculator').then(m => m.RecipeCalculatorComponent),
     canActivate: [bakerGuard]
   },
   {
     path: 'calculator/:id',
-    component: RecipeCalculatorComponent,
+    loadComponent: () => import('./components/recipe-calculator/recipe-calculator').then(m => m.RecipeCalculatorComponent),
     canActivate: [bakerGuard]
   },
   {
     path: 'manage-orders',
-    component: OrdersManagerComponent,
+    loadComponent: () => import('./components/orders-manager/orders-manager').then(m => m.OrdersManagerComponent),
     canActivate: [bakerGuard]
   },
   {
     path: 'ledger',
-    component: BakeryLedgerComponent,
+    loadComponent: () => import('./components/bakery-ledger/bakery-ledger').then(m => m.BakeryLedgerComponent),
     canActivate: [bakerGuard]
   },
-  { path: 'front', component: StorefrontComponent },
-  { path: 'cart', component: CartComponent },
-  { path: 'order-success/:orderId', component: OrderConfirmationComponent },
+  {
+    path: 'front',
+    loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent)
+  },
+  {
+    path: 'cart',
+    loadComponent: () => import('./components/cart/cart').then(m => m.CartComponent)
+  },
+  {
+    path: 'order-success/:orderId',
+    loadComponent: () => import('./components/order-confirmation/order-confirmation').then(m => m.OrderConfirmationComponent)
+  },
   {
     path: 'profile',
-    component: ProfileComponent,
+    loadComponent: () => import('./components/profile/profile').then(m => m.ProfileComponent),
     canActivate: [authGuard]
   },
   {
     path: 'subscriptions',
-    component: SubscriptionManagerComponent,
+    loadComponent: () => import('./components/subscription-manager/subscription-manager').then(m => m.SubscriptionManagerComponent),
     canActivate: [authGuard]
   }
 ];

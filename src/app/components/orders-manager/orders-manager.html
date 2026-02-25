@@ -7,8 +7,8 @@
     <div class="header-actions">
       <button class="btn-primary" (click)="openManualOrder()">➕ Manual Order</button>
       <div class="date-picker">
-        <label>Bake Date</label>
-        <input type="date" [ngModel]="bakeDate()" (ngModelChange)="bakeDate.set($event)">
+        <label for="bake-date">Bake Date</label>
+        <input type="date" id="bake-date" [ngModel]="bakeDate()" (ngModelChange)="bakeDate.set($event)">
       </div>
     </div>
   </div>
@@ -26,17 +26,19 @@
       </div>
 
       @if (showNotifications()) {
-        <div class="notification-dropdown card">
-          <h3>Recent Alerts</h3>
-          @for (log of notificationService.logs(); track log.id) {
-            <div class="log-item">
-              <small>{{log.timestamp | date:'shortTime'}}</small>
-              <p>{{log.message}}</p>
-            </div>
-          } @empty {
-            <p>No new alerts.</p>
-          }
-          <button class="btn-small" (click)="showNotifications.set(false)">Close</button>
+        <div class="notification-dropdown card" role="dialog" aria-labelledby="alerts-title">
+          <h3 id="alerts-title">Recent Alerts</h3>
+          <div role="log" aria-relevant="additions">
+            @for (log of notificationService.logs(); track log.id) {
+              <div class="log-item">
+                <small>{{log.timestamp | date:'shortTime'}}</small>
+                <p>{{log.message}}</p>
+              </div>
+            } @empty {
+              <p>No new alerts.</p>
+            }
+          </div>
+          <button class="btn-small" (click)="showNotifications.set(false)" aria-label="Close alerts">Close</button>
         </div>
       }
 
@@ -57,7 +59,13 @@
 
       <div class="aggregation-list">
         @for (order of filteredOrders(); track order.id) {
-          <div class="aggregation-item order-card clickable" (click)="openOrderDetails(order)">
+          <div class="aggregation-item order-card clickable"
+               (click)="openOrderDetails(order)"
+               role="button"
+               tabindex="0"
+               (keydown.enter)="openOrderDetails(order)"
+               (keydown.space)="$event.preventDefault(); openOrderDetails(order)"
+               [attr.aria-label]="'Order details for ' + order.customerName">
             <div class="order-main">
               <div class="customer-tag">
                 <span class="type">{{order.type}}</span>
