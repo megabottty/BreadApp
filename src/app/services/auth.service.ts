@@ -267,7 +267,8 @@ export class AuthService {
       const { data, error } = await this.supabase.auth.updateUser({
         data: {
           tenant_id: tenantId,
-          bakery_slug: bakerySlug
+          bakery_slug: bakerySlug,
+          onboarding_completed: true
         }
       });
 
@@ -276,13 +277,23 @@ export class AuthService {
         throw error;
       }
 
-      console.log('[Auth Debug] Successfully synced tenant_id to user metadata');
+      console.log('[Auth Debug] Successfully synced tenant_id to user metadata:', data);
 
-      // Refresh the session to get the updated JWT
-      const { data: sessionData } = await this.supabase.auth.refreshSession();
-      if (sessionData.user) {
-        this.handleAuthChange(sessionData.user);
+      // Force refresh the session to get the updated JWT with new metadata
+      const { data: sessionData, error: refreshError } = await this.supabase.auth.refreshSession();
+
+      if (refreshError) {
+        console.error('[Auth Error] Failed to refresh session:', refreshError);
+        throw refreshError;
       }
+
+      if (sessionData.session?.user) {
+        console.log('[Auth Debug] Session refreshed, new user metadata:', sessionData.session.user.user_metadata);
+        this.handleAuthChange(sessionData.session.user);
+      }
+
+      // Wait a moment for the JWT to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       return data;
     } catch (error) {

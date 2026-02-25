@@ -64,6 +64,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   });
 
   hasUnsavedChanges = signal<boolean>(false);
+  isSaving = signal<boolean>(false);
   private isLoadingRecipe = false;
 
   constructor() {
@@ -304,22 +305,29 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   }
 
   async saveRecipe(): Promise<void> {
+    if (this.isSaving()) return;
+
     const current = this.calculatedRecipe();
     const tenant = this.tenantService.tenant();
     const slug = tenant?.slug;
 
     if (current && slug) {
+      this.isSaving.set(true);
+
       // Check if user has tenant_id in metadata, if not, sync it
       const user = this.authService.user();
       if (user && !user.tenant_id && tenant.id) {
         console.log('[Recipe Calculator] Syncing tenant_id to user metadata...');
         try {
           await this.authService.syncTenantToMetadata(tenant.id, slug);
-          this.notificationService.show('User metadata synced. Please try saving again.', 'info');
+          this.modalService.showAlert('User metadata synced successfully! The page will reload to apply changes.', 'Success', 'success');
+          // Reload the page to ensure the new JWT is used
+          setTimeout(() => window.location.reload(), 2000);
           return;
         } catch (error) {
           console.error('[Recipe Calculator] Failed to sync tenant metadata:', error);
           this.modalService.showAlert('Failed to sync user permissions. Please try logging out and back in.', 'Error', 'error');
+          this.isSaving.set(false);
           return;
         }
       }
@@ -327,6 +335,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       const headers = new HttpHeaders().set('x-tenant-slug', slug);
       this.http.post<CalculatedRecipe>(`${environment.apiUrl}/orders/recipes`, current, { headers }).subscribe({
         next: (saved: CalculatedRecipe) => {
+          this.isSaving.set(false);
           this.savedRecipes.update(prev => {
             const index = prev.findIndex(r => r.id === saved.id);
             if (index !== -1) {
@@ -350,6 +359,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
           localStorage.removeItem('recipe_calculator_draft');
         },
         error: (err: any) => {
+          this.isSaving.set(false);
           console.error('Failed to save recipe to cloud:', err);
           let errorMessage = 'Failed to save to cloud. Saving locally for now.';
           if (err.status === 404) {
