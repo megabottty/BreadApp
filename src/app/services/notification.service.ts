@@ -4,6 +4,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 
+import { ModalService } from './modal.service';
+
 export interface NotificationLog {
   id: string;
   recipient: string;
@@ -17,6 +19,7 @@ export interface NotificationLog {
 })
 export class NotificationService {
   private http = inject(HttpClient);
+  private modalService = inject(ModalService);
   private apiUrl = environment.apiUrl + '/notifications/send-sms';
   logs = signal<NotificationLog[]>([]);
 
@@ -69,5 +72,13 @@ export class NotificationService {
     // Replace with a real phone number for the baker in a real production scenario
     const bakerPhone = '+15550123456';
     return this.sendSMS(bakerPhone, message);
+  }
+
+  /**
+   * Alias for modalService.showAlert to maintain compatibility with legacy code
+   * or simplified API expectations.
+   */
+  show(message: string, title: string = 'Notification', type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+    this.modalService.showAlert(message, title, type);
   }
 }
