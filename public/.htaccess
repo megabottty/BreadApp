@@ -1,11 +1,22 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Proxy API requests to the backend (on port 3000)
+  # IMPORTANT: This assumes the Node.js server is running on the same host at port 3000
+  # For many hosting providers (like Bluehost with Passenger/Nginx), you might need a different rule.
+  # However, adding a bypass for /api will prevent it from falling through to index.html
+  RewriteRule ^api/(.*) http://localhost:3000/api/$1 [P,L]
+
   # If the requested resource is a physical file or directory, just serve it
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # otherwise, redirect all other requests to index.html
+  # Otherwise, if not a file/dir, redirect all other requests to index.html
   RewriteRule ^ index.html [L]
 </IfModule>
+
+# IMPORTANT: Ensure mod_proxy and mod_proxy_http are enabled in your Apache config
+# If the [P] flag fails (returns 500), it's likely because those modules are not active.
+# In that case, you may need to specify the FULL external URL in environment.prod.ts
+# or configure your hosting provider (like Render/Bluehost) to handle /api proxying.

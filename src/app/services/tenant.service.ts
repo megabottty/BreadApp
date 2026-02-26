@@ -46,7 +46,7 @@ export class TenantService {
     const host = window.location.hostname;
     const path = window.location.pathname;
 
-    let slug = 'thedailydough'; // Updated default to match registered slug
+  let slug = 'thedailydough'; // Updated default to match registered slug
 
     // Check if we have a saved slug from registration
     const savedSlug = localStorage.getItem('bakery_slug');
@@ -60,20 +60,25 @@ export class TenantService {
       if (parts[2]) {
         slug = parts[2];
       }
-    } else if (host !== 'localhost' && !host.includes('bluehost.com') && !host.includes('thedailydough.store')) {
-      // Subdomain logic: slug.daily-dough.com
-      const parts = host.split('.');
+    } else if (host !== 'localhost' && !host.includes('bluehost.com')) {
+      // thedailydough.store is the main landing/app domain, but it's also a valid tenant slug
+      if (host === 'thedailydough.store') {
+        slug = 'thedailydough';
+      } else {
+        // Subdomain logic: slug.daily-dough.com or slug.thedailydough.store
+        const parts = host.split('.');
 
-      // If we have at least two parts, the first might be a slug
-      if (parts.length >= 2) {
-        const potentialSlug = parts[0].toLowerCase();
+        // If we have at least two parts, the first might be a slug
+        if (parts.length >= 2) {
+          const potentialSlug = parts[0].toLowerCase();
 
-        // Define system-reserved prefixes that are NOT bakery slugs
-        const systemPrefixes = ['www', 'thedailydough', 'dailydough', 'app', 'api', 'admin'];
+          // Define system-reserved prefixes that are NOT bakery slugs
+          const systemPrefixes = ['www', 'thedailydough', 'dailydough', 'app', 'api', 'admin'];
 
-        // If the first part isn't a system prefix, it's likely a baker's custom slug
-        if (!systemPrefixes.includes(potentialSlug)) {
-          slug = potentialSlug;
+          // If the first part isn't a system prefix, it's likely a baker's custom slug
+          if (!systemPrefixes.includes(potentialSlug)) {
+            slug = potentialSlug;
+          }
         }
       }
     }

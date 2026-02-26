@@ -7,10 +7,10 @@
   --text-primary: #1A1C1E;
   --text-secondary: #44474E;
   --text-muted: #74777F;
-  --accent-sage: #006494; /* Professional Blue */
-  --accent-sage-dark: #004C70;
-  --accent-terracotta: #BA1A1A; /* Alert/Action Red */
-  --accent-terracotta-dark: #93000A;
+  --accent-sage: #7D8F69; /* Restoration of Sage Green */
+  --accent-sage-dark: #5F6F52;
+  --accent-terracotta: #D88569; /* Action Terracotta */
+  --accent-terracotta-dark: #BC6C4D;
   --border-color: #DEE2E6;
   --input-bg: #FFFFFF;
   --shadow-color: rgba(0, 0, 0, 0.05);
