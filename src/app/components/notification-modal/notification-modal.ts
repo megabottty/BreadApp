@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModalService } from '../../services/modal.service';
 
@@ -6,6 +6,7 @@ import { ModalService } from '../../services/modal.service';
   selector: 'app-notification-modal',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (modalService.activeModal(); as modal) {
       <div class="modal-overlay" (click)="close()">

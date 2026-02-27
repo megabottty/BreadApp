@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect } from '@angular/core';
+import { Component, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
@@ -9,7 +9,8 @@ import { CartService } from '../../services/cart.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './product-customization-modal.html',
-  styleUrls: ['./product-customization-modal.css']
+  styleUrls: ['./product-customization-modal.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ProductCustomizationModalComponent {
   modalService = inject(ModalService);

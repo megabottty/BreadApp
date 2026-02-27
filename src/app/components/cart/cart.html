@@ -45,8 +45,8 @@
                   <small id="pickup-hint" class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
                 }
               </div>
-              <label class="checkbox-label">
-                <input type="checkbox" [(ngModel)]="payAtPickup"> Pay at Pickup
+              <label for="pay-at-pickup" class="checkbox-label">
+                <input type="checkbox" id="pay-at-pickup" [(ngModel)]="payAtPickup"> Pay at Pickup
               </label>
             </div>
           }
@@ -123,21 +123,21 @@
                   <p class="item-note"><em>Note: {{item.notes}}</em></p>
                 }
 
-                <label class="subscription-toggle">
-                  <input type="checkbox" [checked]="item.isSubscription" (change)="toggleSubscription(item)">
+                <label for="subscription-{{item.product.id}}" class="subscription-toggle">
+                  <input type="checkbox" id="subscription-{{item.product.id}}" [checked]="item.isSubscription" (change)="toggleSubscription(item)" [attr.aria-label]="'Enable weekly subscription for ' + item.product.name">
                   Weekly Subscription
                 </label>
               </div>
               <div class="item-actions">
-                <div class="quantity-controls">
-                  <button (click)="updateQuantity(item, -1)" aria-label="Decrease quantity">-</button>
-                  <span aria-live="polite" aria-label="Quantity">{{item.quantity}}</span>
-                  <button (click)="updateQuantity(item, 1)" aria-label="Increase quantity">+</button>
+                <div class="quantity-controls" role="group" aria-label="Quantity controls">
+                  <button (click)="updateQuantity(item, -1)" [attr.aria-label]="'Decrease quantity of ' + item.product.name">-</button>
+                  <span aria-live="polite" aria-atomic="true">{{item.quantity}}</span>
+                  <button (click)="updateQuantity(item, 1)" [attr.aria-label]="'Increase quantity of ' + item.product.name">+</button>
                 </div>
                 <span class="price">
                   {{((item.product.price || 12) + (item.selectedOptionsPrice || 0)) | currency}}
                 </span>
-                <button class="btn-remove" (click)="removeItem(item)" aria-label="Remove item">×</button>
+                <button class="btn-remove" (click)="removeItem(item)" [attr.aria-label]="'Remove ' + item.product.name + ' from cart'">×</button>
               </div>
             </div>
           }

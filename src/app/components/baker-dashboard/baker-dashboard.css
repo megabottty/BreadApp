@@ -188,11 +188,11 @@ nav button.pos-nav-btn.active {
   .sidebar {
     width: 100%;
     padding: 0.75rem 1rem;
-    position: sticky;
-    top: 64px; /* Height of main-nav */
-    z-index: 100;
+    position: relative;
+    top: auto;
+    z-index: 0;
     box-sizing: border-box;
-    margin-bottom: 0;
+    margin-bottom: 1rem;
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
   }
   .sidebar-header, .sidebar-footer {
@@ -227,6 +227,7 @@ nav button.pos-nav-btn.active {
   .content-area {
     padding: 1.5rem 1rem;
     width: 100%;
+    margin-top: 0.25rem;
     box-sizing: border-box;
     padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
   }

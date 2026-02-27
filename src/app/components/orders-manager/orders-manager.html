@@ -2,7 +2,7 @@
   <div class="header-section">
     <div style="display: flex; align-items: center; gap: 1rem;">
       <h1>Order Management</h1>
-      <button class="btn-hint" (click)="showHint()">💡 Help</button>
+      <button class="btn-hint" (click)="showHint()" aria-label="Show help information">💡 Help</button>
     </div>
     <div class="header-actions">
       <button class="btn-primary" (click)="openManualOrder()">➕ Manual Order</button>
@@ -19,9 +19,9 @@
       <div class="header-with-badge">
         <h2>Production Brain</h2>
         @if (notificationService.logs().length > 0) {
-          <div class="notification-count" (click)="showNotifications.set(!showNotifications())">
+          <button class="notification-count" (click)="showNotifications.set(!showNotifications())" [attr.aria-label]="notificationService.logs().length + ' new alerts'" aria-expanded="{{showNotifications()}}">
             🔔 {{notificationService.logs().length}}
-          </div>
+          </button>
         }
       </div>
 
@@ -104,12 +104,12 @@
               <span class="status-badge" [attr.data-status]="order.status">{{order.status}}</span>
               <div class="btn-group">
                 @if (order.status === 'PENDING') {
-                  <button class="btn-small" (click)="updateOrderStatus(order.id, order.type === 'PICKUP' ? 'READY' : 'SHIPPED')">
+                  <button class="btn-small" (click)="updateOrderStatus(order.id, order.type === 'PICKUP' ? 'READY' : 'SHIPPED')" [attr.aria-label]="'Mark order ' + order.id + ' as ' + (order.type === 'PICKUP' ? 'ready' : 'shipped')">
                     Mark {{order.type === 'PICKUP' ? 'Ready' : 'Shipped'}}
                   </button>
                 }
                 @if (order.status !== 'COMPLETED' && order.status !== 'CANCELLED') {
-                  <button class="btn-small btn-outline" (click)="updateOrderStatus(order.id, 'COMPLETED')">Complete</button>
+                  <button class="btn-small btn-outline" (click)="updateOrderStatus(order.id, 'COMPLETED')" [attr.aria-label]="'Mark order ' + order.id + ' as completed'">Complete</button>
                 }
               </div>
             </div>
@@ -137,12 +137,13 @@
 
     <!-- Right Column: Ingredient Aggregation & Production Plan -->
     <div class="card requirements-card">
-      <div class="tabs-small">
-        <button [class.active]="rightTab() === 'ingredients'" (click)="rightTab.set('ingredients')">Ingredients</button>
-        <button [class.active]="rightTab() === 'batches'" (click)="rightTab.set('batches')">Production Plan</button>
+      <div class="tabs-small" role="tablist" aria-label="Production view">
+        <button [class.active]="rightTab() === 'ingredients'" (click)="rightTab.set('ingredients')" role="tab" [attr.aria-selected]="rightTab() === 'ingredients'" [attr.aria-controls]="'ingredients-panel'">Ingredients</button>
+        <button [class.active]="rightTab() === 'batches'" (click)="rightTab.set('batches')" role="tab" [attr.aria-selected]="rightTab() === 'batches'" [attr.aria-controls]="'batches-panel'">Production Plan</button>
       </div>
 
       @if (rightTab() === 'ingredients') {
+        <div role="tabpanel" id="ingredients-panel" aria-labelledby="ingredients-tab">
         <h2>Daily Grams Breakdown</h2>
         <p class="subtitle">Detailed ingredient requirements by loaf type.</p>
 
@@ -180,7 +181,9 @@
             </div>
           </div>
         }
+        </div>
       } @else {
+        <div role="tabpanel" id="batches-panel" aria-labelledby="batches-tab">
         <h2>Production Batches</h2>
         <p class="subtitle">Optimized batches for the oven.</p>
 
@@ -217,17 +220,18 @@
             <p class="empty-msg">Add orders to generate a production plan.</p>
           }
         </div>
+        </div>
       }
     </div>
   </div>
 
   <!-- Order Details Modal -->
   @if (selectedOrder(); as order) {
-    <div class="modal-overlay" (click)="closeOrderDetails()">
+    <div class="modal-overlay" (click)="closeOrderDetails()" role="dialog" aria-modal="true" aria-labelledby="order-details-title">
       <div class="modal-content card" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h2>Order Details #{{order.id}}</h2>
-          <button class="btn-close" (click)="closeOrderDetails()">×</button>
+          <h2 id="order-details-title">Order Details #{{order.id}}</h2>
+          <button class="btn-close" (click)="closeOrderDetails()" aria-label="Close order details">×</button>
         </div>
 
         <div class="modal-body">
@@ -251,7 +255,8 @@
 
           <div class="info-section">
             <h3>Baker Notes</h3>
-            <textarea [(ngModel)]="bakerNotes" rows="4" placeholder="Add private notes about this order..."></textarea>
+            <label for="baker-notes" class="sr-only">Private notes about this order</label>
+            <textarea id="baker-notes" [(ngModel)]="bakerNotes" rows="4" placeholder="Add private notes about this order..."></textarea>
             <button class="btn-save btn-small" (click)="saveBakerNotes()">Save Notes</button>
           </div>
         </div>
@@ -261,54 +266,56 @@
 
   <!-- Manual Order Modal -->
   @if (showManualOrderModal()) {
-    <div class="modal-overlay" (click)="showManualOrderModal.set(false)">
+    <div class="modal-overlay" (click)="showManualOrderModal.set(false)" role="dialog" aria-modal="true" aria-labelledby="manual-order-title">
       <div class="modal-content card" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h2>New Manual Order</h2>
-          <button class="btn-close" (click)="showManualOrderModal.set(false)">×</button>
+          <h2 id="manual-order-title">New Manual Order</h2>
+          <button class="btn-close" (click)="showManualOrderModal.set(false)" aria-label="Close manual order form">×</button>
         </div>
 
         <div class="modal-body">
           <div class="form-grid">
             <div class="form-group">
-              <label>Customer Name</label>
-              <input type="text" [(ngModel)]="manualOrder().customerName" placeholder="e.g. John Doe">
+              <label for="manual-customer-name">Customer Name</label>
+              <input type="text" id="manual-customer-name" [(ngModel)]="manualOrder().customerName" placeholder="e.g. John Doe">
             </div>
             <div class="form-group">
-              <label>Phone Number</label>
-              <input type="tel" [(ngModel)]="manualOrder().customerPhone" placeholder="e.g. 555-0123">
+              <label for="manual-phone">Phone Number</label>
+              <input type="tel" id="manual-phone" [(ngModel)]="manualOrder().customerPhone" placeholder="e.g. 555-0123">
             </div>
             <div class="form-group">
-              <label>Order Source</label>
-              <select [(ngModel)]="manualOrder().orderSource">
+              <label for="manual-order-source">Order Source</label>
+              <select id="manual-order-source" [(ngModel)]="manualOrder().orderSource">
                 <option value="PHONE">📞 Phone</option>
                 <option value="WALK_IN">🚶 Walk-in</option>
                 <option value="ONLINE">🌐 Online</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Type</label>
-              <select [(ngModel)]="manualOrder().type">
+              <label for="manual-order-type">Type</label>
+              <select id="manual-order-type" [(ngModel)]="manualOrder().type">
                 <option value="PICKUP">Pickup</option>
                 <option value="SHIPPING">Shipping</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Pickup/Bake Date</label>
-              <input type="date" [(ngModel)]="manualOrder().pickupDate">
+              <label for="manual-pickup-date">Pickup/Bake Date</label>
+              <input type="date" id="manual-pickup-date" [(ngModel)]="manualOrder().pickupDate">
             </div>
           </div>
 
           <div class="manual-items-section">
             <h3>Items</h3>
             <div class="add-item-row">
-              <select [(ngModel)]="manualOrderItem().recipeId">
+              <label for="manual-recipe-select" class="sr-only">Select recipe</label>
+              <select id="manual-recipe-select" [(ngModel)]="manualOrderItem().recipeId">
                 <option value="">Select a recipe...</option>
                 @for (recipe of savedRecipes(); track recipe.id) {
                   <option [value]="recipe.id">{{recipe.name}} ({{recipe.price | currency}})</option>
                 }
               </select>
-              <input type="number" [(ngModel)]="manualOrderItem().quantity" min="1" style="width: 60px;">
+              <label for="manual-quantity" class="sr-only">Quantity</label>
+              <input type="number" id="manual-quantity" [(ngModel)]="manualOrderItem().quantity" min="1" style="width: 60px;" aria-label="Quantity">
               <button class="btn-small" (click)="addManualItem()">Add</button>
             </div>
 
@@ -316,15 +323,15 @@
               @for (item of manualOrder().items; track $index) {
                 <div class="manual-item">
                   <span>{{item.quantity}}x {{item.name}}</span>
-                  <button class="btn-remove" (click)="removeManualItem($index)">×</button>
+                  <button class="btn-remove" (click)="removeManualItem($index)" [attr.aria-label]="'Remove ' + item.name">×</button>
                 </div>
               }
             </div>
           </div>
 
           <div class="form-group">
-            <label>Notes</label>
-            <textarea [(ngModel)]="manualOrder().notes" rows="3" placeholder="Special requests..."></textarea>
+            <label for="manual-order-notes">Notes</label>
+            <textarea id="manual-order-notes" [(ngModel)]="manualOrder().notes" rows="3" placeholder="Special requests..."></textarea>
           </div>
         </div>
 

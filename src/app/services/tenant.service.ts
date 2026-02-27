@@ -112,8 +112,9 @@ export class TenantService {
     console.log(`[TenantService] Loading info for slug: ${slug}`);
 
     // Use absolute URL if on localhost to ensure we hit the backend
-    const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-    const url = `${baseUrl}${this.apiUrl}/orders/info`;
+    const url = window.location.hostname === 'localhost'
+      ? `http://localhost:3000/api/orders/info`
+      : `${this.apiUrl}/orders/info`;
 
     this.http.get<Tenant>(url, {
       headers: { 'x-tenant-slug': slug },
@@ -162,8 +163,9 @@ export class TenantService {
   }
 
   updateTenant(id: string, updates: Partial<Tenant>) {
-    const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-    const url = `${baseUrl}${this.apiUrl}/orders/info`;
+    const url = window.location.hostname === 'localhost'
+      ? `http://localhost:3000/api/orders/info`
+      : `${this.apiUrl}/orders/info`;
 
     return this.http.patch<Tenant>(url, updates, {
       headers: { 'x-tenant-id': id }

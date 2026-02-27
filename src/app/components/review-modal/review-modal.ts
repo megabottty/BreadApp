@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, signal, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CalculatedRecipe, Review } from '../../logic/bakers-math';
@@ -10,7 +10,8 @@ import { ReviewService } from '../../services/review.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './review-modal.html',
-  styleUrls: ['./review-modal.css']
+  styleUrls: ['./review-modal.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ReviewModalComponent {
   @Input({ required: true }) product!: CalculatedRecipe;

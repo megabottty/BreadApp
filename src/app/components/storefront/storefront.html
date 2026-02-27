@@ -2,7 +2,7 @@
   <header>
     <div style="display: flex; align-items: center; gap: 1rem; justify-content: center;">
       <h1 style="margin: 0;">Our Daily Bakes</h1>
-      <button class="btn-hint" (click)="showHint()">💡 Help</button>
+      <button class="btn-hint" (click)="showHint()" aria-label="Show help information">💡 Help</button>
     </div>
     <p class="subtitle">Freshly baked in our home kitchen with love and wild yeast.</p>
   </header>
@@ -123,7 +123,7 @@
           }
         </div>
         <div class="product-info">
-          <h2>{{product.name}}</h2>
+          <h3>{{product.name}}</h3>
 
           <div class="rating-display"
                (click)="product.id && getReviews(product.id).length > 0 && toggleReviews(product.id)"
@@ -165,20 +165,21 @@
                     <small>{{review.date | date:'mediumDate'}}</small>
                     <div class="review-actions">
                       @if (authService.isBaker()) {
-                        <button class="btn-text" (click)="startReply(review)">{{ review.reply ? 'Edit Reply' : 'Reply' }}</button>
+                        <button class="btn-text" (click)="startReply(review)" [attr.aria-label]="review.reply ? 'Edit reply to review' : 'Reply to review'">{{ review.reply ? 'Edit Reply' : 'Reply' }}</button>
                       }
                       @if (authService.isBaker() || (authService.user()?.id === review.customerId)) {
                         @if (authService.user()?.id === review.customerId) {
-                          <button class="btn-text" (click)="startEditReview(review)">Edit</button>
+                          <button class="btn-text" (click)="startEditReview(review)" aria-label="Edit your review">Edit</button>
                         }
-                        <button class="btn-text danger" (click)="deleteReview(review.id)">Delete</button>
+                        <button class="btn-text danger" (click)="deleteReview(review.id)" aria-label="Delete review">Delete</button>
                       }
                     </div>
                   </div>
 
                   @if (replyingToReviewId() === review.id) {
                     <div class="reply-editor">
-                      <textarea [(ngModel)]="replyText" placeholder="Write your response..."></textarea>
+                      <label for="reply-text-{{review.id}}" class="sr-only">Write your response</label>
+                      <textarea id="reply-text-{{review.id}}" [(ngModel)]="replyText" placeholder="Write your response..."></textarea>
                       <div class="reply-actions">
                         <button class="btn-small outline" (click)="cancelReply()">Cancel</button>
                         <button class="btn-small" (click)="submitReply(review.id)">Post Reply</button>
@@ -188,14 +189,16 @@
 
                   @if (editingReviewId() === review.id) {
                     <div class="reply-editor">
-                      <div class="rating-input-small">
+                      <div class="rating-input-small" role="group" aria-label="Rating">
                         @for (star of [1,2,3,4,5]; track star) {
-                          <span class="star-btn"
+                          <button type="button" class="star-btn"
                                 [class.active]="editReviewRating() >= star"
-                                (click)="editReviewRating.set(star)">★</span>
+                                (click)="editReviewRating.set(star)"
+                                [attr.aria-label]="star + ' stars'">★</button>
                         }
                       </div>
-                      <textarea [(ngModel)]="editReviewText" placeholder="Edit your review..."></textarea>
+                      <label for="edit-review-text-{{review.id}}" class="sr-only">Edit your review</label>
+                      <textarea id="edit-review-text-{{review.id}}" [(ngModel)]="editReviewText" placeholder="Edit your review..."></textarea>
                       <div class="reply-actions">
                         <button class="btn-small outline" (click)="cancelEditReview()">Cancel</button>
                         <button class="btn-small" (click)="submitEditReview(review.id)">Update Review</button>
@@ -217,15 +220,15 @@
             <span class="price">{{ (product.price || 12) | currency }}</span>
             <div class="btn-group">
               @if (authService.isBaker()) {
-                <button class="btn-edit" (click)="editProduct(product)">Edit</button>
-                <button class="btn-delete-product" (click)="deleteProduct(product)" title="Delete Product">×</button>
+                <button class="btn-edit" (click)="editProduct(product)" [attr.aria-label]="'Edit ' + product.name">Edit</button>
+                <button class="btn-delete-product" (click)="deleteProduct(product)" [attr.aria-label]="'Delete ' + product.name">×</button>
               } @else {
-                <button class="btn-subscribe" (click)="subscribe(product)">Subscribe</button>
+                <button class="btn-subscribe" (click)="subscribe(product)" [attr.aria-label]="'Subscribe to ' + product.name">Subscribe</button>
                 @if (authService.isAuthenticated()) {
-                  <button class="btn-review" (click)="openReviewModal(product)" title="Leave a Review">★</button>
+                  <button class="btn-review" (click)="openReviewModal(product)" [attr.aria-label]="'Leave a review for ' + product.name">★</button>
                 }
               }
-              <button class="btn-add" (click)="addToCart(product)">Add to Bag</button>
+              <button class="btn-add" (click)="addToCart(product)" [attr.aria-label]="'Add ' + product.name + ' to shopping bag'">Add to Bag</button>
             </div>
           </div>
         </div>
@@ -242,11 +245,11 @@
   }
 
   @if (productToDelete(); as product) {
-    <div class="modal-overlay" (click)="cancelDelete()">
+    <div class="modal-overlay" (click)="cancelDelete()" role="dialog" aria-modal="true" aria-labelledby="delete-product-title">
       <div class="modal-content card delete-confirm" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h2>Delete Product?</h2>
-          <button class="btn-close" (click)="cancelDelete()">×</button>
+          <h2 id="delete-product-title">Delete Product?</h2>
+          <button class="btn-close" (click)="cancelDelete()" aria-label="Close dialog">×</button>
         </div>
         <div class="modal-body">
           <p>Are you sure you want to delete <strong>{{product.name}}</strong>? This will remove it from the storefront and your cloud library permanently.</p>

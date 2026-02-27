@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, effect } from '@angular/core';
+import { Component, OnInit, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CartService } from '../../services/cart.service';
@@ -10,7 +10,8 @@ import { TenantService } from '../../services/tenant.service';
   standalone: true,
   imports: [CommonModule, CurrencyPipe, DatePipe, RouterLink],
   templateUrl: './order-confirmation.html',
-  styleUrls: ['./order-confirmation.css']
+  styleUrls: ['./order-confirmation.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class OrderConfirmationComponent implements OnInit {
   private route = inject(ActivatedRoute);

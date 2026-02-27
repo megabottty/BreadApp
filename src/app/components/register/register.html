@@ -68,13 +68,13 @@
           </button>
         </div>
         @if (passwordErrors().length > 0) {
-          <ul class="password-requirements">
+          <ul class="password-requirements" role="alert" aria-live="polite">
             @for (error of passwordErrors(); track error) {
               <li class="error-text">{{ error }}</li>
             }
           </ul>
         } @else if (password().length >= 8) {
-          <p class="success-text small">Password looks strong! 💪</p>
+          <p class="success-text small" role="status" aria-live="polite">Password looks strong! 💪</p>
         }
       </div>
 
@@ -82,7 +82,7 @@
         <label for="confirmPassword">Confirm Password</label>
         <input [type]="showPassword() ? 'text' : 'password'" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
         @if (confirmPassword().length > 0 && confirmPassword() !== password()) {
-          <p class="error-text small">Passwords do not match</p>
+          <p class="error-text small" role="alert" aria-live="polite">Passwords do not match</p>
         }
       </div>
 

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PwaService } from '../../services/pwa.service';
 
@@ -6,6 +6,7 @@ import { PwaService } from '../../services/pwa.service';
   selector: 'app-install-prompt',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (pwaService.showInstallPrompt()) {
       <div class="install-banner">

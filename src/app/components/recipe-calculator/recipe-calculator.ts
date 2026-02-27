@@ -5,10 +5,8 @@ import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } f
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { calculateBakersMath, Recipe, CalculatedRecipe, IngredientType, scaleRecipe, MOCK_INGREDIENTS_DB, RecipeCategory, FlavorProfile } from '../../logic/bakers-math';
-import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { IngredientService, FoodSearchItem } from '../../services/ingredient.service';
-import { SubscriptionService } from '../../services/subscription.service';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -22,7 +20,6 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of, 
   styleUrls: ['./recipe-calculator.css']
 })
 export class RecipeCalculatorComponent implements OnInit, OnDestroy {
-  protected notificationService = inject(NotificationService);
   protected authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);

@@ -1,7 +1,7 @@
 <div class="calculator-container">
   <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
     <h1 style="margin: 0;">{{ currentTenant()?.business_type === 'BAKERY' ? 'Recipe Calculator' : 'Product Manager' }}</h1>
-    <button class="btn-hint" (click)="showHint()">💡 Help</button>
+    <button class="btn-hint" (click)="showHint()" aria-label="Show help information">💡 Help</button>
   </div>
 
   <div class="grid">
@@ -47,8 +47,8 @@
       </div>
 
       <div class="form-group checkbox-group">
-        <label class="checkbox-label">
-          <input type="checkbox" formControlName="isHidden">
+        <label for="is-hidden" class="checkbox-label">
+          <input type="checkbox" id="is-hidden" formControlName="isHidden">
           <span>Hide from customers (Seasonal/Draft)</span>
         </label>
       </div>
@@ -76,21 +76,21 @@
       }
 
       <div class="form-group">
-        <label>Recipe Photos</label>
+        <label id="recipe-photos-label">Recipe Photos</label>
         <div class="image-upload-wrapper">
           <div class="image-grid-edit">
             @for (img of recipeForm.get('images')?.value; track img; let i = $index) {
               <div class="image-preview-mini">
-                <img [src]="img" alt="Preview" loading="lazy" width="80" height="80">
-                <button type="button" class="btn-remove-image" (click)="removeImage(i)">×</button>
+                <img [src]="img" alt="Recipe photo preview" loading="lazy" width="80" height="80">
+                <button type="button" class="btn-remove-image" (click)="removeImage(i)" [attr.aria-label]="'Remove photo ' + (i + 1)">×</button>
               </div>
             }
-            <div class="upload-placeholder-mini" (click)="fileInput.click()">
-              <span class="icon">📸</span>
+            <button type="button" class="upload-placeholder-mini" (click)="fileInput.click()" aria-labelledby="recipe-photos-label">
+              <span class="icon" aria-hidden="true">📸</span>
               <span>Add Photo</span>
-            </div>
+            </button>
           </div>
-          <input #fileInput type="file" (change)="onFileSelected($event)" accept="image/*" multiple style="display: none">
+          <input #fileInput type="file" (change)="onFileSelected($event)" accept="image/*" multiple style="display: none" aria-label="Upload recipe photos">
         </div>
       </div>
 
@@ -137,23 +137,23 @@
         <p class="section-hint">Enter the price and weight of the whole package for each {{ currentTenant()?.business_type === 'BAKERY' ? 'ingredient' : 'component' }} (e.g., $15 for 5000g of Flour) to track costs.</p>
       </div>
 
-      <div class="ingredient-row-header desktop-only">
-        <span>Ingredient Name</span>
-        <span>Weight (g)</span>
+      <div class="ingredient-row-header desktop-only" role="row">
+        <span role="columnheader">Ingredient Name</span>
+        <span role="columnheader">Weight (g)</span>
         <div class="bulk-cost-header">
-          <span>Package Price ($)</span>
-          <span>Package Weight (g)</span>
+          <span role="columnheader">Package Price ($)</span>
+          <span role="columnheader">Package Weight (g)</span>
         </div>
-        <span>Type</span>
-        <span></span>
+        <span role="columnheader">Type</span>
+        <span role="columnheader">Actions</span>
       </div>
 
       <div formArrayName="ingredients">
         @for (ingredient of ingredients.controls; track ingredient; let i = $index) {
           <div [formGroupName]="i" class="ingredient-row">
             <div class="search-container">
-              <span class="tiny-label-mobile">Ingredient Name</span>
-              <input type="text" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur()" autocomplete="off">
+              <label for="ingredient-name-{{i}}" class="tiny-label-mobile">Ingredient Name</label>
+              <input type="text" id="ingredient-name-{{i}}" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur()" autocomplete="off">
               @if (activeSearchIndex() === i && searchResults().length > 0) {
                 <div class="search-results-wrapper">
                   <ul class="search-results">
@@ -170,28 +170,28 @@
               }
             </div>
             <div class="input-with-label">
-              <span class="tiny-label-mobile">Weight (g)</span>
-              <input type="number" formControlName="weight" placeholder="Grams">
+              <label for="ingredient-weight-{{i}}" class="tiny-label-mobile">Weight (g)</label>
+              <input type="number" id="ingredient-weight-{{i}}" formControlName="weight" placeholder="Grams">
             </div>
             <div class="bulk-cost-inputs">
               <div class="input-with-label">
-                <span class="tiny-label-mobile">Package Price ($)</span>
-                <input type="number" formControlName="bulkPrice" placeholder="Price Paid">
+                <label for="ingredient-bulk-price-{{i}}" class="tiny-label-mobile">Package Price ($)</label>
+                <input type="number" id="ingredient-bulk-price-{{i}}" formControlName="bulkPrice" placeholder="Price Paid">
               </div>
               <div class="input-with-label">
-                <span class="tiny-label-mobile">Package Weight (g)</span>
-                <input type="number" formControlName="bulkWeight" placeholder="Full Weight">
+                <label for="ingredient-bulk-weight-{{i}}" class="tiny-label-mobile">Package Weight (g)</label>
+                <input type="number" id="ingredient-bulk-weight-{{i}}" formControlName="bulkWeight" placeholder="Full Weight">
               </div>
             </div>
             <div class="input-with-label">
-              <span class="tiny-label-mobile">Type</span>
-              <select formControlName="type">
+              <label for="ingredient-type-{{i}}" class="tiny-label-mobile">Type</label>
+              <select id="ingredient-type-{{i}}" formControlName="type">
                 @for (type of ingredientTypes; track type) {
                   <option [value]="type">{{type}}</option>
                 }
               </select>
             </div>
-            <button type="button" class="btn-delete-product" (click)="removeIngredient(i)">×</button>
+            <button type="button" class="btn-delete-product" (click)="removeIngredient(i)" [attr.aria-label]="'Remove ingredient ' + (i + 1)">×</button>
           </div>
         }
       </div>
@@ -314,8 +314,8 @@
                 <h4>Calorie Calculator</h4>
                 <div class="calc-inputs">
                   <div class="form-group inline">
-                    <label>Weight (g)</label>
-                    <input type="number" [(ngModel)]="customWeight" placeholder="Grams">
+                    <label for="custom-weight">Weight (g)</label>
+                    <input type="number" id="custom-weight" [(ngModel)]="customWeight" placeholder="Grams">
                   </div>
                   <div class="stat-box highlight">
                     <span class="label">Calories</span>
@@ -364,11 +364,11 @@
           <div class="recipe-list">
             @for (saved of savedRecipes(); track saved.id) {
               <div class="recipe-item">
-                <div class="recipe-info" (click)="loadRecipe(saved)">
+                <button class="recipe-info" (click)="loadRecipe(saved)" [attr.aria-label]="'Load recipe ' + saved.name">
                   <span class="recipe-name">{{saved.name}}</span>
                   <span class="recipe-meta">{{saved.trueHydration | percent:'1.0-0'}} hydration</span>
-                </div>
-                <button class="btn-delete" (click)="confirmDeleteRecipe(saved)">×</button>
+                </button>
+                <button class="btn-delete" (click)="confirmDeleteRecipe(saved)" [attr.aria-label]="'Delete recipe ' + saved.name">×</button>
               </div>
             }
           </div>
@@ -378,11 +378,11 @@
   </div>
 
   @if (recipeToDelete(); as recipe) {
-    <div class="modal-overlay" (click)="cancelDelete()">
+    <div class="modal-overlay" (click)="cancelDelete()" role="dialog" aria-modal="true" aria-labelledby="delete-recipe-title">
       <div class="modal-content card delete-confirm" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h2>Delete Recipe?</h2>
-          <button class="btn-close" (click)="cancelDelete()">×</button>
+          <h2 id="delete-recipe-title">Delete Recipe?</h2>
+          <button class="btn-close" (click)="cancelDelete()" aria-label="Close dialog">×</button>
         </div>
         <div class="modal-body">
           <p>Are you sure you want to delete <strong>{{recipe.name}}</strong>? This action cannot be undone and it will be permanently removed from your cloud library.</p>

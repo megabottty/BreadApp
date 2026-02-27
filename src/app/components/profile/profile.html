@@ -47,7 +47,7 @@
                     @if (hasReview(order.id, item.recipeId)) {
                       <span class="review-status-tag">Reviewed ✓</span>
                     } @else {
-                      <button class="btn-review-inline" (click)="startReview(order.id, item.recipeId)" title="Leave a review">★</button>
+                      <button class="btn-review-inline" (click)="startReview(order.id, item.recipeId)" [attr.aria-label]="'Leave a review for ' + item.name">★</button>
                     }
                   </div>
                 }
@@ -76,14 +76,16 @@
           @if (reviewingOrderId() === order.id) {
             <div class="review-form card">
               <h3>Leave a Review</h3>
-              <div class="rating-input">
+              <div class="rating-input" role="group" aria-label="Rating">
                 @for (star of [1,2,3,4,5]; track star) {
-                  <span class="star-btn"
+                  <button type="button" class="star-btn"
                         [class.active]="reviewRating() >= star"
-                        (click)="reviewRating.set(star)">★</span>
+                        (click)="reviewRating.set(star)"
+                        [attr.aria-label]="star + ' stars'">★</button>
                 }
               </div>
-              <textarea [(ngModel)]="reviewComment" placeholder="How was your bread?"></textarea>
+              <label for="review-comment" class="sr-only">Review comment</label>
+              <textarea id="review-comment" [(ngModel)]="reviewComment" placeholder="How was your bread?"></textarea>
               <div class="btn-group">
                 <button class="btn-primary" (click)="submitReview()">Submit</button>
                 <button class="btn-outline" (click)="cancelReview()">Cancel</button>
@@ -104,7 +106,7 @@
           <span class="perk-name">Reviewer Badge</span>
           <span class="perk-desc">10 reviews = 1 Free Loaf</span>
         </div>
-        <div class="progress-bar">
+        <div class="progress-bar" role="progressbar" [attr.aria-valuenow]="reviewPerkProgress()" aria-valuemin="0" aria-valuemax="100" aria-label="Review perk progress">
           <div class="progress-fill" [style.width.%]="reviewPerkProgress()"></div>
         </div>
         <div class="perk-footer">
@@ -120,7 +122,7 @@
           <span class="perk-name">Bread Addict</span>
           <span class="perk-desc">Every 10 loaves = $8 Off</span>
         </div>
-        <div class="progress-bar">
+        <div class="progress-bar" role="progressbar" [attr.aria-valuenow]="loafPerkProgress()" aria-valuemin="0" aria-valuemax="100" aria-label="Loaf purchase progress">
           <div class="progress-fill bread" [style.width.%]="loafPerkProgress()"></div>
         </div>
         <div class="perk-footer">
@@ -148,12 +150,12 @@
             </div>
             <div class="sub-actions">
               @if (sub.status === 'ACTIVE') {
-                <button class="btn-small" (click)="pauseSubscription(sub.id)">Pause</button>
+                <button class="btn-small" (click)="pauseSubscription(sub.id)" [attr.aria-label]="'Pause subscription for ' + sub.recipeName">Pause</button>
               } @else if (sub.status === 'PAUSED') {
-                <button class="btn-small btn-primary" (click)="resumeSubscription(sub.id)">Resume</button>
+                <button class="btn-small btn-primary" (click)="resumeSubscription(sub.id)" [attr.aria-label]="'Resume subscription for ' + sub.recipeName">Resume</button>
               }
               @if (sub.status !== 'CANCELLED') {
-                <button class="btn-small btn-danger" (click)="cancelSubscription(sub.id)">Cancel</button>
+                <button class="btn-small btn-danger" (click)="cancelSubscription(sub.id)" [attr.aria-label]="'Cancel subscription for ' + sub.recipeName">Cancel</button>
               }
             </div>
           </div>

@@ -3,32 +3,32 @@
     <div class="sidebar-header">
       <span class="logo">📈</span>
       <h2>Business Hub</h2>
-      <button class="btn-hint-mini" (click)="showHint('dashboard')" title="Help">💡</button>
+      <button class="btn-hint-mini" (click)="showHint('dashboard')" aria-label="Show help information">💡</button>
     </div>
-    <nav>
-      <button [class.active]="activeTab() === 'pos'" (click)="activeTab.set('pos')" class="pos-nav-btn">
-        <span class="icon">🛒</span> Point of Sale
+    <nav aria-label="Dashboard navigation">
+      <button [class.active]="activeTab() === 'pos'" (click)="activeTab.set('pos')" class="pos-nav-btn" [attr.aria-current]="activeTab() === 'pos' ? 'page' : null">
+        <span class="icon" aria-hidden="true">🛒</span> Point of Sale
       </button>
-      <button [class.active]="activeTab() === 'orders'" (click)="activeTab.set('orders')">
-        <span class="icon">📋</span> {{ currentTenant()?.business_type === 'BAKERY' ? 'Production' : 'Orders' }}
+      <button [class.active]="activeTab() === 'orders'" (click)="activeTab.set('orders')" [attr.aria-current]="activeTab() === 'orders' ? 'page' : null">
+        <span class="icon" aria-hidden="true">📋</span> {{ currentTenant()?.business_type === 'BAKERY' ? 'Production' : 'Orders' }}
       </button>
-      <button [class.active]="activeTab() === 'ledger'" (click)="activeTab.set('ledger')">
-        <span class="icon">💰</span> Ledger
+      <button [class.active]="activeTab() === 'ledger'" (click)="activeTab.set('ledger')" [attr.aria-current]="activeTab() === 'ledger' ? 'page' : null">
+        <span class="icon" aria-hidden="true">💰</span> Ledger
       </button>
-      <button [class.active]="activeTab() === 'recipes'" (click)="activeTab.set('recipes')">
-        <span class="icon">⚖️</span> {{ currentTenant()?.business_type === 'BAKERY' ? 'Recipes' : 'Products' }}
+      <button [class.active]="activeTab() === 'recipes'" (click)="activeTab.set('recipes')" [attr.aria-current]="activeTab() === 'recipes' ? 'page' : null">
+        <span class="icon" aria-hidden="true">⚖️</span> {{ currentTenant()?.business_type === 'BAKERY' ? 'Recipes' : 'Products' }}
       </button>
-      <button [class.active]="activeTab() === 'settings'" (click)="activeTab.set('settings')">
-        <span class="icon">⚙️</span> Business Settings
+      <button [class.active]="activeTab() === 'settings'" (click)="activeTab.set('settings')" [attr.aria-current]="activeTab() === 'settings' ? 'page' : null">
+        <span class="icon" aria-hidden="true">⚙️</span> Business Settings
       </button>
-      <button [class.active]="activeTab() === 'inventory'" (click)="activeTab.set('inventory')">
-        <span class="icon">📦</span> Inventory
+      <button [class.active]="activeTab() === 'inventory'" (click)="activeTab.set('inventory')" [attr.aria-current]="activeTab() === 'inventory' ? 'page' : null">
+        <span class="icon" aria-hidden="true">📦</span> Inventory
       </button>
-      <button [class.active]="activeTab() === 'forecast'" (click)="activeTab.set('forecast')">
-        <span class="icon">📊</span> Insights
+      <button [class.active]="activeTab() === 'forecast'" (click)="activeTab.set('forecast')" [attr.aria-current]="activeTab() === 'forecast' ? 'page' : null">
+        <span class="icon" aria-hidden="true">📊</span> Insights
       </button>
-      <button [class.active]="activeTab() === 'billing'" (click)="activeTab.set('billing')">
-        <span class="icon">💳</span> Billing
+      <button [class.active]="activeTab() === 'billing'" (click)="activeTab.set('billing')" [attr.aria-current]="activeTab() === 'billing' ? 'page' : null">
+        <span class="icon" aria-hidden="true">💳</span> Billing
       </button>
     </nav>
     <div class="sidebar-footer">
@@ -59,7 +59,7 @@
         <header>
           <div style="display: flex; align-items: center; gap: 1rem;">
             <h1>Business Settings</h1>
-            <button class="btn-hint" (click)="showHint('setup-wizard')">💡 Help</button>
+            <button class="btn-hint" (click)="showHint('setup-wizard')" aria-label="Show help information">💡 Help</button>
           </div>
           <p>Customize your professional presence on BreadApp.</p>
         </header>
@@ -71,12 +71,12 @@
               <h4>Branding</h4>
               <div class="branding-grid">
                 <div class="color-picker">
-                  <label>Primary Color</label>
-                  <input type="color" #primaryCol [ngModel]="currentTenant()?.primary_color">
+                  <label for="primary-color">Primary Color</label>
+                  <input type="color" id="primary-color" #primaryCol [ngModel]="currentTenant()?.primary_color">
                 </div>
                 <div class="color-picker">
-                  <label>Secondary Color</label>
-                  <input type="color" #secondaryCol [ngModel]="currentTenant()?.secondary_color">
+                  <label for="secondary-color">Secondary Color</label>
+                  <input type="color" id="secondary-color" #secondaryCol [ngModel]="currentTenant()?.secondary_color">
                 </div>
               </div>
             </div>
@@ -86,8 +86,8 @@
                 <h4>🔥 Oven Configuration</h4>
                 <p class="description">Configure your oven capacity to optimize "Smart Batches".</p>
                 <div class="form-group">
-                  <label>Oven Capacity (Loaves per batch)</label>
-                  <input type="number" [(ngModel)]="ovenCapacityValue" class="form-control" style="max-width: 150px;">
+                  <label for="oven-capacity">Oven Capacity (Loaves per batch)</label>
+                  <input type="number" id="oven-capacity" [(ngModel)]="ovenCapacityValue" class="form-control" style="max-width: 150px;">
                   <small class="form-hint">How many loaves can you bake at once?</small>
                 </div>
               </div>
@@ -97,17 +97,17 @@
               <h4>📍 Location & Contact</h4>
               <p class="description">This information will appear in your storefront footer and on the map.</p>
               <div class="form-group">
-                <label>Business Address</label>
-                <input type="text" #shopAddress [ngModel]="currentTenant()?.address" class="form-control" placeholder="e.g. 123 Main St, London">
+                <label for="shop-address">Business Address</label>
+                <input type="text" id="shop-address" #shopAddress [ngModel]="currentTenant()?.address" class="form-control" placeholder="e.g. 123 Main St, London">
               </div>
               <div class="branding-grid">
                 <div class="form-group">
-                  <label>Public Phone</label>
-                  <input type="tel" #shopPhone [ngModel]="currentTenant()?.phone" class="form-control" placeholder="e.g. (555) 000-0000">
+                  <label for="shop-phone">Public Phone</label>
+                  <input type="tel" id="shop-phone" #shopPhone [ngModel]="currentTenant()?.phone" class="form-control" placeholder="e.g. (555) 000-0000">
                 </div>
                 <div class="form-group">
-                  <label>Public Email</label>
-                  <input type="email" #shopEmail [ngModel]="currentTenant()?.email" class="form-control" placeholder="e.g. hello@mybusiness.com">
+                  <label for="shop-email">Public Email</label>
+                  <input type="email" id="shop-email" #shopEmail [ngModel]="currentTenant()?.email" class="form-control" placeholder="e.g. hello@mybusiness.com">
                 </div>
               </div>
             </div>
@@ -120,8 +120,8 @@
         <div class="card">
           <h3>Store Status</h3>
           <div class="status-toggle">
-            <span>Accepting Orders</span>
-            <button class="btn-toggle active">ON</button>
+            <span id="accepting-orders-label">Accepting Orders</span>
+            <button class="btn-toggle active" role="switch" aria-checked="true" aria-labelledby="accepting-orders-label">ON</button>
           </div>
         </div>
 
@@ -148,8 +148,8 @@
           </div>
 
           <div class="form-group" style="margin-top: 1rem;">
-            <label>Toast Client ID</label>
-            <input type="text" placeholder="Enter your Toast Client ID" class="form-control">
+            <label for="toast-client-id">Toast Client ID</label>
+            <input type="text" id="toast-client-id" placeholder="Enter your Toast Client ID" class="form-control">
           </div>
 
           <div class="btn-group" style="margin-top: 1.5rem;">
@@ -169,7 +169,7 @@
             <div>
               <div style="display: flex; align-items: center; gap: 1rem;">
                 <h1>Ingredient Inventory</h1>
-                <button class="btn-hint" (click)="showHint('inventory')">💡 Help</button>
+                <button class="btn-hint" (click)="showHint('inventory')" aria-label="Show help information">💡 Help</button>
               </div>
               <p>Track your stock levels for flour, yeast, and inclusions.</p>
             </div>
@@ -189,12 +189,12 @@
                 }
               </div>
               <div class="stock-level">
-                <div class="progress-bar">
+                <div class="progress-bar" role="progressbar" [attr.aria-valuenow]="item.percentage" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="item.name + ' stock level'">
                   <div class="progress" [style.width.%]="item.percentage" [class.low]="item.isLow"></div>
                 </div>
                 <span>{{item.stock | number:'1.0-0'}}g / {{item.needed | number:'1.0-0'}}g needed</span>
               </div>
-              <button class="btn-small" (click)="updateStock(item.name)">Update Stock</button>
+              <button class="btn-small" (click)="updateStock(item.name)" [attr.aria-label]="'Update stock for ' + item.name">Update Stock</button>
             </div>
           } @empty {
             <div class="card empty-state">
