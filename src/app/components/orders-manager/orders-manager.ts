@@ -293,6 +293,45 @@ export class OrdersManagerComponent implements OnInit {
     }
   }
 
+  canCancelOrder(order: Order): boolean {
+    if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
+      return false;
+    }
+
+    const pickupDate = order.pickupDate ? new Date(order.pickupDate) : null;
+    if (!pickupDate) return false;
+
+    const now = new Date();
+    const daysUntilPickup = Math.ceil((pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    return daysUntilPickup > 3;
+  }
+
+  cancelOrder(order: Order) {
+    const pickupDate = order.pickupDate ? new Date(order.pickupDate) : null;
+    const daysUntilPickup = pickupDate ? Math.ceil((pickupDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+    this.modalService.showConfirm(
+      `Are you sure you want to cancel order #${order.id} for ${order.customerName}?\n\nThis order is scheduled for ${pickupDate?.toLocaleDateString()} (${daysUntilPickup} days away).\n\nCustomer will be notified of the cancellation.`,
+      'Cancel Order',
+      () => {
+        this.http.patch(`${environment.apiUrl}/orders/${order.id}/status`, { status: 'CANCELLED' }, { headers: this.headers }).subscribe({
+          next: () => {
+            this.allOrders.update(orders =>
+              orders.map(o => o.id === order.id ? { ...o, status: 'CANCELLED' } : o)
+            );
+            this.notificationService.sendSMS(order.customerPhone, `Your order #${order.id} has been cancelled. Please contact us if you have any questions.`);
+            this.modalService.showAlert('Order cancelled and customer notified.', 'Cancelled', 'success');
+          },
+          error: (err) => {
+            console.error('Failed to cancel order:', err);
+            this.modalService.showAlert('Failed to cancel order. Please try again.', 'Error', 'error');
+          }
+        });
+      }
+    );
+  }
+
   getRecipeCategory(recipeName: string): string {
     const recipe = this.savedRecipes().find(r => r.name === recipeName);
     return recipe?.category || 'BREAD';

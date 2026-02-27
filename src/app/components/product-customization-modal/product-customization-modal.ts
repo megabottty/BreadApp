@@ -42,8 +42,8 @@ export class ProductCustomizationModalComponent {
 
     if (product.name.toLowerCase().includes('bread') || product.name.toLowerCase().includes('loaf')) {
       return [
-        { name: 'Sliced', price: 0, selected: false },
-        { name: 'Double Baked (Extra Crusty)', price: 0, selected: false }
+        { name: 'Sliced', price: 2.00, selected: false },
+        { name: 'Double Baked (Extra Crusty)', price: 1.00, selected: false }
       ];
     }
 

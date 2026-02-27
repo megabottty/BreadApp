@@ -27,11 +27,17 @@ const orderRoutes = require('./routes/orders');
 const paymentRoutes = require('./routes/payments');
 const notificationRoutes = require('./routes/notifications');
 const contactRoutes = require('./routes/contact');
+const taxRoutes = require('./routes/tax');
+const expenseRoutes = require('./routes/expenses');
+const notificationSchedulerRoutes = require('./routes/notifications-scheduler');
 
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/contact-us', contactRoutes);
+app.use('/api/tax', taxRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is rising on port ${PORT}`);

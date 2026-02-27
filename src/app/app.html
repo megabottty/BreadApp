@@ -32,6 +32,12 @@
           <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMenu()">
             <span class="icon">📊</span> Baker Dashboard
           </a>
+          <a routerLink="/prep-timeline" routerLinkActive="active" (click)="closeMenu()">
+            <span class="icon">⏰</span> Prep Timeline
+          </a>
+          <a routerLink="/pos" routerLinkActive="active" (click)="closeMenu()">
+            <span class="icon">💳</span> POS Terminal
+          </a>
         }
         <a routerLink="/front" routerLinkActive="active" (click)="closeMenu()">
           <span class="icon">🥖</span> Storefront
@@ -101,3 +107,4 @@
 <app-notification-modal></app-notification-modal>
 <app-product-customization-modal></app-product-customization-modal>
 <app-install-prompt></app-install-prompt>
+<app-toast-container></app-toast-container>

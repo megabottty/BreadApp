@@ -20,7 +20,7 @@ export interface Ingredient {
   bulkWeight?: number;  // How much the pack weighs (in grams)
 }
 
-export type RecipeCategory = 'BREAD' | 'PASTRY' | 'COOKIE' | 'BAGEL' | 'MUFFIN' | 'SPECIAL' | 'OTHER';
+export type RecipeCategory = 'BREAD' | 'PASTRY' | 'COOKIE' | 'BAGEL' | 'MUFFIN' | 'SCONE' | 'SPECIAL' | 'OTHER';
 export type FlavorProfile = 'SWEET' | 'SAVORY' | 'PLAIN';
 
 export interface Review {
@@ -243,6 +243,8 @@ export interface Order {
   notes?: string;
   tableNumber?: string;
   paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  subtotal?: number; // Added for tax calculation
+  taxAmount?: number; // Added for tax tracking
   totalPrice: number;
   promoCode?: string;
   discountApplied?: number;

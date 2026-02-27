@@ -111,6 +111,9 @@
                 @if (order.status !== 'COMPLETED' && order.status !== 'CANCELLED') {
                   <button class="btn-small btn-outline" (click)="updateOrderStatus(order.id, 'COMPLETED')" [attr.aria-label]="'Mark order ' + order.id + ' as completed'">Complete</button>
                 }
+                @if (canCancelOrder(order)) {
+                  <button class="btn-small btn-danger" (click)="cancelOrder(order)" [attr.aria-label]="'Cancel order ' + order.id">Cancel Order</button>
+                }
               </div>
             </div>
           </div>

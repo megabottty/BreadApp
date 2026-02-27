@@ -6,7 +6,10 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
+import { TaxService } from '../../services/tax.service';
+import { ToastService } from '../../services/toast.service';
 import { CalculatedRecipe, Order, OrderItem } from '../../logic/bakers-math';
+import * as QRCode from 'qrcode';
 
 @Component({
   selector: 'app-pos-terminal',
@@ -20,6 +23,8 @@ export class PosTerminalComponent {
   public tenantService = inject(TenantService);
   private modalService = inject(ModalService);
   private helpService = inject(HelpService);
+  private taxService = inject(TaxService);
+  private toastService = inject(ToastService);
 
   savedRecipes = signal<CalculatedRecipe[]>([]);
   cart = signal<OrderItem[]>([]);
@@ -32,6 +37,8 @@ export class PosTerminalComponent {
   tableNumber = signal('');
   paymentMethod = signal<'CASH' | 'CARD'>('CARD');
   isProcessing = signal(false);
+  paymentQrCode = signal<string | null>(null);
+  showQrModal = signal(false);
 
   categories = computed(() => {
     const cats = new Set(this.savedRecipes().map(r => r.category));
@@ -57,11 +64,20 @@ export class PosTerminalComponent {
     return products;
   });
 
-  cartTotal = computed(() => {
+  cartSubtotal = computed(() => {
     return this.cart().reduce((sum, item) => {
       const recipe = this.savedRecipes().find(r => r.id === item.recipeId);
       return sum + (recipe?.price || 0) * item.quantity;
     }, 0);
+  });
+
+  cartTax = computed(() => {
+    const subtotal = this.cartSubtotal();
+    return this.taxService.calculateTax(subtotal);
+  });
+
+  cartTotal = computed(() => {
+    return this.cartSubtotal() + this.cartTax();
   });
 
   cartWithPrices = computed(() => {
@@ -85,14 +101,23 @@ export class PosTerminalComponent {
       const tenant = this.tenantService.tenant();
       if (tenant) {
         this.loadProducts();
+        this.taxService.loadTaxSettings();
       }
     });
   }
 
   loadProducts() {
     this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers: this.headers }).subscribe({
-      next: (recipes) => this.savedRecipes.set(recipes),
-      error: (err) => console.error('Failed to load POS products:', err)
+      next: (recipes) => {
+        this.savedRecipes.set(recipes);
+        if (recipes.length === 0) {
+          this.toastService.warning('No products found. Add products in the Recipe Calculator first.');
+        }
+      },
+      error: (err) => {
+        console.error('Failed to load POS products:', err);
+        // Error interceptor will show toast
+      }
     });
   }
 
@@ -146,6 +171,19 @@ export class PosTerminalComponent {
 
     const orderId = 'POS-' + Math.random().toString(36).substring(7).toUpperCase();
 
+    // Check payment method
+    if (this.paymentMethod() === 'CASH') {
+      // Cash payment - complete immediately
+      this.completeCashOrder(orderId);
+    } else {
+      // Card payment - create Stripe payment link
+      this.createCardPayment(orderId);
+    }
+  }
+
+  private completeCashOrder(orderId: string) {
+    const items = this.cart();
+
     const finalOrder: Order = {
       id: orderId,
       customerId: 'pos',
@@ -157,11 +195,13 @@ export class PosTerminalComponent {
       paymentStatus: 'PAID',
       tableNumber: this.tableNumber(),
       items: items,
+      subtotal: this.cartSubtotal(),
+      taxAmount: this.cartTax(),
       totalPrice: this.cartTotal(),
       shippingCost: 0,
       paymentMethod: {
-        brand: this.paymentMethod(),
-        last4: 'POS'
+        brand: 'CASH',
+        last4: 'CASH'
       },
       createdAt: new Date().toISOString()
     };
@@ -169,15 +209,84 @@ export class PosTerminalComponent {
     this.http.post(`${environment.apiUrl}/orders`, finalOrder, { headers: this.headers }).subscribe({
       next: () => {
         this.isProcessing.set(false);
-        this.modalService.showAlert(`Order #${orderId} completed successfully!`, 'Sale Recorded', 'success');
+        this.toastService.success(`Cash payment received! Order #${orderId} - Total: $${this.cartTotal().toFixed(2)}`);
         this.clearCart();
       },
       error: (err) => {
         this.isProcessing.set(false);
         console.error('POS checkout failed:', err);
-        this.modalService.showAlert('Failed to record sale. Please try again.', 'Checkout Error', 'error');
       }
     });
+  }
+
+  private createCardPayment(orderId: string) {
+    // DON'T create order yet - it will be created by webhook after payment
+    // Just create Stripe session with order details in metadata
+    const metadata = {
+      customerName: this.customerName(),
+      customerPhone: this.customerPhone(),
+      tableNumber: this.tableNumber(),
+      orderSource: 'WALK_IN',
+      subtotal: this.cartSubtotal().toString(),
+      taxAmount: this.cartTax().toString(),
+      totalPrice: this.cartTotal().toString(),
+      mode: 'pos'
+    };
+
+    const checkoutData = {
+      items: this.cart().map(item => {
+        const product = this.savedRecipes().find(r => r.id === item.recipeId);
+        return {
+          name: item.name,
+          price: product?.price || 0,
+          quantity: item.quantity
+        };
+      }),
+      customerEmail: this.customerPhone() ? `${this.customerPhone()}@pos.temp` : 'pos@example.com',
+      metadata: metadata
+    };
+
+    this.http.post<{ url: string }>(`${environment.apiUrl}/payments/create-checkout-session`, checkoutData, {
+      headers: this.headers
+    }).subscribe({
+      next: async (session) => {
+        this.isProcessing.set(false);
+        if (session.url) {
+          // Generate QR code for the payment link
+          try {
+            const qrCodeDataUrl = await QRCode.toDataURL(session.url, {
+              width: 300,
+              margin: 2,
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+              }
+            });
+            this.paymentQrCode.set(qrCodeDataUrl);
+            this.showQrModal.set(true);
+          } catch (err) {
+            console.error('Failed to generate QR code:', err);
+            // Fallback to showing URL if QR generation fails
+            this.modalService.showAlert(
+              `Payment link created! Have customer visit:\n\n${session.url}\n\nOrder will be created when payment is received.`,
+              `Total: $${this.cartTotal().toFixed(2)}`,
+              'info'
+            );
+          }
+          this.clearCart();
+        }
+      },
+      error: (err) => {
+        this.isProcessing.set(false);
+        console.error('Failed to create payment link:', err);
+        this.toastService.error('Failed to create payment link.');
+      }
+    });
+  }
+
+  closeQrModal() {
+    this.showQrModal.set(false);
+    this.paymentQrCode.set(null);
   }
 
   showHint() {

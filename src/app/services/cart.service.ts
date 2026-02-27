@@ -204,7 +204,7 @@ export class CartService {
     return this.http.post(this.apiUrl, order, { headers: this.headers });
   }
 
-  createCheckoutSession(items: CartItem[], customerEmail: string, orderId: string) {
+  createCheckoutSession(items: CartItem[], customerEmail: string, orderId?: string, metadata?: any) {
     const payload = {
       items: items.map(item => ({
         name: item.product.name,
@@ -212,7 +212,8 @@ export class CartService {
         product: { price: item.product.price }
       })),
       customerEmail,
-      orderId
+      orderId,
+      metadata
     };
     return this.http.post<{ id: string, url: string }>(`${this.paymentUrl}/create-checkout-session`, payload);
   }

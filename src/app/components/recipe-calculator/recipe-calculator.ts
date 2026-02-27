@@ -34,7 +34,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   recipeForm: FormGroup;
   ingredientTypes: IngredientType[] = ['FLOUR', 'WATER', 'LEVAIN', 'SALT', 'INCLUSION'];
-  recipeCategories: RecipeCategory[] = ['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SPECIAL', 'OTHER'];
+  recipeCategories: RecipeCategory[] = ['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SCONE', 'SPECIAL', 'OTHER'];
   flavorProfiles: FlavorProfile[] = ['SWEET', 'SAVORY', 'PLAIN'];
   knownIngredients = Object.keys(MOCK_INGREDIENTS_DB);
 

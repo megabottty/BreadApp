@@ -52,6 +52,28 @@ export class CartComponent implements OnInit {
     return d.toISOString().split('T')[0];
   });
 
+  checkoutBlockedReason = computed(() => {
+    if (this.fulfillmentType() === 'SHIPPING' && !this.dispatchDate()) {
+      return 'Please select a dispatch date (Monday or Tuesday)';
+    }
+    if (this.fulfillmentType() === 'SHIPPING' && !this.isDispatchDateValid(this.dispatchDate())) {
+      return 'Dispatch date must be a Monday or Tuesday, at least 48 hours from now';
+    }
+    if (this.fulfillmentType() === 'PICKUP' && !this.pickupDate()) {
+      return 'Please select a pickup date';
+    }
+    if (this.fulfillmentType() === 'PICKUP' && !this.isPickupDateValid(this.pickupDate())) {
+      return 'Pickup date must be at least 48 hours from now';
+    }
+    if (!this.authService.isAuthenticated() && !this.guestName()) {
+      return 'Please enter your name for guest checkout';
+    }
+    if (!this.authService.isAuthenticated() && !this.guestPhone()) {
+      return 'Please enter your phone number for order updates';
+    }
+    return null;
+  });
+
   // Monday = 1, Tuesday = 2
   isDispatchDateValid = (date: string) => {
     if (!date) return false;
@@ -133,75 +155,88 @@ export class CartComponent implements OnInit {
       return;
     }
 
-    // Simulate Order Creation & Confirmation
-    const orderId = Math.random().toString(36).substring(7).toUpperCase();
     const customerName = isGuest ? this.guestName() : (this.authService.user()?.name || 'Valued Customer');
     const customerPhone = isGuest ? this.guestPhone() : '555-0123';
 
-    console.log('Order created with notes:', this.notes());
-    this.notificationService.sendOrderConfirmation(customerName, customerPhone, orderId);
-    this.notificationService.sendBakerOrderAlert(orderId, customerName);
+    // If paying at pickup, create order immediately (payment happens later at pickup)
+    if (this.payAtPickup() && this.fulfillmentType() === 'PICKUP') {
+      const orderId = 'POS-' + Math.random().toString(36).substring(7).toUpperCase();
+      console.log('Pay at pickup selected - creating order without payment...');
 
-    // Save order to history
-    const newOrder: Order = {
-      id: orderId,
+      const newOrder: Order = {
+        id: orderId,
+        customerId: isGuest ? 'guest' : (this.authService.user()?.id || 'unknown'),
+        customerName: customerName,
+        customerPhone: customerPhone,
+        type: this.fulfillmentType(),
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
+        pickupDate: this.pickupDate(),
+        items: this.items().map(item => ({
+          recipeId: item.product.id || '',
+          name: item.product.name,
+          quantity: item.quantity,
+          weightGrams: item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0)
+        })),
+        notes: this.notes(),
+        totalPrice: this.totalPrice(),
+        promoCode: this.cartService.appliedPromo()?.code,
+        discountApplied: this.cartService.loyaltyDiscount() + this.cartService.promoDiscount(),
+        shippingCost: this.shippingCost(),
+        createdAt: new Date().toISOString()
+      };
+
+      this.cartService.saveOrderToDatabase(newOrder).subscribe({
+        next: (response) => {
+          console.log('Order synced to cloud successfully:', response);
+          this.notificationService.sendOrderConfirmation(customerName, customerPhone, orderId);
+          this.notificationService.sendBakerOrderAlert(orderId, customerName);
+          this.modalService.showAlert(
+            `Thank you for your order, ${customerName}!\n\nConfirmation #${orderId}\n\nPickup Date: ${this.pickupDate()}\n\nYou can pay when you pick up your order. We'll send you a reminder via SMS.`,
+            'Order Confirmed',
+            'success'
+          );
+          this.cartService.clearCart();
+          this.pickupDate.set('');
+          this.guestName.set('');
+          this.guestPhone.set('');
+        },
+        error: (err) => {
+          console.error('Cloud sync failed. Check if backend is running:', err);
+          this.modalService.showAlert('Could not connect to the backend server. Make sure it is running (npm run server).', 'Connection Error', 'error');
+        }
+      });
+      return;
+    }
+
+    // For card payments: Create Stripe session FIRST (don't create order yet)
+    // Order will be created by webhook after successful payment
+    console.log('Initiating Stripe Checkout (order will be created after payment)...');
+    const email = isGuest ? (this.guestPhone() + '@guest.com') : (this.authService.user()?.email || 'customer@example.com');
+
+    // Pass order details as metadata to Stripe
+    const orderMetadata = {
+      customerName,
+      customerPhone,
       customerId: isGuest ? 'guest' : (this.authService.user()?.id || 'unknown'),
-      customerName: customerName,
-      customerPhone: customerPhone,
-      type: this.fulfillmentType(),
-      status: 'PENDING',
+      fulfillmentType: this.fulfillmentType(),
       pickupDate: this.fulfillmentType() === 'PICKUP' ? this.pickupDate() : this.dispatchDate(),
-      items: this.items().map(item => ({
-        recipeId: item.product.id || '',
-        name: item.product.name,
-        quantity: item.quantity,
-        weightGrams: item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0)
-      })),
       notes: this.notes(),
-      totalPrice: this.totalPrice(),
-      promoCode: this.cartService.appliedPromo()?.code,
-      discountApplied: this.cartService.loyaltyDiscount() + this.cartService.promoDiscount(),
-      shippingCost: this.shippingCost(),
-      paymentMethod: this.payAtPickup() ? undefined : { brand: 'Visa', last4: '4242' },
-      createdAt: new Date().toISOString()
+      promoCode: this.cartService.appliedPromo()?.code || '',
+      discountApplied: (this.cartService.loyaltyDiscount() + this.cartService.promoDiscount()).toString(),
+      shippingCost: this.shippingCost().toString()
     };
 
-    const savedOrders = localStorage.getItem('bakery_orders');
-    let allOrders: Order[] = savedOrders ? JSON.parse(savedOrders) : [];
-    allOrders.push(newOrder);
-    localStorage.setItem('bakery_orders', JSON.stringify(allOrders));
-
-    // Send order to real backend
-    console.log('Attempting to sync order with backend...');
-    this.cartService.saveOrderToDatabase(newOrder).subscribe({
-      next: (response) => {
-        console.log('Order synced to cloud successfully:', response);
-
-        if (this.payAtPickup()) {
-          this.modalService.showAlert(`Thank you for your order, ${customerName}! Confirmation # ${orderId} has been sent via SMS and saved to our bakery ledger.`, 'Order Confirmed', 'success');
-          this.cartService.clearCart();
-          return;
+    this.cartService.createCheckoutSession(this.items(), email, undefined, orderMetadata).subscribe({
+      next: (session) => {
+        console.log('Stripe session created:', session);
+        if (session.url) {
+          window.location.href = session.url; // Redirect to Stripe
         }
-
-        // After syncing order, initiate Stripe Checkout
-        console.log('Initiating Stripe Checkout...');
-        const email = isGuest ? (this.guestPhone() + '@guest.com') : (this.authService.user()?.email || 'customer@example.com');
-        this.cartService.createCheckoutSession(this.items(), email, orderId).subscribe({
-          next: (session) => {
-            console.log('Stripe session created:', session);
-            if (session.url) {
-              window.location.href = session.url; // Redirect to Stripe
-            }
-          },
-          error: (err) => {
-            console.error('Stripe session creation failed:', err);
-            this.modalService.showAlert('Failed to initiate payment. Please make sure your backend server is running on port 3000.', 'Payment Error', 'error');
-          }
-        });
       },
       error: (err) => {
-        console.error('Cloud sync failed. Check if backend is running:', err);
-        this.modalService.showAlert('Could not connect to the backend server. Make sure it is running (npm run server).', 'Connection Error', 'error');
+        console.error('Stripe session creation failed:', err);
+        this.modalService.showAlert('Failed to initiate payment. Please make sure your backend server is running on port 3000.', 'Payment Error', 'error');
       }
     });
   }

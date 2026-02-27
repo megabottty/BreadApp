@@ -87,8 +87,14 @@
       <div class="totals">
         <div class="total-row">
           <span>Subtotal</span>
-          <span>{{cartTotal() | currency}}</span>
+          <span>{{cartSubtotal() | currency}}</span>
         </div>
+        @if (cartTax() > 0) {
+          <div class="total-row">
+            <span>Tax</span>
+            <span>{{cartTax() | currency}}</span>
+          </div>
+        }
         <div class="total-row main">
           <span>Total</span>
           <span>{{cartTotal() | currency}}</span>
@@ -126,3 +132,26 @@
     </div>
   </aside>
 </div>
+
+<!-- QR Code Payment Modal -->
+@if (showQrModal()) {
+  <div class="qr-modal-overlay" (click)="closeQrModal()">
+    <div class="qr-modal-content" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title">
+      <button class="qr-modal-close" (click)="closeQrModal()" aria-label="Close payment modal">×</button>
+
+      <h2 id="qr-modal-title">Scan to Pay</h2>
+      <p class="qr-instructions">Have the customer scan this QR code with their phone to complete payment</p>
+
+      @if (paymentQrCode(); as qrCode) {
+        <div class="qr-code-container">
+          <img [src]="qrCode" alt="Payment QR Code" class="qr-code-image">
+        </div>
+      }
+
+      <p class="qr-total">Total: {{cartTotal() | currency}}</p>
+      <p class="qr-hint">Order will automatically complete when payment is received</p>
+
+      <button class="btn-qr-done" (click)="closeQrModal()">Done</button>
+    </div>
+  </div>
+}

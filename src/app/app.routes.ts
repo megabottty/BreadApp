@@ -48,6 +48,16 @@ export const routes: Routes = [
     canActivate: [bakerGuard]
   },
   {
+    path: 'pos',
+    loadComponent: () => import('./components/pos-terminal/pos-terminal').then(m => m.PosTerminalComponent),
+    canActivate: [bakerGuard]
+  },
+  {
+    path: 'prep-timeline',
+    loadComponent: () => import('./components/prep-timeline/prep-timeline').then(m => m.PrepTimelineComponent),
+    canActivate: [bakerGuard]
+  },
+  {
     path: 'front',
     loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent)
   },

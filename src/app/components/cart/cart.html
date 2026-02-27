@@ -1,4 +1,4 @@
-<div class="cart-container" id="main-content">
+w<div class="cart-container" id="main-content">
   <h1>Your Shopping Bag</h1>
 
   @if (items().length === 0) {
@@ -30,6 +30,7 @@
               </div>
               <div class="form-group">
                 <label for="dispatch-date">Dispatch Date (Mon/Tue Only)</label>
+                <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
                 <input type="date" id="dispatch-date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="dispatchDate() && !isDispatchDateValid(dispatchDate())" aria-describedby="dispatch-hint">
                 @if (dispatchDate() && !isDispatchDateValid(dispatchDate())) {
                   <small id="dispatch-hint" class="error-text">Bread only ships on Mondays and Tuesdays, with a 48-hour lead time.</small>
@@ -40,6 +41,7 @@
             <div class="pickup-details">
               <div class="form-group">
                 <label for="pickup-date">Pickup Date</label>
+                <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
                 <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())" aria-describedby="pickup-hint">
                 @if (pickupDate() && !isPickupDateValid(pickupDate())) {
                   <small id="pickup-hint" class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
@@ -170,10 +172,16 @@
           <span>Total</span>
           <span>{{totalPrice() | currency}}</span>
         </div>
+
+        @if (checkoutBlockedReason(); as reason) {
+          <div class="checkout-blocked-message" role="alert">
+            <span class="icon">⚠️</span>
+            <span>{{ reason }}</span>
+          </div>
+        }
+
         <button class="btn-checkout"
-                [disabled]="(fulfillmentType() === 'SHIPPING' && !isDispatchDateValid(dispatchDate())) ||
-                           (fulfillmentType() === 'PICKUP' && !isPickupDateValid(pickupDate())) ||
-                           (!authService.isAuthenticated() && (!guestName() || !guestPhone()))"
+                [disabled]="checkoutBlockedReason() !== null"
                 (click)="checkout()">
           Checkout
         </button>

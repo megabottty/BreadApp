@@ -29,7 +29,7 @@ router.post('/create-checkout-session', async (req, res) => {
   const currentKey = process.env.STRIPE_SECRET_KEY || '';
   console.log(`[Stripe Debug] Creating session using key: ${currentKey.substring(0, 7)}...`);
 
-  const { items, customerEmail, orderId } = req.body;
+  const { items, customerEmail, orderId, metadata } = req.body;
 
   try {
     const lineItems = items.map(item => {
@@ -52,24 +52,108 @@ router.post('/create-checkout-session', async (req, res) => {
     console.log(`[Stripe Debug] Line Items:`, JSON.stringify(lineItems.map(li => ({ name: li.price_data.product_data.name, qty: li.quantity }))));
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+
+    // Build metadata for webhook (combine orderId + custom metadata)
+    const sessionMetadata = {
+      orderId: orderId || 'webhook-generated',
+      ...(metadata || {})
+    };
+
+    // Build success URL based on whether we have orderId
+    const successUrl = orderId
+      ? `${frontendUrl}/order-success/${orderId}`
+      : `${frontendUrl}/order-success/pending`;
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${frontendUrl}/order-success/${orderId}`,
+      success_url: successUrl,
       cancel_url: `${frontendUrl}/cart?canceled=true`,
       customer_email: customerEmail,
-      metadata: {
-        orderId: orderId
-      }
+      metadata: sessionMetadata
     });
 
-    console.log(`[Stripe Debug] Session created: ${session.id}`);
+    console.log(`[Stripe Debug] Session created: ${session.id} with metadata:`, sessionMetadata);
     res.json({ id: session.id, url: session.url });
   } catch (error) {
     console.error('[Stripe API Error]:', error.message);
     res.status(500).json({ error: error.message });
   }
+});
+
+// POST: Stripe Webhook Handler
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+
+  let event;
+
+  try {
+    // Verify webhook signature
+    if (webhookSecret) {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } else {
+      // For development without webhook secret (NOT RECOMMENDED in production)
+      console.warn('[Stripe Webhook] No webhook secret configured - accepting unverified webhook');
+      event = JSON.parse(req.body);
+    }
+  } catch (err) {
+    console.error(`[Stripe Webhook Error] ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  console.log(`[Stripe Webhook] Received event: ${event.type}`);
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    console.log(`[Stripe Webhook] Payment successful for session: ${session.id}`);
+    console.log(`[Stripe Webhook] Metadata:`, session.metadata);
+
+    // Create order from metadata
+    const metadata = session.metadata;
+    const orderId = metadata.orderId || ('ORD-' + Math.random().toString(36).substring(7).toUpperCase());
+
+    // Construct order from metadata
+    const newOrder = {
+      id: orderId,
+      customerId: metadata.customerId || 'guest',
+      customerName: metadata.customerName || 'Customer',
+      customerPhone: metadata.customerPhone || '',
+      type: metadata.fulfillmentType || 'PICKUP',
+      orderSource: metadata.orderSource || 'ONLINE',
+      status: 'PENDING',
+      paymentStatus: 'PAID',
+      pickupDate: metadata.pickupDate,
+      tableNumber: metadata.tableNumber,
+      notes: metadata.notes,
+      subtotal: parseFloat(metadata.subtotal || '0'),
+      taxAmount: parseFloat(metadata.taxAmount || '0'),
+      totalPrice: session.amount_total / 100, // Stripe amount is in cents
+      promoCode: metadata.promoCode,
+      discountApplied: parseFloat(metadata.discountApplied || '0'),
+      shippingCost: parseFloat(metadata.shippingCost || '0'),
+      paymentMethod: {
+        brand: session.payment_method_details?.card?.brand || 'card',
+        last4: session.payment_method_details?.card?.last4 || '****'
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    // TODO: Save order to database
+    // For now, just log it
+    console.log(`[Stripe Webhook] Order created:`, newOrder);
+
+    // You would typically save to database here:
+    // await supabase.from('bakery_orders').insert(newOrder);
+  }
+
+  res.json({ received: true });
 });
 
 // POST: Create Subscription with 14-day trial

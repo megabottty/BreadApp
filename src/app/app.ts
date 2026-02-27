@@ -10,6 +10,7 @@ import { FooterComponent } from './components/footer/footer';
 import { InstallPromptComponent } from './components/install-prompt/install-prompt';
 import { PwaService } from './services/pwa.service';
 import { SplashScreenComponent } from './components/splash-screen/splash-screen';
+import { ToastContainerComponent } from './components/toast-container/toast-container';
 
 @Component({
   selector: 'app-root',
@@ -23,7 +24,8 @@ import { SplashScreenComponent } from './components/splash-screen/splash-screen'
     ProductCustomizationModalComponent,
     FooterComponent,
     InstallPromptComponent,
-    SplashScreenComponent
+    SplashScreenComponent,
+    ToastContainerComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css'
