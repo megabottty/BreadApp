@@ -156,6 +156,58 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   res.json({ received: true });
 });
 
+// POST: Create Setup Session (for adding payment method)
+router.post('/create-setup-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+
+  const { tenantId, email } = req.body;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'setup',
+      payment_method_types: ['card'],
+      success_url: `${frontendUrl}/dashboard?payment_setup=success`,
+      cancel_url: `${frontendUrl}/dashboard?payment_setup=cancelled`,
+      customer_email: email,
+      metadata: {
+        tenantId: tenantId
+      }
+    });
+
+    console.log(`[Stripe Setup] Setup session created: ${session.id}`);
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('[Stripe Setup Error]:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Create Customer Portal Session (for managing payment methods)
+router.post('/create-portal-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+
+  const { customerId } = req.body;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${frontendUrl}/dashboard`
+    });
+
+    console.log(`[Stripe Portal] Portal session created for customer: ${customerId}`);
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('[Stripe Portal Error]:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST: Create Subscription with 14-day trial
 router.post('/create-subscription', async (req, res) => {
   if (!stripe) {

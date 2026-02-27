@@ -294,17 +294,12 @@ export class OrdersManagerComponent implements OnInit {
   }
 
   canCancelOrder(order: Order): boolean {
+    // Baker can cancel any order that isn't already completed or cancelled
     if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
       return false;
     }
 
-    const pickupDate = order.pickupDate ? new Date(order.pickupDate) : null;
-    if (!pickupDate) return false;
-
-    const now = new Date();
-    const daysUntilPickup = Math.ceil((pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    return daysUntilPickup > 3;
+    return true;
   }
 
   cancelOrder(order: Order) {

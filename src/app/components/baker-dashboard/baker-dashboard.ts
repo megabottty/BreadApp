@@ -275,4 +275,81 @@ export class BakerDashboardComponent {
       }
     });
   }
+
+  showChangePlanModal = signal(false);
+  selectedPlan = signal<string>('');
+
+  plans = [
+    { id: 'STARTER', name: 'Starter', price: 29, features: ['Up to 100 orders/month', 'Basic analytics', 'Email support'] },
+    { id: 'PROFESSIONAL', name: 'Professional', price: 79, features: ['Up to 500 orders/month', 'Advanced analytics', 'Priority support', 'Inventory management'] },
+    { id: 'ENTERPRISE', name: 'Enterprise', price: 199, features: ['Unlimited orders', 'Custom integrations', 'Dedicated account manager', 'Multi-location support'] }
+  ];
+
+  openChangePlanModal() {
+    this.selectedPlan.set(this.currentTenant()?.subscription_plan || 'STARTER');
+    this.showChangePlanModal.set(true);
+  }
+
+  closeChangePlanModal() {
+    this.showChangePlanModal.set(false);
+  }
+
+  changePlan() {
+    const newPlan = this.selectedPlan();
+    if (!newPlan) return;
+
+    this.modalService.showAlert(
+      `Your plan will be changed to ${newPlan} on your next billing cycle. You will be charged accordingly.`,
+      'Plan Change Scheduled',
+      'success'
+    );
+    this.showChangePlanModal.set(false);
+
+    // TODO: Call backend to update subscription plan
+    // this.http.post(`${environment.apiUrl}/payments/change-plan`, { plan: newPlan }).subscribe(...);
+  }
+
+  linkCard() {
+    const tenant = this.currentTenant();
+    if (!tenant) return;
+
+    // Create a Stripe Checkout session for setting up payment method
+    this.http.post<{ url: string }>(`${environment.apiUrl}/payments/create-setup-session`, {
+      tenantId: tenant.id,
+      email: tenant.email || 'owner@bakery.com'
+    }, { headers: this.headers }).subscribe({
+      next: (response) => {
+        if (response.url) {
+          window.location.href = response.url;
+        }
+      },
+      error: (err) => {
+        console.error('Failed to create setup session:', err);
+        this.modalService.showAlert('Failed to open payment setup. Please try again.', 'Error', 'error');
+      }
+    });
+  }
+
+  openCustomerPortal() {
+    const tenant = this.currentTenant();
+    if (!tenant || !tenant.stripe_account_id) {
+      this.modalService.showAlert('No payment method on file. Please link a card first.', 'No Payment Method', 'info');
+      return;
+    }
+
+    // Open Stripe Customer Portal for managing payment methods
+    this.http.post<{ url: string }>(`${environment.apiUrl}/payments/create-portal-session`, {
+      customerId: tenant.stripe_account_id
+    }, { headers: this.headers }).subscribe({
+      next: (response) => {
+        if (response.url) {
+          window.open(response.url, '_blank');
+        }
+      },
+      error: (err) => {
+        console.error('Failed to open customer portal:', err);
+        this.modalService.showAlert('Failed to open payment portal. Please try again.', 'Error', 'error');
+      }
+    });
+  }
 }

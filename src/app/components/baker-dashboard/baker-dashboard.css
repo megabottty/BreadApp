@@ -444,3 +444,177 @@ nav button.pos-nav-btn.active {
   font-size: 0.8rem;
   color: #8C967D;
 }
+
+/* Plan Selection Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 900px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #8C967D;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: #F1F3EB;
+  color: #5F6F52;
+}
+
+.plan-modal h2 {
+  margin: 0 0 0.5rem;
+  color: #5F6F52;
+  font-size: 1.75rem;
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.plan-card {
+  border: 2px solid #DDE3D5;
+  border-radius: 12px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  background: white;
+}
+
+.plan-card:hover {
+  border-color: #7D8F69;
+  box-shadow: 0 4px 12px rgba(125, 143, 105, 0.2);
+}
+
+.plan-card.selected {
+  border-color: #7D8F69;
+  border-width: 3px;
+  background: linear-gradient(to bottom, rgba(125, 143, 105, 0.05), white);
+}
+
+.plan-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #F1F3EB;
+}
+
+.plan-header h3 {
+  margin: 0 0 0.5rem;
+  color: #5F6F52;
+  font-size: 1.25rem;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.plan-price .price {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #5F6F52;
+}
+
+.plan-price .period {
+  color: #8C967D;
+  font-size: 0.9rem;
+}
+
+.plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plan-features li {
+  padding: 0.5rem 0;
+  color: #6C7A5C;
+  font-size: 0.95rem;
+}
+
+.selected-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: #7D8F69;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.modal-actions .btn-outline {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #7D8F69;
+  background: white;
+  color: #7D8F69;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-actions .btn-outline:hover {
+  background: #7D8F69;
+  color: white;
+}
+
+.modal-actions .btn-primary {
+  padding: 0.75rem 1.5rem;
+  background: #7D8F69;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-actions .btn-primary:hover {
+  background: #6C7A5C;
+}
