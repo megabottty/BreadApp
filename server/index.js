@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,12 +18,7 @@ app.options(/.*/, cors()); // Enable pre-flight across-the-board
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
-// Basic sanity check
-app.get('/', (req, res) => {
-  res.send('The Daily Dough API is running! [DEBUG VERSION 2.0] 🥖');
-});
-
-// We will add real routes here in a moment
+// API Routes (all under /api prefix)
 const orderRoutes = require('./routes/orders');
 const paymentRoutes = require('./routes/payments');
 const notificationRoutes = require('./routes/notifications');
@@ -38,6 +34,14 @@ app.use('/api/contact-us', contactRoutes);
 app.use('/api/tax', taxRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
+
+// Serve Angular static files
+app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser')));
+
+// Catch-all route to serve index.html for Angular routing (must be LAST)
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/BreadApp/browser/index.html'));
+});
 
 app.listen(PORT, () => {
   console.log(`Server is rising on port ${PORT}`);
