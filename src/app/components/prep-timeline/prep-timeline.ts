@@ -1,5 +1,5 @@
 import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { TenantService } from '../../services/tenant.service';
@@ -24,7 +24,7 @@ interface PrepScheduleItem {
 @Component({
   selector: 'app-prep-timeline',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe],
+  imports: [CommonModule, DatePipe],
   template: `
     <div class="prep-timeline-container">
       <header class="timeline-header">
