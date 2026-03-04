@@ -4,15 +4,28 @@ const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('MISSING SUPABASE CONFIG: Check your environment variables!');
+} else if (!process.env.SUPABASE_SERVICE_KEY) {
+  console.warn('SUPABASE_SERVICE_KEY not set. Using SUPABASE_KEY which may be blocked by RLS policies.');
 }
 
 const supabase = (supabaseUrl && supabaseKey)
   ? createClient(supabaseUrl, supabaseKey)
   : null;
+
+const toDateString = (date) => date.toISOString().split('T')[0];
+
+const sumQuantities = (items = []) => items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+const allocateItemRevenue = (order, item, totalUnits) => {
+  if (!totalUnits) return 0;
+  return (order.total_price || 0) * ((item.quantity || 0) / totalUnits);
+};
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 // Middleware to extract tenant_id from headers
 const tenantMiddleware = async (req, res, next) => {
@@ -406,6 +419,354 @@ router.post('/inventory', async (req, res) => {
   } catch (error) {
     console.error('[Inventory Server Error] Failed to update inventory:', error);
     res.status(500).json({ error: 'Failed to update inventory', details: error.message });
+  }
+});
+
+// --- ANALYTICS & FORECASTING ROUTES ---
+
+// GET: Forecast (30-day horizon)
+router.get('/analytics/forecast', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  const horizonDays = parseInt(req.query.days || '30', 10);
+  const lookbackDays = 30;
+  const now = new Date();
+  const startLookback = new Date(now);
+  startLookback.setDate(now.getDate() - lookbackDays);
+
+  try {
+    const { data: orders, error: ordersError } = await supabase
+      .from('bakery_orders')
+      .select('*')
+      .eq('tenant_id', req.tenantId)
+      .gte('created_at', startLookback.toISOString());
+
+    if (ordersError) throw ordersError;
+
+    const { data: recipes, error: recipesError } = await supabase
+      .from('bakery_recipes')
+      .select('id, name, price')
+      .eq('tenant_id', req.tenantId);
+
+    if (recipesError) throw recipesError;
+
+    const recipeTotals = {};
+    const dayBucket = {};
+
+    orders.forEach(order => {
+      const datePart = order.created_at ? order.created_at.split('T')[0] : null;
+      if (!datePart) return;
+      const totalUnits = sumQuantities(order.items || []);
+      dayBucket[datePart] = dayBucket[datePart] || { units: 0, revenue: 0 };
+      dayBucket[datePart].units += totalUnits;
+      dayBucket[datePart].revenue += order.total_price || 0;
+
+      (order.items || []).forEach(item => {
+        const key = item.recipeId || item.name;
+        if (!recipeTotals[key]) {
+          recipeTotals[key] = { name: item.name, recipeId: item.recipeId || null, units: 0, revenue: 0 };
+        }
+        recipeTotals[key].units += item.quantity || 0;
+        recipeTotals[key].revenue += allocateItemRevenue(order, item, totalUnits);
+      });
+    });
+
+    const dates = Object.keys(dayBucket).sort();
+    const last7 = dates.slice(-7);
+    const prev7 = dates.slice(-14, -7);
+
+    const avgUnits = (arr) => {
+      if (arr.length === 0) return 0;
+      return arr.reduce((sum, d) => sum + (dayBucket[d]?.units || 0), 0) / arr.length;
+    };
+
+    const last7Avg = avgUnits(last7);
+    const prev7Avg = avgUnits(prev7);
+    const trendFactor = prev7Avg > 0 ? clamp(last7Avg / prev7Avg, 0.5, 1.5) : 1;
+
+    const coverage = clamp(dates.length / lookbackDays, 0, 1);
+    const confidenceScore = Math.round((0.4 + coverage * 0.5) * 100);
+
+    const topRecipes = Object.values(recipeTotals)
+      .sort((a, b) => b.units - a.units)
+      .slice(0, 10);
+
+    const forecastItems = [];
+    const horizonDates = [];
+    for (let i = 0; i < horizonDays; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + i);
+      horizonDates.push(toDateString(d));
+    }
+
+    topRecipes.forEach(recipe => {
+      const avgDailyUnits = dates.length > 0 ? recipe.units / dates.length : 0;
+      const recipePrice = recipes.find(r => r.id === recipe.recipeId)?.price || 0;
+
+      horizonDates.forEach(dateStr => {
+        const units = Math.max(0, Math.round(avgDailyUnits * trendFactor));
+        forecastItems.push({
+          forecast_date: dateStr,
+          recipe_id: recipe.recipeId,
+          recipe_name: recipe.name,
+          forecast_units: units,
+          forecast_revenue: units * recipePrice,
+          order_source: 'ALL',
+          confidence_score: confidenceScore
+        });
+      });
+    });
+
+    const forecastStart = horizonDates[0];
+    const forecastEnd = horizonDates[horizonDates.length - 1];
+
+    const { data: forecastRecord, error: forecastError } = await supabase
+      .from('bakery_forecasts')
+      .insert({
+        tenant_id: req.tenantId,
+        start_date: forecastStart,
+        end_date: forecastEnd,
+        horizon_days: horizonDays,
+        method: 'SIMPLE_TREND',
+        confidence_level: confidenceScore >= 75 ? 'HIGH' : confidenceScore >= 55 ? 'MEDIUM' : 'LOW'
+      })
+      .select()
+      .single();
+
+    if (forecastError) throw forecastError;
+
+    if (forecastItems.length > 0) {
+      const { error: itemsError } = await supabase
+        .from('bakery_forecast_items')
+        .insert(forecastItems.map(item => ({
+          ...item,
+          tenant_id: req.tenantId,
+          forecast_id: forecastRecord.id
+        })));
+
+      if (itemsError) throw itemsError;
+    }
+
+    res.json({
+      forecast: forecastRecord,
+      items: forecastItems,
+      trendFactor,
+      confidenceScore
+    });
+  } catch (error) {
+    console.error('Failed to generate forecast:', error);
+    res.status(500).json({ error: 'Failed to generate forecast', details: error.message });
+  }
+});
+
+// GET: Top Sellers (last 30 days)
+router.get('/analytics/top-sellers', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  const lookbackDays = parseInt(req.query.days || '30', 10);
+  const limit = parseInt(req.query.limit || '10', 10);
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - lookbackDays);
+
+  try {
+    const { data: orders, error: ordersError } = await supabase
+      .from('bakery_orders')
+      .select('*')
+      .eq('tenant_id', req.tenantId)
+      .gte('created_at', startDate.toISOString());
+
+    if (ordersError) throw ordersError;
+
+    const productMap = {};
+
+    orders.forEach(order => {
+      const totalUnits = sumQuantities(order.items || []);
+      (order.items || []).forEach(item => {
+        const key = item.recipeId || item.name;
+        if (!productMap[key]) {
+          productMap[key] = { recipeId: item.recipeId || null, recipeName: item.name, units: 0, revenue: 0 };
+        }
+        productMap[key].units += item.quantity || 0;
+        productMap[key].revenue += allocateItemRevenue(order, item, totalUnits);
+      });
+    });
+
+    const ranked = Object.values(productMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit)
+      .map((item, index) => ({
+        ...item,
+        rank: index + 1
+      }));
+
+    const startDateStr = toDateString(startDate);
+    const endDateStr = toDateString(now);
+
+    const { data: snapshot, error: snapshotError } = await supabase
+      .from('bakery_top_sellers')
+      .insert({
+        tenant_id: req.tenantId,
+        start_date: startDateStr,
+        end_date: endDateStr
+      })
+      .select()
+      .single();
+
+    if (snapshotError) throw snapshotError;
+
+    if (ranked.length > 0) {
+      const { error: itemsError } = await supabase
+        .from('bakery_top_seller_items')
+        .insert(ranked.map(item => ({
+          tenant_id: req.tenantId,
+          top_seller_id: snapshot.id,
+          recipe_id: item.recipeId,
+          recipe_name: item.recipeName,
+          units_sold: item.units,
+          revenue: item.revenue,
+          rank: item.rank
+        })));
+
+      if (itemsError) throw itemsError;
+    }
+
+    res.json({
+      snapshot,
+      items: ranked
+    });
+  } catch (error) {
+    console.error('Failed to generate top sellers:', error);
+    res.status(500).json({ error: 'Failed to generate top sellers', details: error.message });
+  }
+});
+
+// GET: Supply Plan (30-day forecast)
+router.get('/analytics/supply-plan', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  const horizonDays = parseInt(req.query.days || '30', 10);
+  const leadTimeDays = parseInt(req.query.leadTime || '7', 10);
+  const safetyBuffer = parseFloat(req.query.buffer || '5000');
+  const now = new Date();
+  const endDate = new Date(now);
+  endDate.setDate(now.getDate() + horizonDays);
+
+  try {
+    const { data: recipes, error: recipesError } = await supabase
+      .from('bakery_recipes')
+      .select('id, name, ingredients')
+      .eq('tenant_id', req.tenantId);
+
+    if (recipesError) throw recipesError;
+
+    const { data: inventory, error: inventoryError } = await supabase
+      .from('bakery_inventory')
+      .select('*')
+      .eq('tenant_id', req.tenantId);
+
+    if (inventoryError) throw inventoryError;
+
+    const forecastResponse = await supabase
+      .from('bakery_forecasts')
+      .select('id')
+      .eq('tenant_id', req.tenantId)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let forecastItems = [];
+    if (forecastResponse?.data?.id) {
+      const { data: items, error: itemsError } = await supabase
+        .from('bakery_forecast_items')
+        .select('*')
+        .eq('forecast_id', forecastResponse.data.id);
+
+      if (itemsError) throw itemsError;
+      forecastItems = items || [];
+    }
+
+    const needsMap = {};
+    forecastItems.forEach(item => {
+      const recipe = recipes.find(r => r.id === item.recipe_id) || recipes.find(r => r.name === item.recipe_name);
+      if (!recipe) return;
+      (recipe.ingredients || []).forEach(ingredient => {
+        const ingName = ingredient.name;
+        const weight = ingredient.weight || 0;
+        needsMap[ingName] = (needsMap[ingName] || 0) + weight * (item.forecast_units || 0);
+      });
+    });
+
+    const planItems = Object.entries(needsMap).map(([ingredientName, forecastNeed]) => {
+      const inventoryItem = inventory.find(item => item.ingredient_name === ingredientName);
+      const currentStock = inventoryItem?.current_stock || 0;
+      const needed = forecastNeed || 0;
+      const reorderBase = Math.max(0, needed - currentStock);
+      const reorderAmount = reorderBase > 0 ? reorderBase + safetyBuffer : 0;
+
+      return {
+        ingredient_name: ingredientName,
+        current_stock: currentStock,
+        forecast_need: needed,
+        reorder_amount: reorderAmount,
+        unit: inventoryItem?.unit || 'g'
+      };
+    });
+
+    const { data: planRecord, error: planError } = await supabase
+      .from('bakery_supply_plans')
+      .insert({
+        tenant_id: req.tenantId,
+        start_date: toDateString(now),
+        end_date: toDateString(endDate),
+        lead_time_days: leadTimeDays,
+        safety_buffer_grams: safetyBuffer
+      })
+      .select()
+      .single();
+
+    if (planError) throw planError;
+
+    if (planItems.length > 0) {
+      const { error: itemsError } = await supabase
+        .from('bakery_supply_plan_items')
+        .insert(planItems.map(item => ({
+          tenant_id: req.tenantId,
+          supply_plan_id: planRecord.id,
+          ingredient_name: item.ingredient_name,
+          current_stock: item.current_stock,
+          forecast_need: item.forecast_need,
+          reorder_amount: item.reorder_amount,
+          unit: item.unit
+        })));
+
+      if (itemsError) throw itemsError;
+    }
+
+    res.json({
+      plan: planRecord,
+      items: planItems,
+      leadTimeDays,
+      safetyBuffer
+    });
+  } catch (error) {
+    console.error('Failed to generate supply plan:', error);
+    res.status(500).json({ error: 'Failed to generate supply plan', details: error.message });
   }
 });
 

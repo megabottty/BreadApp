@@ -37,6 +37,22 @@
         <span class="value">{{ summaryStats().aov | currency }}</span>
         <span class="trend">{{ summaryStats().orderCount }} total orders</span>
       </div>
+      <div class="kpi-card">
+        <span class="label">
+          Forecast Revenue
+          <span class="tooltip-icon" title="Projected revenue for the next 30 days based on recent order velocity.">ⓘ</span>
+        </span>
+        <span class="value">{{ forecastSummary().totalRevenue | currency }}</span>
+        <span class="trend">Next 30 Days</span>
+      </div>
+      <div class="kpi-card">
+        <span class="label">
+          Forecast Units
+          <span class="tooltip-icon" title="Expected unit volume across all products in the next 30 days.">ⓘ</span>
+        </span>
+        <span class="value">{{ forecastSummary().totalUnits | number:'1.0-0' }}</span>
+        <span class="trend">Next 30 Days</span>
+      </div>
     </div>
 
     <!-- Main Charts -->
@@ -109,6 +125,59 @@
                   <td>{{item.count}}</td>
                   <td>{{item.revenue | currency}}</td>
                   <td>{{ (item.revenue / summaryStats().totalRevenue) | percent:'1.1-1' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-secondary-grid" style="margin-top: 1.5rem;">
+      <!-- Forecast Trend -->
+      <div class="card chart-card revenue-trend">
+        <div class="card-header">
+          <h3>
+            30-Day Demand Forecast
+            <span class="tooltip-icon" title="Daily projected units using the 30-day trend from recent orders.">ⓘ</span>
+          </h3>
+          <p>Projected units based on recent order velocity</p>
+        </div>
+        <div class="chart-wrapper">
+          <canvas baseChart
+            [data]="forecastChartData"
+            [options]="lineChartOptions"
+            [type]="'line'">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Top Sellers Table -->
+      <div class="card performance-table">
+        <div class="card-header">
+          <h3>
+            Top Sellers (30 Days)
+            <span class="tooltip-icon" title="Ranks products by revenue over the last 30 days with unit volume.">ⓘ</span>
+          </h3>
+          <p>Ranked by revenue with unit volume</p>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Product</th>
+                <th>Units</th>
+                <th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of topSellers(); track item.recipeName) {
+                <tr>
+                  <td>#{{item.rank}}</td>
+                  <td><strong>{{item.recipeName}}</strong></td>
+                  <td>{{item.units}}</td>
+                  <td>{{item.revenue | currency}}</td>
                 </tr>
               }
             </tbody>

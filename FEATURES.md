@@ -55,3 +55,33 @@ A unified dashboard for managing everything:
 - **Backend**: Node.js/Express.
 - **Database**: Supabase (PostgreSQL) with Row-Level Security readiness.
 - **Payments**: Integrated with Stripe for secure transactions.
+
+---
+
+## ✅ Feature Coverage Matrix (Business Model)
+
+Legend: ✅ Implemented · ⚠️ Partial · ❌ Missing/Planned
+
+| Feature | Status | Current Coverage | Gaps / Notes |
+| --- | --- | --- | --- |
+| Forecasting (data-driven) | ✅ Implemented | 30-day forecast pipeline with backend snapshots and **Business Insights** forecast chart. | Uses simple trend + demand velocity defaults. |
+| Top Sellers | ✅ Implemented | Dedicated top sellers table in **Business Insights** backed by backend snapshot API. | Ranked by revenue + units over last 30 days. |
+| Supply Planning / Inventory Forecasting | ✅ Implemented | Supply planning table in **Inventory** tab with forecast-driven reorder recommendations. | Uses 30-day forecast, 7-day lead time, safety buffer. |
+| Support pop-up events / farmers markets | ❌ Missing | — | Needs events/market calendar + order/channel tagging. |
+| Walk‑in orders | ✅ Implemented | POS terminal + order source tracking. | — |
+| Marketing campaigns | ⚠️ Partial | Promo code manager in **Ledger**. | Full campaign orchestration missing. |
+| Recurring customer orders | ✅ Implemented | Subscriptions in storefront + backend routes. | — |
+| Capacity planning / bottlenecks | ⚠️ Partial | Oven capacity setting + Smart Batching foundations. | No capacity/bottleneck visualization or staffing plan. |
+| Production planning / scheduling | ⚠️ Partial | Orders + prep timeline + recipe prep/bake time. | No schedule builder tied to forecast & constraints. |
+| Financial planning / profit | ⚠️ Partial | Ledger, COGS, profit, margins. | No scenario planning or forward modeling. |
+| Cost reviews | ✅ Implemented | Ledger + recipe costs. | — |
+| Future/Expansion planning | ❌ Missing | — | Requires forecasting + financial modeling + goals. |
+| Market trends | ❌ Missing | — | Needs external data integration. |
+| Sales vs cost trend modeling | ⚠️ Partial | Historic metrics in analytics. | No forward‑looking trend modeling. |
+| Customer outreach (SMS + Email) | ⚠️ Partial | SMS via Twilio + contact email. | Campaign tooling + segmentation needed. |
+| Reviews & customer connection | ✅ Implemented | Review system + replies. | — |
+| Find markets to sell at | ❌ Missing | — | Needs discovery + recommendations. |
+| Strategy & business planning | ❌ Missing | — | Needs strategy modules & guided planning. |
+
+### ✅ TODO
+- **Move the frontend to a Render Static Site** once ready for a split deployment (keep backend on Render Web Service).

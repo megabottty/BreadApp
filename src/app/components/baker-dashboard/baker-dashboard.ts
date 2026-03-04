@@ -45,6 +45,9 @@ export class BakerDashboardComponent {
   allOrders = signal<Order[]>([]);
   inventory = this.inventoryService.inventory;
   targetDeliveryTime = signal<string>('08:00');
+  supplyPlanItems = signal<SupplyPlanItem[]>([]);
+  supplyPlanMeta = signal<SupplyPlanMeta | null>(null);
+  supplyPlanLoading = signal<boolean>(false);
 
   // Inventory logic
   ingredientNeeds = computed(() => {
@@ -112,6 +115,25 @@ export class BakerDashboardComponent {
     effect(() => {
       if (this.activeTab() === 'inventory') {
         this.inventoryService.loadInventory();
+        this.loadSupplyPlan();
+      }
+    });
+  }
+
+  loadSupplyPlan() {
+    const headers = this.headers;
+    if (!headers.has('x-tenant-slug')) return;
+
+    this.supplyPlanLoading.set(true);
+    this.http.get<SupplyPlanResponse>(`${environment.apiUrl}/orders/analytics/supply-plan`, { headers }).subscribe({
+      next: (response) => {
+        this.supplyPlanItems.set(response.items || []);
+        this.supplyPlanMeta.set(response.plan || null);
+        this.supplyPlanLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load supply plan:', err);
+        this.supplyPlanLoading.set(false);
       }
     });
   }
@@ -352,4 +374,25 @@ export class BakerDashboardComponent {
       }
     });
   }
+}
+
+interface SupplyPlanItem {
+  ingredient_name: string;
+  current_stock: number;
+  forecast_need: number;
+  reorder_amount: number;
+  unit: string;
+}
+
+interface SupplyPlanMeta {
+  id: string;
+  start_date: string;
+  end_date: string;
+  lead_time_days: number;
+  safety_buffer_grams: number;
+}
+
+interface SupplyPlanResponse {
+  plan: SupplyPlanMeta;
+  items: SupplyPlanItem[];
 }

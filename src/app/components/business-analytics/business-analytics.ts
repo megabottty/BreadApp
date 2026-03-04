@@ -31,6 +31,9 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
   allOrders = signal<Order[]>([]);
   savedRecipes = signal<CalculatedRecipe[]>([]);
   isLoading = signal(true);
+  forecastItems = signal<ForecastItem[]>([]);
+  topSellers = signal<TopSellerItem[]>([]);
+  forecastMeta = signal<ForecastMeta | null>(null);
 
   // Stats computed from signals
   revenueMetrics = computed(() => this.analyticsService.getDailyMetrics(this.allOrders(), this.savedRecipes()));
@@ -46,6 +49,13 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
     const aov = orderCount > 0 ? totalRevenue / orderCount : 0;
 
     return { totalRevenue, totalProfit, margin, orderCount, aov };
+  });
+
+  forecastSummary = computed(() => {
+    const items = this.forecastItems();
+    const totalUnits = items.reduce((sum, item) => sum + (item.forecast_units || 0), 0);
+    const totalRevenue = items.reduce((sum, item) => sum + (item.forecast_revenue || 0), 0);
+    return { totalUnits, totalRevenue };
   });
 
   // Chart configurations
@@ -93,6 +103,20 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
     datasets: [{ data: [], label: 'Orders by Source', backgroundColor: '#006494' }]
   };
 
+  public forecastChartData: ChartData<'line'> = {
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        label: 'Forecasted Units',
+        borderColor: '#D88569',
+        backgroundColor: 'rgba(216, 133, 105, 0.15)',
+        fill: 'origin',
+        tension: 0.4
+      }
+    ]
+  };
+
   constructor() {
     effect(() => {
       const tenant = this.tenantService.tenant();
@@ -124,6 +148,20 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
         datasets: [{ ...this.barChartData.datasets[0], data: sources.map(s => s.value) }]
       };
     });
+
+    effect(() => {
+      const items = this.forecastItems();
+      const dailyMap = new Map<string, number>();
+      items.forEach(item => {
+        const key = item.forecast_date;
+        dailyMap.set(key, (dailyMap.get(key) || 0) + (item.forecast_units || 0));
+      });
+      const sortedDates = Array.from(dailyMap.keys()).sort();
+      this.forecastChartData = {
+        labels: sortedDates.map(date => date.split('-').slice(1).join('/')),
+        datasets: [{ ...this.forecastChartData.datasets[0], data: sortedDates.map(date => dailyMap.get(date) || 0) }]
+      };
+    });
   }
 
   ngAfterViewInit() {
@@ -140,10 +178,15 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
     // Concurrent load
     Promise.all([
       this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).toPromise(),
-      this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).toPromise()
-    ]).then(([orders, recipes]) => {
+      this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).toPromise(),
+      this.http.get<ForecastResponse>(`${environment.apiUrl}/orders/analytics/forecast`, { headers }).toPromise(),
+      this.http.get<TopSellersResponse>(`${environment.apiUrl}/orders/analytics/top-sellers`, { headers }).toPromise()
+    ]).then(([orders, recipes, forecastResponse, topSellersResponse]) => {
       this.allOrders.set(orders || []);
       this.savedRecipes.set(recipes || []);
+      this.forecastItems.set(forecastResponse?.items || []);
+      this.forecastMeta.set(forecastResponse?.forecast || null);
+      this.topSellers.set(topSellersResponse?.items || []);
       this.isLoading.set(false);
     }).catch(err => {
       console.error('Failed to load analytics data', err);
@@ -155,4 +198,42 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
     const hint = this.helpService.getHint('analytics');
     this.modalService.showAlert(hint.content, hint.title, 'info');
   }
+}
+
+interface ForecastItem {
+  forecast_date: string;
+  recipe_id?: string | null;
+  recipe_name: string;
+  forecast_units: number;
+  forecast_revenue: number;
+  order_source?: string;
+  confidence_score?: number;
+}
+
+interface ForecastMeta {
+  id: string;
+  start_date: string;
+  end_date: string;
+  horizon_days: number;
+  method: string;
+  confidence_level: string;
+}
+
+interface ForecastResponse {
+  forecast: ForecastMeta;
+  items: ForecastItem[];
+  trendFactor: number;
+  confidenceScore: number;
+}
+
+interface TopSellerItem {
+  recipeId?: string | null;
+  recipeName: string;
+  units: number;
+  revenue: number;
+  rank: number;
+}
+
+interface TopSellersResponse {
+  items: TopSellerItem[];
 }

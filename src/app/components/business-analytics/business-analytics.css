@@ -46,6 +46,9 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .kpi-card .value {
@@ -95,6 +98,21 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
+}
+
+.tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: help;
+  background: #fff;
 }
 
 .card-header p {

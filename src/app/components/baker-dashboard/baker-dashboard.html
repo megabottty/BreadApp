@@ -214,6 +214,45 @@
             </div>
           }
         </div>
+
+        <div class="card replenishment-logic" style="margin-top: 1.5rem;">
+          <h3>
+            🔮 Supply Planning (30-Day Forecast)
+            <span class="tooltip-icon" title="Uses the 30-day demand forecast to estimate ingredient needs and recommend reorders.">ⓘ</span>
+          </h3>
+          <p>Forecasted ingredient demand, current stock, and reorder recommendations.</p>
+
+          @if (supplyPlanLoading()) {
+            <p style="color: #6C7A5C;">Loading supply plan...</p>
+          } @else {
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ingredient</th>
+                    <th>Forecast Need</th>
+                    <th>On Hand</th>
+                    <th>Reorder</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of supplyPlanItems(); track item.ingredient_name) {
+                    <tr>
+                      <td><strong>{{item.ingredient_name}}</strong></td>
+                      <td>{{item.forecast_need | number:'1.0-0'}}{{item.unit}}</td>
+                      <td>{{item.current_stock | number:'1.0-0'}}{{item.unit}}</td>
+                      <td>{{item.reorder_amount | number:'1.0-0'}}{{item.unit}}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="btn-group" style="margin-top: 1rem;">
+              <button class="btn-outline" (click)="loadSupplyPlan()" title="Recompute the supply plan using the latest forecast and inventory levels.">Refresh Supply Plan</button>
+            </div>
+          }
+        </div>
       </div>
     }
 

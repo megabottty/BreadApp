@@ -1,13 +1,9 @@
-const CACHE_NAME = 'daily-dough-v3';
+const CACHE_NAME = 'daily-dough-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
-  '/favicon.svg',
-  '/styles.css',
-  '/main.js',
-  '/polyfills.js',
-  '/runtime.js'
+  '/favicon.svg'
 ];
 
 self.addEventListener('install', (event) => {

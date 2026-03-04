@@ -67,6 +67,8 @@ Key tables in the Supabase database:
 - `bakery_subscriptions`: Recurring weekly order schedules for customers.
 - `bakery_promos`: Discount codes (Fixed, Percent, Free Loaf) scoped to each tenant.
 
+**TODO (RLS):** Re-enable Row Level Security for `bakery_recipes` once proper `SELECT`/`INSERT`/`UPDATE` policies are in place for tenant-scoped access.
+
 ---
 
 ## 🔌 API Endpoints (Backend)
