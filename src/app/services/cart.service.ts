@@ -16,6 +16,14 @@ export interface CartItem {
   isSubscription?: boolean;
   notes?: string;
   selectedOptions?: { name: string; price: number }[];
+  packOption?: PackOption;
+}
+
+export interface PackOption {
+  id: string;
+  label: string;
+  size: number;
+  price: number;
 }
 
 @Injectable({
@@ -52,6 +60,8 @@ export class CartService {
 
   // Perks / Loyalty
   totalLoavesPurchased = signal<number>(0);
+  totalOrders = signal<number>(0);
+  qualifyingOrders = signal<number>(0);
   discountClaimed = signal<boolean>(false);
 
   // Selectors
@@ -61,14 +71,14 @@ export class CartService {
   })));
 
   totalCount = computed(() =>
-    this.cartItems().reduce((acc, item) => acc + item.quantity, 0)
+    this.cartItems().reduce((acc, item) => acc + (item.quantity * this.getPackSize(item)), 0)
   );
 
   promoDiscount = computed(() => {
     const promo = this.appliedPromo();
     if (!promo) return 0;
 
-    const subtotal = this.cartItems().reduce((acc, item) => acc + (item.quantity * (item.product.price || 12)), 0);
+    const subtotal = this.cartItems().reduce((acc, item) => acc + (item.quantity * this.getItemUnitPrice(item)), 0);
 
     if (promo.type === 'FIXED') {
       return promo.value;
@@ -84,21 +94,18 @@ export class CartService {
   });
 
   loyaltyDiscount = computed(() => {
-    // If a promo is already applied, we might want to disable automatic loyalty discounts
-    // to prevent double dipping, or let them stack. Let's let them stack for now if they are different.
-
-    // Every 10 loaves gets $8 off
-    const eligibleCount = Math.floor((this.totalLoavesPurchased() + this.totalCount()) / 10);
-    const alreadyClaimed = Math.floor(this.totalLoavesPurchased() / 10);
-    const newDiscounts = eligibleCount - alreadyClaimed;
-
-    return newDiscounts > 0 ? 8 : 0;
+    const qualifiesForLoaves = this.totalLoavesPurchased() >= 10;
+    const qualifiesForOrders = this.totalOrders() >= 10 && this.qualifyingOrders() >= 10;
+    if (qualifiesForLoaves || qualifiesForOrders) {
+      return 8;
+    }
+    return 0;
   });
 
   totalWeight = computed(() =>
     this.cartItems().reduce((acc, item) => {
       const unitWeight = item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0);
-      return acc + (unitWeight * item.quantity);
+      return acc + (unitWeight * item.quantity * this.getPackSize(item));
     }, 0)
   );
 
@@ -114,9 +121,9 @@ export class CartService {
   totalPrice = computed(() => {
     const itemsTotal = this.cartItems().reduce((acc, item) => {
       const optionsPrice = (item.selectedOptions || []).reduce((sum, opt) => sum + opt.price, 0);
-      return acc + (item.quantity * ((item.product.price || 12) + optionsPrice));
+      return acc + (item.quantity * (this.getItemUnitPrice(item) + optionsPrice));
     }, 0);
-    const total = itemsTotal + this.shippingCost() - this.loyaltyDiscount() - this.promoDiscount();
+    const total = itemsTotal + this.shippingCost() - this.promoDiscount() - this.loyaltyDiscount();
     return Math.max(0, total);
   });
 
@@ -207,9 +214,9 @@ export class CartService {
   createCheckoutSession(items: CartItem[], customerEmail: string, orderId?: string, metadata?: any) {
     const payload = {
       items: items.map(item => ({
-        name: item.product.name,
+        name: this.getItemDisplayName(item),
         quantity: item.quantity,
-        product: { price: item.product.price }
+        product: { price: this.getItemUnitPrice(item) + this.getItemOptionsPrice(item) }
       })),
       customerEmail,
       orderId,
@@ -220,14 +227,30 @@ export class CartService {
 
   private loadLoyalty() {
     const saved = localStorage.getItem('bakery_loyalty');
-    if (saved) {
-      this.totalLoavesPurchased.set(parseInt(saved, 10) || 0);
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed === 'number') {
+        this.totalLoavesPurchased.set(parsed || 0);
+        return;
+      }
+      if (parsed && typeof parsed === 'object') {
+        this.totalLoavesPurchased.set(parsed.totalLoavesPurchased || 0);
+        this.totalOrders.set(parsed.totalOrders || 0);
+        this.qualifyingOrders.set(parsed.qualifyingOrders || 0);
+      }
+    } catch (e) {
+      const legacyCount = parseInt(saved, 10);
+      this.totalLoavesPurchased.set(Number.isNaN(legacyCount) ? 0 : legacyCount);
     }
   }
 
-  saveLoyalty(count: number) {
-    this.totalLoavesPurchased.set(count);
-    localStorage.setItem('bakery_loyalty', count.toString());
+  saveLoyalty(data: { totalLoavesPurchased: number; totalOrders: number; qualifyingOrders: number }) {
+    this.totalLoavesPurchased.set(data.totalLoavesPurchased);
+    this.totalOrders.set(data.totalOrders);
+    this.qualifyingOrders.set(data.qualifyingOrders);
+    localStorage.setItem('bakery_loyalty', JSON.stringify(data));
   }
 
   private loadCart() {
@@ -267,14 +290,16 @@ export class CartService {
     }
   }
 
-  addToCart(product: CalculatedRecipe, quantity: number = 1, notes?: string, selectedOptions?: { name: string; price: number }[]) {
+  addToCart(product: CalculatedRecipe, quantity: number = 1, notes?: string, selectedOptions?: { name: string; price: number }[], packOption?: PackOption) {
+    const resolvedPackOption = packOption || this.getPackOptions(product)[0];
     this.cartItems.update(prev => {
       // For items with notes or specific options, we might want to treat them as unique line items
       // but for now let's check if an identical item (same product + same notes + same options) exists.
       const existing = prev.find(item =>
         ((item.product.id && item.product.id === product.id) || item.product.name === product.name) &&
         item.notes === notes &&
-        JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions)
+        JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions) &&
+        item.packOption?.id === resolvedPackOption?.id
       );
 
       let updated: CartItem[];
@@ -285,7 +310,7 @@ export class CartService {
             : item
         );
       } else {
-        updated = [...prev, { product, quantity, notes, selectedOptions }];
+        updated = [...prev, { product, quantity, notes, selectedOptions, packOption: resolvedPackOption }];
       }
       return updated;
     });
@@ -305,6 +330,74 @@ export class CartService {
         item.product.id === productId ? { ...item, quantity } : item
       )
     );
+  }
+
+  updatePackOption(item: CartItem, packOption: PackOption | null) {
+    this.cartItems.update(prev => prev.map(prevItem =>
+      this.isSameCartItem(prevItem, item) ? { ...prevItem, packOption: packOption || undefined } : prevItem
+    ));
+  }
+
+  getPackOptions(product: CalculatedRecipe): PackOption[] {
+    if (product.category === 'BAGEL') {
+      return [
+        { id: 'single', label: 'Single Bagel', size: 1, price: 2 },
+        { id: '4-pack', label: '4 Bagels (Pack)', size: 4, price: 8 },
+        { id: '8-pack', label: '8 Bagels (Pack)', size: 8, price: 12 }
+      ];
+    }
+
+    if (product.category === 'COOKIE') {
+      return [
+        { id: 'single', label: 'Single Cookie', size: 1, price: product.price || 0 },
+        { id: '6-pack', label: '6 Cookies (Pack)', size: 6, price: 8 },
+        { id: '13-pack', label: '13 Cookies (Pack)', size: 13, price: 16 }
+      ];
+    }
+
+    if (product.name.toLowerCase().includes('cinnamon roll')) {
+      return [
+        { id: 'single', label: 'Single Cinnamon Roll', size: 1, price: 5 },
+        { id: '2-pack', label: '2 Cinnamon Rolls (Pack)', size: 2, price: 10 },
+        { id: '4-pack', label: '4 Cinnamon Rolls (Pack)', size: 4, price: 18 }
+      ];
+    }
+
+    return [];
+  }
+
+  getItemUnitPrice(item: CartItem): number {
+    const packOption = this.resolvePackOption(item);
+    return packOption?.price ?? item.product.price ?? 12;
+  }
+
+  getItemOptionsPrice(item: CartItem): number {
+    return (item.selectedOptions || []).reduce((sum, opt) => sum + opt.price, 0);
+  }
+
+  getItemDisplayName(item: CartItem): string {
+    const packOption = this.resolvePackOption(item);
+    if (packOption) {
+      return `${item.product.name} (${packOption.label})`;
+    }
+    return item.product.name;
+  }
+
+  getPackSize(item: CartItem): number {
+    const packOption = this.resolvePackOption(item);
+    return packOption?.size ?? 1;
+  }
+
+  private resolvePackOption(item: CartItem): PackOption | undefined {
+    return item.packOption || this.getPackOptions(item.product)[0];
+  }
+
+  private isSameCartItem(a: CartItem, b: CartItem): boolean {
+    const sameProduct = (a.product.id && b.product.id && a.product.id === b.product.id) || a.product.name === b.product.name;
+    return sameProduct
+      && a.notes === b.notes
+      && JSON.stringify(a.selectedOptions) === JSON.stringify(b.selectedOptions)
+      && a.packOption?.id === b.packOption?.id;
   }
 
   toggleSubscription(productId: string) {

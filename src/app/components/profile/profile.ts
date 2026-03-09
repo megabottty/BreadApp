@@ -54,6 +54,8 @@ export class ProfileComponent implements OnInit {
 
   reviewsCount = this.reviewService.getUserReviewsCount(this.authService.user()?.id || '');
   loavesPurchased = this.cartService.totalLoavesPurchased;
+  totalOrders = this.cartService.totalOrders;
+  qualifyingOrders = this.cartService.qualifyingOrders;
 
   hasReview(orderId: string, recipeId: string): boolean {
     const user = this.authService.user();
@@ -67,6 +69,10 @@ export class ProfileComponent implements OnInit {
 
   loafPerkProgress = computed(() => {
     return Math.min(100, (this.loavesPurchased() % 10) * 10);
+  });
+
+  orderPerkProgress = computed(() => {
+    return Math.min(100, (this.qualifyingOrders() % 10) * 10);
   });
 
   constructor() {
@@ -161,10 +167,31 @@ export class ProfileComponent implements OnInit {
   }
 
   private updateLoyalty(orders: Order[]) {
-    const total = orders
-      .filter(o => o.status === 'COMPLETED')
-      .reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + i.quantity, 0), 0);
-    this.cartService.saveLoyalty(total);
+    const completedOrders = orders.filter(o => o.status === 'COMPLETED');
+    const totalOrders = completedOrders.length;
+    const qualifyingOrders = completedOrders.filter(o => (o.totalPrice || 0) >= 10).length;
+
+    const productsStr = localStorage.getItem('bakery_recipes');
+    const allProducts: CalculatedRecipe[] = productsStr ? JSON.parse(productsStr) : [];
+    const productById = new Map(allProducts.filter(p => p.id).map(p => [p.id!, p]));
+    const productByName = new Map(allProducts.map(p => [p.name, p]));
+
+    const totalLoavesPurchased = completedOrders.reduce((acc, order) => {
+      const loafCount = order.items.reduce((sum, item) => {
+        const product = productById.get(item.recipeId) || productByName.get(item.name);
+        const isBread = product
+          ? product.category === 'BREAD'
+          : item.name.toLowerCase().includes('loaf') || item.name.toLowerCase().includes('bread');
+        return sum + (isBread ? item.quantity : 0);
+      }, 0);
+      return acc + loafCount;
+    }, 0);
+
+    this.cartService.saveLoyalty({
+      totalLoavesPurchased,
+      totalOrders,
+      qualifyingOrders
+    });
   }
 
   reorder(order: Order) {

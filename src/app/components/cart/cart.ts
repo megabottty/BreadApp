@@ -1,7 +1,7 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, PercentPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CartService, CartItem, FulfillmentType } from '../../services/cart.service';
+import { CartService, CartItem, FulfillmentType, PackOption } from '../../services/cart.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
@@ -99,6 +99,23 @@ export class CartComponent implements OnInit {
     }
   }
 
+  getPackOptions(item: CartItem): PackOption[] {
+    return this.cartService.getPackOptions(item.product);
+  }
+
+  onPackChange(item: CartItem, packId: string) {
+    const option = this.getPackOptions(item).find(pack => pack.id === packId) || null;
+    this.cartService.updatePackOption(item, option);
+  }
+
+  itemDisplayName(item: CartItem): string {
+    return this.cartService.getItemDisplayName(item);
+  }
+
+  itemUnitPrice(item: CartItem): number {
+    return this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item);
+  }
+
   setFulfillment(type: FulfillmentType) {
     this.cartService.setFulfillment(type);
     if (type === 'SHIPPING') {
@@ -172,16 +189,20 @@ export class CartComponent implements OnInit {
         status: 'PENDING',
         paymentStatus: 'PENDING',
         pickupDate: this.pickupDate(),
-        items: this.items().map(item => ({
-          recipeId: item.product.id || '',
-          name: item.product.name,
-          quantity: item.quantity,
-          weightGrams: item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0)
-        })),
+        items: this.items().map(item => {
+          const packSize = this.cartService.getPackSize(item);
+          const unitCount = item.quantity * packSize;
+          return {
+            recipeId: item.product.id || '',
+            name: this.cartService.getItemDisplayName(item),
+            quantity: unitCount,
+            weightGrams: item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0) * unitCount
+          };
+        }),
         notes: this.notes(),
         totalPrice: this.totalPrice(),
         promoCode: this.cartService.appliedPromo()?.code,
-        discountApplied: this.cartService.loyaltyDiscount() + this.cartService.promoDiscount(),
+        discountApplied: this.cartService.promoDiscount() + this.cartService.loyaltyDiscount(),
         shippingCost: this.shippingCost(),
         createdAt: new Date().toISOString()
       };
@@ -223,7 +244,7 @@ export class CartComponent implements OnInit {
       pickupDate: this.fulfillmentType() === 'PICKUP' ? this.pickupDate() : this.dispatchDate(),
       notes: this.notes(),
       promoCode: this.cartService.appliedPromo()?.code || '',
-      discountApplied: (this.cartService.loyaltyDiscount() + this.cartService.promoDiscount()).toString(),
+      discountApplied: (this.cartService.promoDiscount() + this.cartService.loyaltyDiscount()).toString(),
       shippingCost: this.shippingCost().toString()
     };
 

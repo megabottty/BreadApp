@@ -110,8 +110,23 @@ w<div class="cart-container" id="main-content">
           @for (item of items(); track item.product.id) {
             <div class="cart-item">
               <div class="item-info">
-                <h3>{{item.product.name}}</h3>
+                <h3>{{itemDisplayName(item)}}</h3>
                 <p>{{item.product.trueHydration | percent:'1.0-0'}} Hydration Loaf</p>
+
+                @if (getPackOptions(item).length > 0) {
+                  <div class="form-group">
+                    <label for="pack-{{item.product.id}}">Pack Option</label>
+                    <select
+                      id="pack-{{item.product.id}}"
+                      [ngModel]="item.packOption?.id || getPackOptions(item)[0]?.id"
+                      (ngModelChange)="onPackChange(item, $event)"
+                    >
+                      @for (option of getPackOptions(item); track option.id) {
+                        <option [value]="option.id">{{option.label}} ({{option.price | currency}})</option>
+                      }
+                    </select>
+                  </div>
+                }
 
                 @if (item.selectedOptions && item.selectedOptions.length > 0) {
                   <div class="item-options">
@@ -137,7 +152,7 @@ w<div class="cart-container" id="main-content">
                   <button (click)="updateQuantity(item, 1)" [attr.aria-label]="'Increase quantity of ' + item.product.name">+</button>
                 </div>
                 <span class="price">
-                  {{((item.product.price || 12) + (item.selectedOptionsPrice || 0)) | currency}}
+                  {{itemUnitPrice(item) | currency}}
                 </span>
                 <button class="btn-remove" (click)="removeItem(item)" [attr.aria-label]="'Remove ' + item.product.name + ' from cart'">×</button>
               </div>
@@ -156,16 +171,16 @@ w<div class="cart-container" id="main-content">
           <span>{{ fulfillmentType() === 'PICKUP' ? 'Pickup' : 'Shipping' }}</span>
           <span>{{ shippingCost() === 0 ? 'Free' : (shippingCost() | currency) }}</span>
         </div>
-        @if (cartService.loyaltyDiscount() > 0) {
-          <div class="summary-row discount">
-            <span>Loyalty Discount ($8 Off!)</span>
-            <span>-{{cartService.loyaltyDiscount() | currency}}</span>
-          </div>
-        }
         @if (cartService.promoDiscount() > 0) {
           <div class="summary-row discount">
             <span>Promo Discount ({{cartService.appliedPromo()?.code}})</span>
             <span>-{{cartService.promoDiscount() | currency}}</span>
+          </div>
+        }
+        @if (cartService.loyaltyDiscount() > 0) {
+          <div class="summary-row discount">
+            <span>Loyalty Discount ($8 Off!)</span>
+            <span>-{{cartService.loyaltyDiscount() | currency}}</span>
           </div>
         }
         <div class="summary-row total">

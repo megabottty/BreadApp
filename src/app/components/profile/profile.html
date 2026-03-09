@@ -120,14 +120,15 @@
       <div class="perk-item">
         <div class="perk-info">
           <span class="perk-name">Bread Addict</span>
-          <span class="perk-desc">Every 10 loaves = $8 Off</span>
+          <span class="perk-desc">10 loaves or 10 orders over $10 = $8 Off</span>
         </div>
         <div class="progress-bar" role="progressbar" [attr.aria-valuenow]="loafPerkProgress()" aria-valuemin="0" aria-valuemax="100" aria-label="Loaf purchase progress">
           <div class="progress-fill bread" [style.width.%]="loafPerkProgress()"></div>
         </div>
         <div class="perk-footer">
           <span class="progress-text">{{loavesPurchased() % 10}} / 10 Loaves</span>
-          @if (loavesPurchased() >= 10) {
+          <span class="progress-text">{{qualifyingOrders() % 10}} / 10 Orders over $10</span>
+          @if (loavesPurchased() >= 10 || (totalOrders() >= 10 && qualifyingOrders() >= 10)) {
             <button class="btn-claim" (click)="claimLoafPerk()">Claim $8 Off</button>
           }
         </div>

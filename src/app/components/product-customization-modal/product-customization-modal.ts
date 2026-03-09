@@ -2,7 +2,7 @@ import { Component, inject, signal, effect, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
-import { CartService } from '../../services/cart.service';
+import { CartService, PackOption } from '../../services/cart.service';
 
 @Component({
   selector: 'app-product-customization-modal',
@@ -18,6 +18,8 @@ export class ProductCustomizationModalComponent {
 
   notes = signal<string>('');
   quantity = signal<number>(1);
+  packOptions = signal<PackOption[]>([]);
+  selectedPackId = signal<string>('');
 
   // Fetch add-ons from product data
   getAddOns() {
@@ -40,7 +42,7 @@ export class ProductCustomizationModalComponent {
       ];
     }
 
-    if (product.name.toLowerCase().includes('bread') || product.name.toLowerCase().includes('loaf')) {
+    if (product.category === 'BREAD' || product.name.toLowerCase().includes('bread') || product.name.toLowerCase().includes('loaf')) {
       return [
         { name: 'Sliced', price: 2.00, selected: false },
         { name: 'Double Baked (Extra Crusty)', price: 1.00, selected: false }
@@ -62,6 +64,9 @@ export class ProductCustomizationModalComponent {
         if (product.id !== this.lastProductId) {
           this.addOns.set(this.getAddOns());
           this.lastProductId = product.id;
+          const options = this.cartService.getPackOptions(product);
+          this.packOptions.set(options);
+          this.selectedPackId.set(options[0]?.id || '');
           this.notes.set('');
           this.quantity.set(1);
         }
@@ -95,11 +100,13 @@ export class ProductCustomizationModalComponent {
         .filter(a => a.selected)
         .map(a => ({ name: a.name, price: a.price }));
 
+      const packOption = this.packOptions().find(option => option.id === this.selectedPackId()) || undefined;
       this.cartService.addToCart(
         modal.product,
         this.quantity(),
         this.notes(),
-        selectedOptions
+        selectedOptions,
+        packOption
       );
       this.close();
     }

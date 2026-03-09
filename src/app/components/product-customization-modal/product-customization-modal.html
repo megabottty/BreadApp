@@ -19,6 +19,26 @@
             <p class="description">{{product.description}}</p>
           </div>
 
+          @if (packOptions().length > 0) {
+            <div class="section">
+              <h3>Pack Options</h3>
+              <div class="options-grid">
+                @for (option of packOptions(); track option.id) {
+                  <label class="option-item" [class.selected]="selectedPackId() === option.id">
+                    <input
+                      type="radio"
+                      name="packOption"
+                      [value]="option.id"
+                      [(ngModel)]="selectedPackId"
+                    >
+                    <span class="option-name">{{option.label}}</span>
+                    <span class="option-price">{{option.price | currency}}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          }
+
           <!-- Add-ons Section -->
           @if (addOns().length > 0) {
             <div class="section">
