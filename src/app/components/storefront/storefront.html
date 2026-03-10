@@ -92,7 +92,7 @@
 
   <div class="product-grid">
     @for (product of filteredProducts(); track product.id) {
-      <div class="product-card">
+      <div class="product-card card-container">
         <div class="product-image">
           @if (product.images && product.images.length > 0) {
             <div class="image-scroller">
@@ -216,9 +216,9 @@
           </p>
           <p class="description">{{product.description || (product.category === 'SPECIAL' ? 'A new creation we are testing in the kitchen. Limited quantities available!' : 'A handcrafted artisanal creation featuring organic ingredients and long fermentation.')}}</p>
 
-          <div class="product-footer">
+          <div class="product-footer card-footer">
             <span class="price">{{ (product.price || 12) | currency }}</span>
-            <div class="btn-group">
+            <div class="btn-group button-group">
               @if (authService.isBaker()) {
                 <button class="btn-edit" (click)="editProduct(product)" [attr.aria-label]="'Edit ' + product.name">Edit</button>
                 <button class="btn-delete-product" (click)="deleteProduct(product)" [attr.aria-label]="'Delete ' + product.name">×</button>
