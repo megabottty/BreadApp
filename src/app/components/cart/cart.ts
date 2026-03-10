@@ -5,6 +5,7 @@ import { CartService, CartItem, FulfillmentType, PackOption } from '../../servic
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
+import { TenantService } from '../../services/tenant.service';
 import { Order, OrderItem } from '../../logic/bakers-math';
 import { ActivatedRoute } from '@angular/router';
 
@@ -20,6 +21,7 @@ export class CartComponent implements OnInit {
   notificationService = inject(NotificationService);
   authService = inject(AuthService);
   modalService = inject(ModalService);
+  tenantService = inject(TenantService);
   route = inject(ActivatedRoute);
 
   items = this.cartService.items;
@@ -116,6 +118,19 @@ export class CartComponent implements OnInit {
     return this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item);
   }
 
+  private buildOrderItems(): OrderItem[] {
+    return this.items().map(item => {
+      const packSize = this.cartService.getPackSize(item);
+      const unitCount = item.quantity * packSize;
+      return {
+        recipeId: item.product.id || '',
+        name: this.cartService.getItemDisplayName(item),
+        quantity: unitCount,
+        weightGrams: item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0) * unitCount
+      };
+    });
+  }
+
   setFulfillment(type: FulfillmentType) {
     this.cartService.setFulfillment(type);
     if (type === 'SHIPPING') {
@@ -189,16 +204,7 @@ export class CartComponent implements OnInit {
         status: 'PENDING',
         paymentStatus: 'PENDING',
         pickupDate: this.pickupDate(),
-        items: this.items().map(item => {
-          const packSize = this.cartService.getPackSize(item);
-          const unitCount = item.quantity * packSize;
-          return {
-            recipeId: item.product.id || '',
-            name: this.cartService.getItemDisplayName(item),
-            quantity: unitCount,
-            weightGrams: item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0) * unitCount
-          };
-        }),
+        items: this.buildOrderItems(),
         notes: this.notes(),
         totalPrice: this.totalPrice(),
         promoCode: this.cartService.appliedPromo()?.code,
@@ -236,7 +242,16 @@ export class CartComponent implements OnInit {
     const email = isGuest ? (this.guestPhone() + '@guest.com') : (this.authService.user()?.email || 'customer@example.com');
 
     // Pass order details as metadata to Stripe
+    const orderId = 'ORD-' + Math.random().toString(36).substring(7).toUpperCase();
+    const orderItems = this.buildOrderItems();
+    const itemsSubtotal = this.items().reduce((sum, item) =>
+      sum + (item.quantity * (this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item))),
+    0);
+    const tenantSlug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+
     const orderMetadata = {
+      orderId,
+      tenantSlug,
       customerName,
       customerPhone,
       customerId: isGuest ? 'guest' : (this.authService.user()?.id || 'unknown'),
@@ -245,10 +260,12 @@ export class CartComponent implements OnInit {
       notes: this.notes(),
       promoCode: this.cartService.appliedPromo()?.code || '',
       discountApplied: (this.cartService.promoDiscount() + this.cartService.loyaltyDiscount()).toString(),
-      shippingCost: this.shippingCost().toString()
+      shippingCost: this.shippingCost().toString(),
+      subtotal: itemsSubtotal.toString(),
+      orderItems: JSON.stringify(orderItems)
     };
 
-    this.cartService.createCheckoutSession(this.items(), email, undefined, orderMetadata).subscribe({
+    this.cartService.createCheckoutSession(this.items(), email, orderId, orderMetadata).subscribe({
       next: (session) => {
         console.log('Stripe session created:', session);
         if (session.url) {

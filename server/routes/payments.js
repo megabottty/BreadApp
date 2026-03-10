@@ -1,5 +1,20 @@
 const express = require('express');
 const router = express.Router();
+const { createClient } = require('@supabase/supabase-js');
+
+// Initialize Supabase Client (for webhook order creation)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('MISSING SUPABASE CONFIG: Check your environment variables!');
+} else if (!process.env.SUPABASE_SERVICE_KEY) {
+  console.warn('SUPABASE_SERVICE_KEY not set. Using SUPABASE_KEY which may be blocked by RLS policies.');
+}
+
+const supabase = (supabaseUrl && supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeKey) {
   console.error('MISSING STRIPE_SECRET_KEY: Check your environment variables!');
@@ -118,13 +133,36 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     // Create order from metadata
     const metadata = session.metadata;
     const orderId = metadata.orderId || ('ORD-' + Math.random().toString(36).substring(7).toUpperCase());
+    const tenantSlug = metadata.tenantSlug || 'the-daily-dough';
+    let tenantId = null;
+    if (supabase && tenantSlug) {
+      const { data: tenant, error } = await supabase
+        .from('bakery_tenants')
+        .select('id, slug')
+        .eq('slug', tenantSlug)
+        .single();
+      if (error || !tenant) {
+        console.warn(`[Stripe Webhook] Tenant not found for slug: ${tenantSlug}`);
+      } else {
+        tenantId = tenant.id;
+      }
+    }
+
+    let parsedItems = [];
+    if (metadata.orderItems) {
+      try {
+        parsedItems = JSON.parse(metadata.orderItems);
+      } catch (err) {
+        console.warn('[Stripe Webhook] Failed to parse orderItems metadata:', err);
+      }
+    }
 
     // Construct order from metadata
     const newOrder = {
       id: orderId,
       customerId: metadata.customerId || 'guest',
       customerName: metadata.customerName || 'Customer',
-      customerPhone: metadata.customerPhone || '',
+      customerPhone: metadata.customerPhone || 'UNKNOWN',
       type: metadata.fulfillmentType || 'PICKUP',
       orderSource: metadata.orderSource || 'ONLINE',
       status: 'PENDING',
@@ -145,12 +183,41 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       createdAt: new Date().toISOString()
     };
 
-    // TODO: Save order to database
-    // For now, just log it
     console.log(`[Stripe Webhook] Order created:`, newOrder);
+    if (supabase && tenantId) {
+      const { data, error } = await supabase
+        .from('bakery_orders')
+        .insert([
+          {
+            tenant_id: tenantId,
+            order_id: newOrder.id,
+            customer_name: newOrder.customerName,
+            customer_phone: newOrder.customerPhone,
+            customer_id: newOrder.customerId,
+            total_price: newOrder.totalPrice,
+            fulfillment_type: newOrder.type,
+            items: parsedItems,
+            notes: newOrder.notes,
+            pickup_date: newOrder.pickupDate,
+            order_source: newOrder.orderSource || 'ONLINE',
+            status: newOrder.status || 'PENDING',
+            payment_status: newOrder.paymentStatus || 'PAID',
+            table_number: newOrder.tableNumber,
+            promo_code: newOrder.promoCode,
+            discount_applied: newOrder.discountApplied,
+            payment_method: newOrder.paymentMethod
+          }
+        ])
+        .select();
 
-    // You would typically save to database here:
-    // await supabase.from('bakery_orders').insert(newOrder);
+      if (error) {
+        console.error('[Stripe Webhook] Failed to save order to database:', error.message, error.details);
+      } else {
+        console.log('[Stripe Webhook] Order saved successfully:', data?.[0]?.id);
+      }
+    } else {
+      console.warn('[Stripe Webhook] Skipping order save (Supabase not configured or tenant missing).');
+    }
   }
 
   res.json({ received: true });
