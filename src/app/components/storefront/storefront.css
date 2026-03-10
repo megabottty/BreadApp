@@ -177,6 +177,7 @@ h1 {
   transition: transform 0.3s ease;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .product-card:hover {
@@ -296,6 +297,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  flex: 1;
 }
 
 h2 {
@@ -521,7 +523,11 @@ h2 {
   font-size: 0.95rem;
   line-height: 1.6;
   margin: 0.5rem 0 1.5rem 0;
-  flex-grow: 1;
+  flex: 1;
+  height: 140px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
 }
 
 .product-footer {
