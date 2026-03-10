@@ -83,8 +83,9 @@ export class TenantService {
       }
     }
 
-    // Only load if we have a saved slug or if we are on a path that requires it
-    const isRegistrationOrLogin = path.includes('/register') || path.includes('/login') || path === '/';
+    // Only defer loading on explicit auth routes.
+    // "/" immediately redirects to "/front", so we should still preload tenant there.
+    const isRegistrationOrLogin = path.includes('/register') || path.includes('/login');
 
     if (savedSlug) {
       this.loadTenantInfo(savedSlug);
@@ -92,7 +93,7 @@ export class TenantService {
       // If we are on a specific route that isn't the home/auth pages, try to load the default
       this.loadTenantInfo(slug);
     } else {
-      console.log('[Tenant Service] First visit or home page - waiting for registration/login to confirm tenant.');
+      console.log('[Tenant Service] Auth route detected - waiting for registration/login to confirm tenant.');
     }
   }
 
