@@ -115,6 +115,76 @@ router.post('/', async (req, res) => {
     }
     console.log('[Supabase Debug] Order saved successfully:', data[0].id);
 
+    try {
+      const { data: tenant } = await supabase
+        .from('bakery_tenants')
+        .select('name, email')
+        .eq('id', req.tenantId)
+        .single();
+
+      const recipient = process.env.ORDER_NOTIFICATION_EMAIL
+        || tenant?.email
+        || process.env.DEFAULT_CONTACT_EMAIL
+        || 'meganmuirhead@gmail.com';
+
+      if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
+
+        const itemsHtml = (orderData.items || []).map(item => `
+          <tr>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.quantity || 0}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">$${(item.price || 0).toFixed(2)}</td>
+          </tr>
+        `).join('');
+
+        const mailOptions = {
+          from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
+          to: recipient,
+          subject: `New Order: ${orderData.id}`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
+              <h2 style="color: #7D8F69;">New Order Received</h2>
+              <p><strong>Bakery:</strong> ${tenant?.name || 'Your Bakery'}</p>
+              <p><strong>Order ID:</strong> ${orderData.id}</p>
+              <p><strong>Customer:</strong> ${orderData.customerName || 'Guest'}</p>
+              <p><strong>Fulfillment:</strong> ${orderData.type || 'Pickup'}</p>
+              <p><strong>Pickup Date:</strong> ${orderData.pickupDate || 'N/A'}</p>
+              <hr>
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #f9f9f9;">
+                    <th style="text-align: left; padding: 6px 8px;">Item</th>
+                    <th style="text-align: left; padding: 6px 8px;">Qty</th>
+                    <th style="text-align: left; padding: 6px 8px;">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHtml || '<tr><td colspan="3" style="padding: 6px 8px;">No items</td></tr>'}
+                </tbody>
+              </table>
+              <p style="margin-top: 16px;"><strong>Total:</strong> $${(orderData.totalPrice || 0).toFixed(2)}</p>
+            </div>
+          `
+        };
+
+        await transporter.sendMail(mailOptions);
+      } else {
+        console.warn('[Order Email] SMTP not configured. Skipping email notification.');
+      }
+    } catch (emailError) {
+      console.error('[Order Email] Failed to send notification:', emailError);
+    }
+
     res.status(201).json({
       message: 'Order saved to the cloud! ☁️🥖',
       order: data[0]
