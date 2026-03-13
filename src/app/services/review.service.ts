@@ -152,15 +152,8 @@ export class ReviewService {
           recipes[index].averageRating = reviews.length > 0 ? sum / reviews.length : 0;
           recipes[index].ratings = reviews; // Keep a few or all? For now all.
 
-          // Optimization: Ensure images are not re-saved to localStorage if they were somehow present
-          const optimizedRecipes = recipes.map(r => ({
-            ...r,
-            imageUrl: r.imageUrl?.startsWith('data:') ? '' : r.imageUrl,
-            images: r.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
-          }));
-
           try {
-            localStorage.setItem('bakery_recipes', JSON.stringify(optimizedRecipes));
+            localStorage.setItem('bakery_recipes', JSON.stringify(recipes));
           } catch (e) {
             console.warn('Failed to update recipes in localStorage (quota exceeded)', e);
           }

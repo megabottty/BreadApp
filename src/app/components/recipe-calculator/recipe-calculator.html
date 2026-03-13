@@ -153,7 +153,7 @@
           <div [formGroupName]="i" class="ingredient-row">
             <div class="search-container">
               <label for="ingredient-name-{{i}}" class="tiny-label-mobile">Ingredient Name</label>
-              <input type="text" id="ingredient-name-{{i}}" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur()" autocomplete="off">
+              <input type="text" id="ingredient-name-{{i}}" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onIngredientBlur(i)" autocomplete="off">
               @if (activeSearchIndex() === i && searchResults().length > 0) {
                 <div class="search-results-wrapper">
                   <ul class="search-results">
@@ -201,6 +201,7 @@
 
       <div class="save-section">
         <button type="button" class="btn-outline" (click)="resetForm()">Clear / New Recipe</button>
+        <button type="button" class="btn-outline" (click)="cloneRecipe()">Clone Recipe</button>
         @if (hasUnsavedChanges()) {
           <p class="unsaved-hint">⚠️ You have unsaved changes in this recipe.</p>
         }

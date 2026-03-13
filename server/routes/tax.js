@@ -7,6 +7,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY
 );
 
+const buildDefaultTaxSettings = (tenantId = null) => ({
+  tenant_id: tenantId,
+  sales_tax_rate: 0,
+  collect_sales_tax: false,
+  state: 'CA',
+  locality: null,
+  tax_exempt_categories: []
+});
+
 /**
  * GET /api/tax/settings
  * Get tax settings for the current tenant
@@ -20,9 +29,8 @@ router.get('/settings', async (req, res) => {
       return res.status(400).json({ error: 'Tenant ID or slug required' });
     }
 
-    let query = supabase
-      .from('bakery_tax_settings')
-      .select('*');
+    let resolvedTenantId = tenantId;
+    let query = supabase.from('bakery_tax_settings').select('*');
 
     if (tenantId) {
       query = query.eq('tenant_id', tenantId);
@@ -37,6 +45,7 @@ router.get('/settings', async (req, res) => {
       if (!tenant) {
         return res.status(404).json({ error: 'Tenant not found' });
       }
+      resolvedTenantId = tenant.id;
       query = query.eq('tenant_id', tenant.id);
     }
 
@@ -44,8 +53,17 @@ router.get('/settings', async (req, res) => {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No settings found, return default
-        return res.status(404).json({ error: 'No tax settings found' });
+        // No settings found: return safe defaults so POS remains usable.
+        return res.json(buildDefaultTaxSettings(resolvedTenantId));
+      }
+
+      const isMissingTable =
+        error.code === 'PGRST205' ||
+        (error.message?.includes('relation') && error.message?.includes('bakery_tax_settings')) ||
+        (error.message?.includes('Could not find the table') && error.message?.includes('bakery_tax_settings'));
+      if (isMissingTable) {
+        // Older databases may not have tax tables yet.
+        return res.json(buildDefaultTaxSettings(resolvedTenantId));
       }
       throw error;
     }

@@ -6,11 +6,10 @@ import { TenantService } from '../../services/tenant.service';
 import { Router } from '@angular/router';
 import { ModalService } from '../../services/modal.service';
 import { environment } from '../../../environments/environment';
+import { StripeLoaderService } from '../../services/stripe-loader.service';
 
 // import { firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-
-declare var Stripe: any;
 
 interface Plan {
   id: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
@@ -33,6 +32,7 @@ export class SetupWizardComponent implements AfterViewInit {
   private modalService = inject(ModalService);
   private helpService = inject(HelpService);
   private http = inject(HttpClient);
+  private stripeLoader = inject(StripeLoaderService);
 
   currentStep = signal(1);
   totalSteps = 5;
@@ -147,7 +147,7 @@ export class SetupWizardComponent implements AfterViewInit {
     // Since Step 4 is hidden with @if, we need to initialize when currentStep() === 4
   }
 
-  initStripe() {
+  async initStripe() {
     if (this.stripe) return; // Already init
 
     try {
@@ -164,7 +164,13 @@ export class SetupWizardComponent implements AfterViewInit {
         return;
       }
 
-      this.stripe = Stripe(key);
+      const stripeFactory = await this.stripeLoader.loadStripe();
+      if (!stripeFactory) {
+        this.stripeError.set('Stripe failed to load. Please refresh and try again.');
+        return;
+      }
+
+      this.stripe = stripeFactory(key);
       console.log('[Stripe Debug] Initializing with key:', key);
       const elements = this.stripe.elements();
 

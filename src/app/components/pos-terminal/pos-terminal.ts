@@ -39,6 +39,7 @@ export class PosTerminalComponent {
   isProcessing = signal(false);
   paymentQrCode = signal<string | null>(null);
   showQrModal = signal(false);
+  qrPaymentTotal = signal(0);
 
   categories = computed(() => {
     const cats = new Set(this.savedRecipes().map(r => r.category));
@@ -222,26 +223,41 @@ export class PosTerminalComponent {
   private createCardPayment(orderId: string) {
     // DON'T create order yet - it will be created by webhook after payment
     // Just create Stripe session with order details in metadata
+    const subtotal = this.cartSubtotal();
+    const tax = this.cartTax();
+    const total = subtotal + tax;
+
     const metadata = {
       customerName: this.customerName(),
       customerPhone: this.customerPhone(),
       tableNumber: this.tableNumber(),
       orderSource: 'WALK_IN',
-      subtotal: this.cartSubtotal().toString(),
-      taxAmount: this.cartTax().toString(),
-      totalPrice: this.cartTotal().toString(),
+      subtotal: subtotal.toString(),
+      taxAmount: tax.toString(),
+      totalPrice: total.toString(),
       mode: 'pos'
     };
 
+    const lineItems = this.cart().map(item => {
+      const product = this.savedRecipes().find(r => r.id === item.recipeId);
+      return {
+        name: item.name,
+        price: product?.price || 0,
+        quantity: item.quantity
+      };
+    });
+
+    // Stripe Checkout total is based on line items, so include tax as a line item to match POS total.
+    if (tax > 0) {
+      lineItems.push({
+        name: 'Sales Tax',
+        price: tax,
+        quantity: 1
+      });
+    }
+
     const checkoutData = {
-      items: this.cart().map(item => {
-        const product = this.savedRecipes().find(r => r.id === item.recipeId);
-        return {
-          name: item.name,
-          price: product?.price || 0,
-          quantity: item.quantity
-        };
-      }),
+      items: lineItems,
       customerEmail: this.customerPhone() ? `${this.customerPhone()}@pos.temp` : 'pos@example.com',
       metadata: metadata
     };
@@ -252,6 +268,7 @@ export class PosTerminalComponent {
       next: async (session) => {
         this.isProcessing.set(false);
         if (session.url) {
+          this.qrPaymentTotal.set(total);
           // Generate QR code for the payment link
           try {
             const qrCodeDataUrl = await QRCode.toDataURL(session.url, {
@@ -269,7 +286,7 @@ export class PosTerminalComponent {
             // Fallback to showing URL if QR generation fails
             this.modalService.showAlert(
               `Payment link created! Have customer visit:\n\n${session.url}\n\nOrder will be created when payment is received.`,
-              `Total: $${this.cartTotal().toFixed(2)}`,
+              `Total: $${total.toFixed(2)}`,
               'info'
             );
           }
@@ -287,6 +304,7 @@ export class PosTerminalComponent {
   closeQrModal() {
     this.showQrModal.set(false);
     this.paymentQrCode.set(null);
+    this.qrPaymentTotal.set(0);
   }
 
   showHint() {

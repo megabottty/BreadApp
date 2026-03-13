@@ -5,8 +5,8 @@
   --bg-color: #F4F6F8;
   --card-bg: #FFFFFF;
   --text-primary: #1A1C1E;
-  --text-secondary: #44474E;
-  --text-muted: #74777F;
+  --text-secondary: #3D4148;
+  --text-muted: #5D6168;
   --accent-sage: #7D8F69; /* Restoration of Sage Green */
   --accent-sage-dark: #5F6F52;
   --accent-terracotta: #D88569; /* Action Terracotta */
@@ -72,8 +72,8 @@
   --bg-color: #FEF9F3;
   --card-bg: #FFFFFF;
   --text-primary: #8B4513; /* SaddleBrown */
-  --text-secondary: #D2691E; /* Chocolate */
-  --text-muted: #E9967A; /* DarkSalmon */
+  --text-secondary: #7A3E12; /* Deep Spice */
+  --text-muted: #8F4F2A; /* Warm Clay */
   --accent-sage: #E9B384; /* Honey */
   --accent-sage-dark: #D4A373;
   --accent-terracotta: #D88569;
@@ -124,7 +124,7 @@ body {
 }
 
 /* Improve touch targets for mobile */
-button, a, input, select, textarea {
+button, a, input:not([type="checkbox"]):not([type="radio"]), select, textarea {
   min-height: 44px;
   min-width: 44px;
 }
@@ -147,7 +147,7 @@ body, html {
 }
 
 /* Improve form inputs on mobile */
-input, select, textarea {
+input:not([type="checkbox"]):not([type="radio"]), select, textarea {
   font-size: 16px; /* Prevents iOS zoom on focus */
   -webkit-appearance: none;
   -moz-appearance: none;

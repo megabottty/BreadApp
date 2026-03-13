@@ -228,6 +228,8 @@ export interface Order {
   customerId: string;
   customerName: string;
   customerPhone: string;
+  customerEmail?: string;
+  notificationPreference?: 'SMS' | 'EMAIL' | 'BOTH' | 'NONE';
   type: 'PICKUP' | 'SHIPPING';
   orderSource?: 'ONLINE' | 'PHONE' | 'WALK_IN';
   status: 'PENDING' | 'READY' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';

@@ -148,7 +148,7 @@
         </div>
       }
 
-      <p class="qr-total">Total: {{cartTotal() | currency}}</p>
+      <p class="qr-total">Total: {{qrPaymentTotal() | currency}}</p>
       <p class="qr-hint">Order will automatically complete when payment is received</p>
 
       <button class="btn-qr-done" (click)="closeQrModal()">Done</button>

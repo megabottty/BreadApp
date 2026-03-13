@@ -45,6 +45,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   calculatedRecipe = signal<CalculatedRecipe | undefined>(undefined);
   savedRecipes = signal<CalculatedRecipe[]>([]);
+  ingredientCostDefaults = signal<Record<string, { bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }>>({});
 
   showNotifications = signal<boolean>(false);
   recipeToDelete = signal<CalculatedRecipe | null>(null);
@@ -63,6 +64,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   hasUnsavedChanges = signal<boolean>(false);
   isSaving = signal<boolean>(false);
   private isLoadingRecipe = false;
+  private pendingRecipeId: string | null = null;
 
   constructor() {
     this.recipeForm = this.fb.group({
@@ -98,6 +100,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       if (tenant) {
         console.log('[RecipeCalculator] Tenant identified, loading recipes:', tenant.slug);
         this.loadSavedRecipes();
+        this.loadIngredientCosts();
       }
     });
   }
@@ -131,14 +134,16 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       this.searchResults.set(results);
     });
 
-    // Check for ID in route
-    const recipeId = this.route.snapshot.paramMap.get('id');
-    if (recipeId) {
-      const recipe = this.savedRecipes().find(r => r.id === recipeId);
-      if (recipe) {
-        this.loadRecipe(recipe);
-      }
-    }
+    this.route.paramMap
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+        const recipeId = params.get('id');
+        if (recipeId) {
+          this.tryLoadRecipeById(recipeId);
+        } else {
+          this.pendingRecipeId = null;
+        }
+      });
 
     this.recipeForm.valueChanges.subscribe(() => {
       if (!this.isLoadingRecipe) {
@@ -155,13 +160,8 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   private saveDraft(): void {
     const draft = this.recipeForm.getRawValue();
-    const optimizedDraft = {
-      ...draft,
-      imageUrl: draft.imageUrl?.startsWith('data:') ? '' : draft.imageUrl,
-      images: draft.images?.map((img: string) => img.startsWith('data:') ? '' : img).filter((img: string) => img !== '')
-    };
     try {
-      localStorage.setItem('recipe_calculator_draft', JSON.stringify(optimizedDraft));
+      localStorage.setItem('recipe_calculator_draft', JSON.stringify(draft));
     } catch (e) {
       console.warn('Failed to save draft to localStorage (quota exceeded)', e);
     }
@@ -224,9 +224,57 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.updateCalculations();
   }
 
+  private buildCloneName(baseName: string): string {
+    const trimmed = baseName.trim() || 'New Recipe';
+    const existingNames = new Set(this.savedRecipes().map(recipe => recipe.name.toLowerCase()));
+    const baseCopyName = `${trimmed} (Copy)`;
+    if (!existingNames.has(baseCopyName.toLowerCase())) {
+      return baseCopyName;
+    }
+    let counter = 2;
+    let candidate = `${trimmed} (Copy ${counter})`;
+    while (existingNames.has(candidate.toLowerCase())) {
+      counter += 1;
+      candidate = `${trimmed} (Copy ${counter})`;
+    }
+    return candidate;
+  }
+
+  cloneRecipe(): void {
+    const current = this.recipeForm.getRawValue();
+    const cloneName = this.buildCloneName(current.name || 'New Recipe');
+
+    this.isLoadingRecipe = true;
+    this.recipeForm.patchValue({
+      id: null,
+      name: cloneName
+    }, { emitEvent: false });
+    this.isLoadingRecipe = false;
+
+    if (this.route.snapshot.paramMap.get('id')) {
+      this.router.navigate(['/calculator'], { replaceUrl: true });
+    }
+
+    this.hasUnsavedChanges.set(true);
+    this.saveDraft();
+    this.updateCalculations();
+    this.modalService.showAlert('Recipe cloned. Update any details and save to create a new recipe.', 'Clone Ready', 'success');
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private tryLoadRecipeById(recipeId: string | null): void {
+    if (!recipeId) return;
+    const recipe = this.savedRecipes().find(r => r.id === recipeId);
+    if (recipe) {
+      this.loadRecipe(recipe);
+      this.pendingRecipeId = null;
+    } else {
+      this.pendingRecipeId = recipeId;
+    }
   }
 
   loadSavedRecipes(): void {
@@ -244,6 +292,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         } catch (e) {
           console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
         }
+        this.tryLoadRecipeById(this.pendingRecipeId);
       },
       error: (err) => console.error('Error loading recipes', err)
     });
@@ -254,11 +303,25 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     return recipe?.category || 'BREAD';
   }
 
-  private getOptimizedRecipesForStorage(recipes: CalculatedRecipe[]): CalculatedRecipe[] {
+  private getOptimizedRecipesForStorage(recipes: CalculatedRecipe[]) {
     return recipes.map(r => ({
-      ...r,
-      imageUrl: r.imageUrl?.startsWith('data:') ? '' : r.imageUrl,
-      images: r.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      flavorProfile: r.flavorProfile,
+      description: r.description,
+      price: r.price,
+      imageUrl: r.imageUrl,
+      images: r.images,
+      trueHydration: r.trueHydration,
+      averageRating: r.averageRating,
+      isHidden: r.isHidden,
+      servingSizeGrams: r.servingSizeGrams,
+      ingredients: r.ingredients?.map(ing => ({
+        name: ing.name,
+        weight: ing.weight,
+        type: ing.type
+      }))
     }));
   }
 
@@ -330,6 +393,8 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       }
 
       const headers = new HttpHeaders().set('x-tenant-slug', slug);
+      const rawIngredients = this.recipeForm.getRawValue().ingredients || [];
+      this.persistIngredientCostDefaults(rawIngredients);
       this.http.post<CalculatedRecipe>(`${environment.apiUrl}/orders/recipes`, current, { headers }).subscribe({
         next: (saved: CalculatedRecipe) => {
           this.isSaving.set(false);
@@ -504,10 +569,17 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     }, 200);
   }
 
+  onIngredientBlur(index: number) {
+    this.onBlur();
+    this.applyIngredientCostDefaults(index);
+  }
+
   selectIngredient(item: FoodSearchItem, index: number) {
     console.log('Ingredient selected:', item.name, 'for index:', index);
     const ingredientForm = this.ingredients.at(index) as FormGroup;
     ingredientForm.patchValue({ name: item.name });
+
+    this.applyIngredientCostDefaults(index, item.name);
 
     // Add to local DB so getNutrition can find it later
     this.ingredientService.addIngredient(item.name, item.nutrition);
@@ -515,6 +587,115 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.searchResults.set([]);
     this.activeSearchIndex.set(null);
     this.updateCalculations();
+  }
+
+  private loadIngredientCosts() {
+    const headers = this.getTenantHeaders();
+    if (!headers) return;
+
+    this.http.get<Array<{ name: string; bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }>>(
+      `${environment.apiUrl}/orders/ingredients/costs`,
+      { headers }
+    ).subscribe({
+      next: (costs) => {
+        const map: Record<string, { bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }> = {};
+        costs.forEach(item => {
+          if (item.name) {
+            const normalizedName = this.normalizeIngredientName(item.name);
+            const payload = {
+              bulkPrice: item.bulkPrice ?? undefined,
+              bulkWeight: item.bulkWeight ?? undefined,
+              costPerUnit: item.costPerUnit ?? undefined
+            };
+            map[item.name] = payload;
+            map[normalizedName] = payload;
+          }
+        });
+        this.ingredientCostDefaults.set(map);
+        this.applyIngredientCostDefaultsToAll();
+      },
+      error: (err) => {
+        console.warn('Failed to load ingredient cost defaults:', err);
+      }
+    });
+  }
+
+  private getTenantHeaders(): HttpHeaders | null {
+    const slug = this.tenantService.tenant()?.slug;
+    if (!slug) return null;
+    return new HttpHeaders().set('x-tenant-slug', slug);
+  }
+
+  private applyIngredientCostDefaults(index: number, nameOverride?: string) {
+    const ingredientForm = this.ingredients.at(index) as FormGroup;
+    const name = (nameOverride ?? (ingredientForm.get('name')?.value || '')).trim();
+    if (!name) return;
+
+    const defaults = this.ingredientCostDefaults()[this.normalizeIngredientName(name)]
+      || this.ingredientCostDefaults()[name];
+    if (!defaults) return;
+
+    const bulkPrice = ingredientForm.get('bulkPrice')?.value;
+    const bulkWeight = ingredientForm.get('bulkWeight')?.value;
+    const costPerUnit = ingredientForm.get('costPerUnit')?.value;
+
+    ingredientForm.patchValue({
+      bulkPrice: bulkPrice ? bulkPrice : (defaults.bulkPrice ?? bulkPrice),
+      bulkWeight: bulkWeight ? bulkWeight : (defaults.bulkWeight ?? bulkWeight),
+      costPerUnit: costPerUnit ? costPerUnit : (defaults.costPerUnit ?? costPerUnit)
+    }, { emitEvent: false });
+
+    this.updateCalculations();
+  }
+
+  private applyIngredientCostDefaultsToAll() {
+    this.ingredients.controls.forEach((_, index) => {
+      this.applyIngredientCostDefaults(index);
+    });
+  }
+
+  private persistIngredientCostDefaults(ingredients: Array<{ name: string; bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }>) {
+    const headers = this.getTenantHeaders();
+    if (!headers) return;
+
+    const payload = ingredients
+      .filter(ing => ing.name && ((ing.bulkPrice && ing.bulkWeight) || ing.costPerUnit))
+      .map(ing => ({
+        name: ing.name.trim(),
+        bulkPrice: ing.bulkPrice ?? null,
+        bulkWeight: ing.bulkWeight ?? null,
+        costPerUnit: ing.costPerUnit ?? null
+      }));
+
+    if (payload.length === 0) return;
+
+    this.http.post(`${environment.apiUrl}/orders/ingredients/costs`, payload, { headers }).subscribe({
+      next: () => {
+        payload.forEach(item => {
+          const normalizedName = this.normalizeIngredientName(item.name);
+          this.ingredientCostDefaults.update(prev => ({
+            ...prev,
+            [item.name]: {
+              bulkPrice: item.bulkPrice ?? undefined,
+              bulkWeight: item.bulkWeight ?? undefined,
+              costPerUnit: item.costPerUnit ?? undefined
+            },
+            [normalizedName]: {
+              bulkPrice: item.bulkPrice ?? undefined,
+              bulkWeight: item.bulkWeight ?? undefined,
+              costPerUnit: item.costPerUnit ?? undefined
+            }
+          }));
+        });
+      },
+      error: (err) => {
+        console.warn('Failed to save ingredient cost defaults:', err);
+      }
+    });
+  }
+
+  private normalizeIngredientName(name: string): string {
+    return name.trim().toLowerCase();
   }
 
   createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR', cost = 0, bulkPrice = 0, bulkWeight = 0): FormGroup {

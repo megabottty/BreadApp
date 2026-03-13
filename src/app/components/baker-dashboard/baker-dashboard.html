@@ -271,7 +271,16 @@
           <div class="plan-info">
             <span class="status-badge active" style="background: #ecfdf5; color: #059669; margin-bottom: 0.5rem; display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">{{currentTenant()?.subscription_status || 'TRIAL'}}</span>
             <h3 style="margin: 0.5rem 0;">{{currentTenant()?.subscription_plan || 'STARTER'}} Plan</h3>
-            <p style="margin: 0; color: #6C7A5C;">Your next billing date is <strong>February 15, 2026</strong>.</p>
+            <p style="margin: 0; color: #6C7A5C;">
+              Your next billing date is
+              <strong>
+                @if (billingSummary()?.nextBillingDate; as nextBilling) {
+                  {{nextBilling | date:'longDate'}}
+                } @else {
+                  not scheduled yet
+                }
+              </strong>.
+            </p>
           </div>
           <button class="btn-outline" (click)="openChangePlanModal()">Change Plan</button>
         </div>
@@ -279,11 +288,16 @@
         <div class="billing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
           <div class="card">
             <h3 style="margin-top: 0;">💳 Payment Method</h3>
-            @if (currentTenant()?.stripe_account_id) {
+            @if (billingLoading()) {
+              <p style="color: #8C967D; font-size: 0.9rem;">Loading billing details...</p>
+            } @else if (currentTenant()?.stripe_account_id && billingSummary()?.paymentMethod; as paymentMethod) {
               <div class="payment-method-info" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Visa ending in 4242</span>
+                <span>{{ paymentMethod.brand | titlecase }} ending in {{ paymentMethod.last4 }}</span>
                 <button class="btn-small" (click)="openCustomerPortal()">Update</button>
               </div>
+            } @else if (currentTenant()?.stripe_account_id) {
+              <p style="color: #8C967D; font-size: 0.9rem;">Customer profile linked. Open portal to manage payment methods.</p>
+              <button class="btn-primary" style="width: 100%;" (click)="openCustomerPortal()">Open Billing Portal</button>
             } @else {
               <p style="color: #8C967D; font-size: 0.9rem;">No payment method on file. Your trial is active.</p>
               <button class="btn-primary" style="width: 100%;" (click)="linkCard()">Link Card</button>
@@ -293,16 +307,25 @@
           <div class="card">
             <h3 style="margin-top: 0;">📑 Recent Invoices</h3>
             <div class="invoice-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
-              <div class="invoice-item" style="display: flex; justify-content: space-between; font-size: 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f3eb;">
-                <span>Jan 15, 2026</span>
-                <span>$29.00</span>
-                <button class="btn-text" style="color: #7D8F69; background: none; border: none; cursor: pointer; text-decoration: underline;">PDF</button>
-              </div>
-              <div class="invoice-item" style="display: flex; justify-content: space-between; font-size: 0.9rem;">
-                <span>Dec 15, 2025</span>
-                <span>$0.00 (Trial)</span>
-                <button class="btn-text" style="color: #7D8F69; background: none; border: none; cursor: pointer; text-decoration: underline;">PDF</button>
-              </div>
+              @if (billingLoading()) {
+                <p style="color: #8C967D; font-size: 0.9rem; margin: 0;">Loading invoices...</p>
+              } @else if ((billingSummary()?.invoices?.length || 0) > 0) {
+                @for (invoice of billingSummary()?.invoices || []; track invoice.id; let i = $index) {
+                  <div class="invoice-item" [style]="i < ((billingSummary()?.invoices?.length || 0) - 1) ? 'display: flex; justify-content: space-between; font-size: 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f3eb;' : 'display: flex; justify-content: space-between; font-size: 0.9rem;'">
+                    <span>{{invoice.createdAt ? (invoice.createdAt | date:'MMM d, y') : 'Unknown date'}}</span>
+                    <span>{{invoice.amountPaid | currency}}</span>
+                    <button
+                      class="btn-text"
+                      style="color: #7D8F69; background: none; border: none; cursor: pointer; text-decoration: underline;"
+                      [disabled]="!invoice.invoicePdf && !invoice.hostedInvoiceUrl"
+                      (click)="openInvoice(invoice.invoicePdf || invoice.hostedInvoiceUrl)">
+                      PDF
+                    </button>
+                  </div>
+                }
+              } @else {
+                <p style="color: #8C967D; font-size: 0.9rem; margin: 0;">No invoices yet.</p>
+              }
             </div>
           </div>
         </div>

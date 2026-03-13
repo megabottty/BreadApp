@@ -90,7 +90,7 @@ h1 {
 .item-info p {
   margin: 0.25rem 0 0.5rem;
   font-size: 0.9rem;
-  color: #8C967D;
+  color: var(--text-muted);
 }
 
 .item-options {
@@ -106,7 +106,7 @@ h1 {
   padding: 0.2rem 0.6rem;
   border-radius: 4px;
   font-size: 0.75rem;
-  color: #8C967D;
+  color: var(--text-muted);
 }
 
 .item-note {
@@ -364,7 +364,9 @@ h1 {
   font-weight: 500;
 }
 
-.form-group input, .notes-textarea, .promo-input-group input {
+.form-group input:not([type='checkbox']),
+.notes-textarea,
+.promo-input-group input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #E0DCCF;
@@ -422,6 +424,31 @@ h1 {
   border: 1px solid #e0dccf;
 }
 
+.notifications-section {
+  border: 1px solid #e0dccf;
+}
+
+.checkbox-group {
+  margin-bottom: 0.75rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #6C7A5C;
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  accent-color: #7D8F69;
+}
+
 .subscription-promo {
   background: #FFF9F7;
   border: 1px dashed #D88569;
@@ -461,7 +488,7 @@ h1 {
   opacity: 0.8;
 }
 
-.checkbox-label {
+.pay-at-pickup-checkbox {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -477,16 +504,9 @@ h1 {
   transition: all 0.2s;
 }
 
-.checkbox-label:hover {
+.pay-at-pickup-checkbox:hover {
   background: #f0ede5;
   border-color: #5F6F52;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: #5F6F52;
 }
 
 .promo-section {

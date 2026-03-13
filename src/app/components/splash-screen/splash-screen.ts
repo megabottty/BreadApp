@@ -1,5 +1,7 @@
-import { Component, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, signal, OnInit, ChangeDetectionStrategy, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import { AppLoadService } from '../../services/app-load.service';
 
 @Component({
   selector: 'app-splash-screen',
@@ -12,6 +14,12 @@ import { CommonModule } from '@angular/common';
 export class SplashScreenComponent implements OnInit {
   isVisible = signal(true);
   message = signal('Preheating the oven...');
+  animationDone = signal(false);
+  isStorefrontRoute = signal(true);
+  private maxVisibleMs = 5000;
+
+  private router = inject(Router);
+  private appLoadService = inject(AppLoadService);
 
   private messages = [
     'Feeding the starter...',
@@ -29,11 +37,32 @@ export class SplashScreenComponent implements OnInit {
         count++;
         setTimeout(updateMessage, 600);
       } else {
-        setTimeout(() => this.isVisible.set(false), 500);
+        this.animationDone.set(true);
       }
     };
 
     // Use requestAnimationFrame or a small timeout to ensure we don't block initial paint
     setTimeout(updateMessage, 100);
+
+    this.isStorefrontRoute.set(
+      this.router.url === '/' || this.router.url.startsWith('/front') || this.router.url.startsWith('/b/')
+    );
+
+    if (this.isStorefrontRoute()) {
+      setTimeout(() => {
+        if (this.isVisible()) {
+          this.isVisible.set(false);
+        }
+      }, this.maxVisibleMs);
+    }
+
+    effect(() => {
+      if (!this.isVisible()) return;
+
+      const isReady = this.appLoadService.storefrontReady();
+      if (this.animationDone() && (isReady || !this.isStorefrontRoute())) {
+        this.isVisible.set(false);
+      }
+    });
   }
 }

@@ -12,6 +12,25 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
+type StoredRecipe = Pick<
+  CalculatedRecipe,
+  | 'id'
+  | 'name'
+  | 'category'
+  | 'flavorProfile'
+  | 'description'
+  | 'price'
+  | 'imageUrl'
+  | 'images'
+  | 'trueHydration'
+  | 'averageRating'
+  | 'isHidden'
+  | 'servingSizeGrams'
+> & {
+  ingredients?: { name: string; weight: number; type: CalculatedRecipe['ingredients'][number]['type'] }[];
+  ratings?: Review[];
+};
+
 @Component({
   selector: 'app-profile',
   standalone: true,
@@ -172,7 +191,7 @@ export class ProfileComponent implements OnInit {
     const qualifyingOrders = completedOrders.filter(o => (o.totalPrice || 0) >= 10).length;
 
     const productsStr = localStorage.getItem('bakery_recipes');
-    const allProducts: CalculatedRecipe[] = productsStr ? JSON.parse(productsStr) : [];
+    const allProducts: StoredRecipe[] = productsStr ? JSON.parse(productsStr) : [];
     const productById = new Map(allProducts.filter(p => p.id).map(p => [p.id!, p]));
     const productByName = new Map(allProducts.map(p => [p.name, p]));
 
@@ -197,11 +216,13 @@ export class ProfileComponent implements OnInit {
   reorder(order: Order) {
     // Get current products to ensure we have the latest prices/details
     const productsStr = localStorage.getItem('bakery_recipes');
-    const allProducts: CalculatedRecipe[] = productsStr ? JSON.parse(productsStr) : [];
+    const allProducts: StoredRecipe[] = productsStr ? JSON.parse(productsStr) : [];
 
     order.items.forEach(item => {
        const existingProduct = allProducts.find(p => p.id === item.recipeId || p.name === item.name);
-       const mockProduct: CalculatedRecipe = existingProduct || {
+       const mockProduct: CalculatedRecipe = existingProduct
+         ? this.toCalculatedRecipe(existingProduct)
+         : {
          id: item.recipeId,
          name: item.name,
          category: 'BREAD',
@@ -219,6 +240,33 @@ export class ProfileComponent implements OnInit {
        }
     });
     this.modalService.showAlert('Items from your past order have been added to your bag!', 'Reordered');
+  }
+
+  private toCalculatedRecipe(product: StoredRecipe): CalculatedRecipe {
+    return {
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      flavorProfile: product.flavorProfile,
+      description: product.description,
+      price: product.price ?? 12,
+      imageUrl: product.imageUrl,
+      images: product.images,
+      ingredients: (product.ingredients || []).map(ing => ({
+        ...ing,
+        percentage: 0
+      })),
+      totalFlour: 0,
+      totalWater: 0,
+      trueHydration: product.trueHydration ?? 0,
+      totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      totalCost: 0,
+      profitMargin: 0,
+      ratings: product.ratings,
+      averageRating: product.averageRating,
+      isHidden: product.isHidden,
+      servingSizeGrams: product.servingSizeGrams
+    };
   }
 
   startReview(orderId: string, recipeId: string) {

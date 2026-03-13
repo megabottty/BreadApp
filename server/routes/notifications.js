@@ -5,6 +5,7 @@ const twilio = require('twilio');
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+const nodemailer = require('nodemailer');
 
 let client;
 if (accountSid && authToken) {
@@ -35,6 +36,39 @@ router.post('/send-sms', async (req, res) => {
     }
 
     console.error('Twilio Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/send-email', async (req, res) => {
+  const { to, subject, html } = req.body;
+
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log(`[Email Mock - Missing SMTP] To: ${to}, Subject: ${subject}`);
+    return res.status(200).json({ success: true, mocked: true });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+
+    await transporter.sendMail({
+      from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
+      to,
+      subject,
+      html
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Email Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -1,8 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const path = require('path');
+const compression = require('compression');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use((req, res, next) => {
 
 app.use(cors());
 app.options(/.*/, cors()); // Enable pre-flight across-the-board
+app.use(compression());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
@@ -35,8 +37,16 @@ app.use('/api/tax', taxRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 
-// Serve Angular static files
-app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser')));
+// Serve Angular static files with long-term caching for hashed assets
+app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser'), {
+  maxAge: '1y',
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // Catch-all route to serve index.html for Angular routing (must be LAST)
 app.use((req, res) => {

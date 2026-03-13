@@ -10,7 +10,7 @@
     <div class="cart-grid">
       <div class="cart-items">
         <div class="card fulfillment-options">
-          <h3>Fulfillment</h3>
+          <h2>Fulfillment</h2>
           <div class="toggle-group" role="radiogroup" aria-label="Select fulfillment method">
             <button [class.active]="fulfillmentType() === 'PICKUP'"
                     (click)="setFulfillment('PICKUP')"
@@ -47,9 +47,13 @@
                   <small id="pickup-hint" class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
                 }
               </div>
-              <label for="pay-at-pickup" class="checkbox-label">
-                <input type="checkbox" id="pay-at-pickup" [(ngModel)]="payAtPickup"> Pay at Pickup
-              </label>
+              <mat-checkbox
+                id="pay-at-pickup"
+                class="pay-at-pickup-checkbox"
+                [checked]="payAtPickup()"
+                (change)="payAtPickup.set($event.checked)">
+                Pay at Pickup
+              </mat-checkbox>
             </div>
           }
           <div class="lead-time-notice">
@@ -58,17 +62,20 @@
         </div>
 
         <div class="card notes-section">
-          <label for="order-notes"><h3>Special Requests / Notes</h3></label>
+          <h2 id="order-notes-heading">Special Requests / Notes</h2>
+          <label for="order-notes" class="sr-only">Special Requests / Notes</label>
           <textarea
             id="order-notes"
             class="notes-textarea"
             [ngModel]="notes()"
             (ngModelChange)="cartService.setNotes($event)"
-            placeholder="Any allergies, doorstep instructions, or flavor preferences? Let us know here!"></textarea>
+            placeholder="Any allergies, doorstep instructions, or flavor preferences? Let us know here!"
+            aria-labelledby="order-notes-heading"></textarea>
         </div>
 
         <div class="card promo-section">
-          <label for="promo-code"><h3>Promo Code</h3></label>
+          <h2 id="promo-code-heading">Promo Code</h2>
+          <label for="promo-code" class="sr-only">Promo Code</label>
           <div class="promo-input-group">
             @if (cartService.appliedPromo(); as promo) {
               <div class="applied-promo" role="status">
@@ -86,27 +93,68 @@
 
         @if (!authService.isAuthenticated()) {
           <div class="card guest-checkout-section">
-            <h3>Guest Checkout Details</h3>
+            <h2>Guest Checkout Details</h2>
             <p class="section-hint">No account? No problem. Just let us know who you are!</p>
             <div class="form-group">
               <label for="guest-name">Name</label>
               <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Your full name">
             </div>
+          </div>
+        }
+
+        <div class="card notifications-section">
+          <h2>Order Updates</h2>
+          <p class="section-hint">Choose how you'd like to receive updates about your order.</p>
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label" for="notify-email">
+              <input type="checkbox" id="notify-email" [checked]="notifyByEmail()" (change)="notifyByEmail.set($any($event.target).checked)">
+              <span>Email Updates</span>
+            </label>
+          </div>
+          @if (authService.isAuthenticated()) {
+            <div class="form-group">
+              <label for="order-email">Email Address</label>
+              <input
+                type="email"
+                id="order-email"
+                [ngModel]="orderEmail()"
+                readonly
+                placeholder="you@example.com">
+            </div>
+          } @else if (notifyByEmail()) {
+            <div class="form-group">
+              <label for="order-email">Email Address</label>
+              <input
+                type="email"
+                id="order-email"
+                [ngModel]="orderEmail()"
+                (ngModelChange)="onOrderEmailChange($event)"
+                placeholder="you@example.com">
+            </div>
+          }
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label" for="notify-sms">
+              <input type="checkbox" id="notify-sms" [checked]="notifyBySms()" (change)="notifyBySms.set($any($event.target).checked)">
+              <span>SMS Updates</span>
+            </label>
+          </div>
+          @if (notifyBySms()) {
             <div class="form-group">
               <label for="guest-phone">Phone Number</label>
               <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="For order updates via SMS">
             </div>
-          </div>
-        }
+          }
+        </div>
 
         <div class="card subscription-promo">
-          <h3>🔄 Artisan Subscriptions</h3>
+          <h2>🔄 Artisan Subscriptions</h2>
           <p>Subscribing ensures your favorite loaves are baked and ready for you every week.</p>
           <p class="dispatch-notice">We dispatch subscription orders every <strong>Monday and Tuesday</strong> to guarantee peak freshness.</p>
           <p class="section-hint">You can manage or cancel your subscriptions anytime in your profile.</p>
         </div>
 
         <div class="card">
+          <h2>Cart Items</h2>
           @for (item of items(); track item.product.id) {
             <div class="cart-item">
               <div class="item-info">

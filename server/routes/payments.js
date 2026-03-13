@@ -24,6 +24,15 @@ if (!stripeKey) {
   console.log(`[Stripe Init] Initializing with key: ${stripeKey.substring(0, 7)}...`);
 }
 const stripe = stripeKey ? require('stripe')(stripeKey) : null;
+const twilio = require('twilio');
+const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+const twilioClient = (twilioAccountSid && twilioAuthToken)
+  ? twilio(twilioAccountSid, twilioAuthToken)
+  : null;
+
+const toIso = (unixTs) => (unixTs ? new Date(unixTs * 1000).toISOString() : null);
 
 // POST: Create a Stripe Checkout Session
 router.post('/create-checkout-session', async (req, res) => {
@@ -163,6 +172,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       customerId: metadata.customerId || 'guest',
       customerName: metadata.customerName || 'Customer',
       customerPhone: metadata.customerPhone || 'UNKNOWN',
+      customerEmail: metadata.customerEmail || '',
+      notificationPreference: metadata.notificationPreference || 'NONE',
       type: metadata.fulfillmentType || 'PICKUP',
       orderSource: metadata.orderSource || 'ONLINE',
       status: 'PENDING',
@@ -185,35 +196,152 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
     console.log(`[Stripe Webhook] Order created:`, newOrder);
     if (supabase && tenantId) {
-      const { data, error } = await supabase
-        .from('bakery_orders')
-        .insert([
-          {
-            tenant_id: tenantId,
-            order_id: newOrder.id,
-            customer_name: newOrder.customerName,
-            customer_phone: newOrder.customerPhone,
-            customer_id: newOrder.customerId,
-            total_price: newOrder.totalPrice,
-            fulfillment_type: newOrder.type,
-            items: parsedItems,
-            notes: newOrder.notes,
-            pickup_date: newOrder.pickupDate,
-            order_source: newOrder.orderSource || 'ONLINE',
-            status: newOrder.status || 'PENDING',
-            payment_status: newOrder.paymentStatus || 'PAID',
-            table_number: newOrder.tableNumber,
-            promo_code: newOrder.promoCode,
-            discount_applied: newOrder.discountApplied,
-            payment_method: newOrder.paymentMethod
-          }
-        ])
-        .select();
+      const buildOrderInsert = (includeNotificationFields = true) => ({
+        tenant_id: tenantId,
+        order_id: newOrder.id,
+        customer_name: newOrder.customerName,
+        customer_phone: newOrder.customerPhone,
+        ...(includeNotificationFields ? {
+          customer_email: newOrder.customerEmail,
+          notification_preference: newOrder.notificationPreference
+        } : {}),
+        customer_id: newOrder.customerId,
+        total_price: newOrder.totalPrice,
+        fulfillment_type: newOrder.type,
+        items: parsedItems,
+        notes: newOrder.notes,
+        pickup_date: newOrder.pickupDate,
+        order_source: newOrder.orderSource || 'ONLINE',
+        status: newOrder.status || 'PENDING',
+        payment_status: newOrder.paymentStatus || 'PAID',
+        table_number: newOrder.tableNumber,
+        promo_code: newOrder.promoCode,
+        discount_applied: newOrder.discountApplied,
+        payment_method: newOrder.paymentMethod
+      });
+
+      const insertOrder = async (includeNotificationFields = true) => (
+        supabase
+          .from('bakery_orders')
+          .insert([buildOrderInsert(includeNotificationFields)])
+          .select()
+      );
+
+      let { data, error } = await insertOrder(true);
+
+      if (error && error.code === 'PGRST204') {
+        console.warn('[Stripe Webhook] Missing customer_email/notification_preference columns. Retrying insert without them.');
+        ({ data, error } = await insertOrder(false));
+      }
 
       if (error) {
         console.error('[Stripe Webhook] Failed to save order to database:', error.message, error.details);
       } else {
         console.log('[Stripe Webhook] Order saved successfully:', data?.[0]?.id);
+
+        try {
+          const { data: tenant } = await supabase
+            .from('bakery_tenants')
+            .select('name, email')
+            .eq('id', tenantId)
+            .single();
+
+          const recipient = process.env.ORDER_NOTIFICATION_EMAIL
+            || tenant?.email
+            || process.env.DEFAULT_CONTACT_EMAIL
+            || 'meganmuirhead@gmail.com';
+
+          if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+            const nodemailer = require('nodemailer');
+            const transporter = nodemailer.createTransport({
+              host: process.env.SMTP_HOST,
+              port: parseInt(process.env.SMTP_PORT || '587'),
+              secure: process.env.SMTP_SECURE === 'true',
+              auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+              },
+            });
+
+            const itemsHtml = (parsedItems || []).map(item => `
+              <tr>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.quantity || 0}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">$${(item.price || 0).toFixed(2)}</td>
+              </tr>
+            `).join('');
+
+            const mailOptions = {
+              from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
+              to: recipient,
+              subject: `New Order: ${newOrder.id}`,
+              html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
+                  <h2 style="color: #7D8F69;">New Order Received</h2>
+                  <p><strong>Bakery:</strong> ${tenant?.name || 'Your Bakery'}</p>
+                  <p><strong>Order ID:</strong> ${newOrder.id}</p>
+                  <p><strong>Customer:</strong> ${newOrder.customerName || 'Guest'}</p>
+                  <p><strong>Fulfillment:</strong> ${newOrder.type || 'Pickup'}</p>
+                  <p><strong>Pickup Date:</strong> ${newOrder.pickupDate || 'N/A'}</p>
+                  <hr>
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                      <tr style="background: #f9f9f9;">
+                        <th style="text-align: left; padding: 6px 8px;">Item</th>
+                        <th style="text-align: left; padding: 6px 8px;">Qty</th>
+                        <th style="text-align: left; padding: 6px 8px;">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${itemsHtml || '<tr><td colspan="3" style="padding: 6px 8px;">No items</td></tr>'}
+                    </tbody>
+                  </table>
+                  <p style="margin-top: 16px;"><strong>Total:</strong> $${(newOrder.totalPrice || 0).toFixed(2)}</p>
+                </div>
+              `
+            };
+
+            await transporter.sendMail(mailOptions);
+
+            const preference = newOrder.notificationPreference || 'NONE';
+            const shouldSendSms = preference === 'SMS' || preference === 'BOTH';
+            const shouldSendEmail = preference === 'EMAIL' || preference === 'BOTH';
+
+            if (shouldSendEmail && newOrder.customerEmail) {
+              const customerEmailOptions = {
+                from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
+                to: newOrder.customerEmail,
+                subject: `Order Confirmation #${newOrder.id}`,
+                html: `
+                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
+                    <h2 style="color: #7D8F69;">Thanks for your order!</h2>
+                    <p>Hi ${newOrder.customerName || 'there'},</p>
+                    <p>We received your order. Your confirmation number is <strong>#${newOrder.id}</strong>.</p>
+                    <p>We'll let you know as soon as it's ready.</p>
+                  </div>
+                `
+              };
+
+              await transporter.sendMail(customerEmailOptions);
+            }
+
+            if (shouldSendSms && newOrder.customerPhone) {
+              if (twilioClient && twilioPhoneNumber) {
+                await twilioClient.messages.create({
+                  body: `Hi ${newOrder.customerName || 'there'}, thanks for your order from The Daily Dough! Your order ID is #${newOrder.id}. We'll notify you when it's ready.`,
+                  from: twilioPhoneNumber,
+                  to: newOrder.customerPhone
+                });
+              } else {
+                console.warn('[Order SMS] Twilio not configured. Skipping SMS notification.');
+              }
+            }
+          } else {
+            console.warn('[Order Email] SMTP not configured. Skipping email notification.');
+          }
+        } catch (emailError) {
+          console.error('[Order Email] Failed to send notification:', emailError);
+        }
       }
     } else {
       console.warn('[Stripe Webhook] Skipping order save (Supabase not configured or tenant missing).');
@@ -236,7 +364,7 @@ router.post('/create-setup-session', async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'setup',
       payment_method_types: ['card'],
-      success_url: `${frontendUrl}/dashboard?payment_setup=success`,
+      success_url: `${frontendUrl}/dashboard?payment_setup=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/dashboard?payment_setup=cancelled`,
       customer_email: email,
       metadata: {
@@ -249,6 +377,68 @@ router.post('/create-setup-session', async (req, res) => {
   } catch (error) {
     console.error('[Stripe Setup Error]:', error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Confirm setup session and persist Stripe customer on tenant
+router.post('/confirm-setup-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+
+  const { sessionId, tenantId } = req.body;
+  if (!sessionId) {
+    return res.status(400).json({ error: 'sessionId is required' });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!session || session.mode !== 'setup') {
+      return res.status(400).json({ error: 'Invalid setup session' });
+    }
+
+    const resolvedTenantId = tenantId || session.metadata?.tenantId;
+    if (!resolvedTenantId) {
+      return res.status(400).json({ error: 'tenantId is required' });
+    }
+
+    if (session.status !== 'complete') {
+      return res.status(400).json({ error: 'Setup session not completed yet' });
+    }
+
+    const customerId = typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id;
+
+    if (!customerId) {
+      return res.status(400).json({ error: 'No customer found for setup session' });
+    }
+
+    const { data, error } = await supabase
+      .from('bakery_tenants')
+      .update({
+        stripe_account_id: customerId,
+        subscription_status: 'ACTIVE'
+      })
+      .eq('id', resolvedTenantId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Stripe Setup Confirm] Failed to persist customer id:', error.message);
+      return res.status(500).json({ error: 'Failed to update tenant billing profile' });
+    }
+
+    return res.json({
+      customerId,
+      tenant: data
+    });
+  } catch (error) {
+    console.error('[Stripe Setup Confirm Error]:', error.message);
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -271,6 +461,71 @@ router.post('/create-portal-session', async (req, res) => {
     res.json({ url: session.url });
   } catch (error) {
     console.error('[Stripe Portal Error]:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET: Billing summary (payment method, invoices, next billing)
+router.get('/billing-summary/:customerId', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+
+  const { customerId } = req.params;
+  if (!customerId) {
+    return res.status(400).json({ error: 'customerId is required' });
+  }
+
+  try {
+    const [paymentMethods, invoices, subscriptions] = await Promise.all([
+      stripe.paymentMethods.list({
+        customer: customerId,
+        type: 'card',
+        limit: 1
+      }),
+      stripe.invoices.list({
+        customer: customerId,
+        limit: 10
+      }),
+      stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 1
+      })
+    ]);
+
+    const defaultCard = paymentMethods.data[0]?.card
+      ? {
+        brand: paymentMethods.data[0].card.brand,
+        last4: paymentMethods.data[0].card.last4,
+        expMonth: paymentMethods.data[0].card.exp_month,
+        expYear: paymentMethods.data[0].card.exp_year
+      }
+      : null;
+
+    const recentInvoices = (invoices.data || []).map(inv => ({
+      id: inv.id,
+      amountPaid: (inv.amount_paid || 0) / 100,
+      currency: inv.currency,
+      status: inv.status,
+      createdAt: toIso(inv.created),
+      invoicePdf: inv.invoice_pdf || null,
+      hostedInvoiceUrl: inv.hosted_invoice_url || null
+    }));
+
+    const activeSub = subscriptions.data[0] || null;
+    const nextBillingDate = activeSub?.current_period_end
+      ? toIso(activeSub.current_period_end)
+      : null;
+
+    res.json({
+      paymentMethod: defaultCard,
+      invoices: recentInvoices,
+      nextBillingDate,
+      subscriptionStatus: activeSub?.status || null
+    });
+  } catch (error) {
+    console.error('[Stripe Billing Summary Error]:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

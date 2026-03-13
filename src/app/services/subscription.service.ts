@@ -1,5 +1,4 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { CalculatedRecipe } from '../logic/bakers-math';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { TenantService } from './tenant.service';
 
@@ -17,6 +16,12 @@ export interface Subscription {
   nextBakeDate: string;
   status: 'ACTIVE' | 'PAUSED' | 'CANCELLED';
 }
+
+type SubscriptionProduct = {
+  id?: string;
+  name: string;
+  price?: number;
+};
 
 @Injectable({
   providedIn: 'root'
@@ -87,7 +92,7 @@ export class SubscriptionService {
     }
   }
 
-  createSubscription(customerId: string, product: CalculatedRecipe, quantity: number) {
+  createSubscription(customerId: string, product: SubscriptionProduct, quantity: number) {
     const nextMonday = this.getNextMonday();
     const newSub: any = {
       customerId,

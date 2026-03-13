@@ -20,13 +20,14 @@ export interface NotificationLog {
 export class NotificationService {
   private http = inject(HttpClient);
   private modalService = inject(ModalService);
-  private apiUrl = environment.apiUrl + '/notifications/send-sms';
+  private smsApiUrl = environment.apiUrl + '/notifications/send-sms';
+  private emailApiUrl = environment.apiUrl + '/notifications/send-email';
   logs = signal<NotificationLog[]>([]);
 
   async sendSMS(to: string, message: string): Promise<boolean> {
     try {
       const response = await firstValueFrom(
-        this.http.post<{ success: boolean; mocked?: boolean }>(this.apiUrl, { to, message })
+        this.http.post<{ success: boolean; mocked?: boolean }>(this.smsApiUrl, { to, message })
       );
 
       const success = response.success;
@@ -51,20 +52,99 @@ export class NotificationService {
     }
   }
 
-  async sendOrderConfirmation(customerName: string, phone: string, orderId: string) {
+  async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{ success: boolean; mocked?: boolean }>(this.emailApiUrl, { to, subject, html })
+      );
+
+      const success = response.success;
+      const newLog: NotificationLog = {
+        id: Math.random().toString(36).substring(7),
+        recipient: to,
+        message: subject,
+        timestamp: new Date(),
+        status: success ? 'SENT' : 'FAILED'
+      };
+
+      this.logs.update(prev => [newLog, ...prev]);
+
+      if (response.mocked) {
+        console.log(`[Email Mock - Backend] No SMTP configured, logged email: ${subject}`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      return false;
+    }
+  }
+
+  private shouldSendSms(preference?: 'SMS' | 'EMAIL' | 'BOTH' | 'NONE') {
+    return preference === 'SMS' || preference === 'BOTH' || preference === undefined;
+  }
+
+  private shouldSendEmail(preference?: 'SMS' | 'EMAIL' | 'BOTH' | 'NONE') {
+    return preference === 'EMAIL' || preference === 'BOTH';
+  }
+
+  async sendOrderConfirmation(customerName: string, phone: string, email: string, orderId: string, preference?: 'SMS' | 'EMAIL' | 'BOTH' | 'NONE') {
     const message = `Hi ${customerName}, thanks for your order from The Daily Dough! Your order ID is #${orderId}. We'll notify you when it's ready.`;
-    return this.sendSMS(phone, message);
+    const emailSubject = `Order confirmation #${orderId}`;
+    const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #7D8F69;">Thanks for your order!</h2>
+        <p>Hi ${customerName},</p>
+        <p>We received your order. Your confirmation number is <strong>#${orderId}</strong>.</p>
+        <p>We'll let you know as soon as it's ready.</p>
+      </div>
+    `;
+
+    if (this.shouldSendSms(preference) && phone) {
+      await this.sendSMS(phone, message);
+    }
+    if (this.shouldSendEmail(preference) && email) {
+      await this.sendEmail(email, emailSubject, emailHtml);
+    }
   }
 
-  async sendReadyForPickup(customerName: string, phone: string) {
+  async sendReadyForPickup(customerName: string, phone: string, email: string, preference?: 'SMS' | 'EMAIL' | 'BOTH' | 'NONE') {
     const message = `Hi ${customerName}, your Daily Dough order is fresh out of the oven and ready for pickup! 🥖`;
-    return this.sendSMS(phone, message);
+    const emailSubject = 'Your order is ready for pickup';
+    const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #7D8F69;">Your order is ready!</h2>
+        <p>Hi ${customerName},</p>
+        <p>Your Daily Dough order is fresh out of the oven and ready for pickup.</p>
+      </div>
+    `;
+
+    if (this.shouldSendSms(preference) && phone) {
+      await this.sendSMS(phone, message);
+    }
+    if (this.shouldSendEmail(preference) && email) {
+      await this.sendEmail(email, emailSubject, emailHtml);
+    }
   }
 
-  async sendOutForDelivery(customerName: string, phone: string, trackingUrl?: string) {
+  async sendOutForDelivery(customerName: string, phone: string, email: string, trackingUrl?: string, preference?: 'SMS' | 'EMAIL' | 'BOTH' | 'NONE') {
     const tracking = trackingUrl ? ` Track it here: ${trackingUrl}` : '';
     const message = `Hi ${customerName}, your Daily Dough order is out for delivery! 🚚${tracking}`;
-    return this.sendSMS(phone, message);
+    const emailSubject = 'Your order is out for delivery';
+    const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #7D8F69;">On its way!</h2>
+        <p>Hi ${customerName},</p>
+        <p>Your Daily Dough order is out for delivery.${trackingUrl ? ` Track it here: <a href="${trackingUrl}">${trackingUrl}</a>` : ''}</p>
+      </div>
+    `;
+
+    if (this.shouldSendSms(preference) && phone) {
+      await this.sendSMS(phone, message);
+    }
+    if (this.shouldSendEmail(preference) && email) {
+      await this.sendEmail(email, emailSubject, emailHtml);
+    }
   }
 
   async sendBakerOrderAlert(orderId: string, customerName: string) {

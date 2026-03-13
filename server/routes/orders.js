@@ -84,30 +84,43 @@ router.post('/', async (req, res) => {
 
   try {
     console.log('[Supabase Debug] Attempting to save order:', orderData.id, 'for tenant:', req.tenantId);
-    const { data, error } = await supabase
-      .from('bakery_orders')
-      .insert([
-        {
-          tenant_id: req.tenantId,
-          order_id: orderData.id,
-          customer_name: orderData.customerName,
-          customer_phone: orderData.customerPhone,
-          customer_id: orderData.customerId,
-          total_price: orderData.totalPrice,
-          fulfillment_type: orderData.type,
-          items: orderData.items,
-          notes: orderData.notes,
-          pickup_date: orderData.pickupDate,
-          order_source: orderData.orderSource || 'ONLINE',
-          status: orderData.status || 'PENDING',
-          payment_status: orderData.paymentStatus || 'PENDING',
-          table_number: orderData.tableNumber,
-          promo_code: orderData.promoCode,
-          discount_applied: orderData.discountApplied,
-          payment_method: orderData.paymentMethod
-        }
-      ])
-      .select();
+    const buildOrderInsert = (includeNotificationFields = true) => ({
+      tenant_id: req.tenantId,
+      order_id: orderData.id,
+      customer_name: orderData.customerName,
+      customer_phone: orderData.customerPhone,
+      ...(includeNotificationFields ? {
+        customer_email: orderData.customerEmail,
+        notification_preference: orderData.notificationPreference
+      } : {}),
+      customer_id: orderData.customerId,
+      total_price: orderData.totalPrice,
+      fulfillment_type: orderData.type,
+      items: orderData.items,
+      notes: orderData.notes,
+      pickup_date: orderData.pickupDate,
+      order_source: orderData.orderSource || 'ONLINE',
+      status: orderData.status || 'PENDING',
+      payment_status: orderData.paymentStatus || 'PENDING',
+      table_number: orderData.tableNumber,
+      promo_code: orderData.promoCode,
+      discount_applied: orderData.discountApplied,
+      payment_method: orderData.paymentMethod
+    });
+
+    const insertOrder = async (includeNotificationFields = true) => (
+      supabase
+        .from('bakery_orders')
+        .insert([buildOrderInsert(includeNotificationFields)])
+        .select()
+    );
+
+    let { data, error } = await insertOrder(true);
+
+    if (error && error.code === 'PGRST204') {
+      console.warn('[Supabase Warning] Missing customer_email/notification_preference columns. Retrying insert without them.');
+      ({ data, error } = await insertOrder(false));
+    }
 
     if (error) {
       console.error('[Supabase Error] Order Insert Failed:', error.message, error.details);
@@ -126,6 +139,16 @@ router.post('/', async (req, res) => {
         || tenant?.email
         || process.env.DEFAULT_CONTACT_EMAIL
         || 'meganmuirhead@gmail.com';
+
+      console.log('[Order Email] Debug config:', {
+        smtpHost: process.env.SMTP_HOST ? 'set' : 'missing',
+        smtpUser: process.env.SMTP_USER ? 'set' : 'missing',
+        smtpPass: process.env.SMTP_PASS ? 'set' : 'missing',
+        smtpPort: process.env.SMTP_PORT || '587',
+        smtpSecure: process.env.SMTP_SECURE === 'true',
+        from: process.env.CONTACT_EMAIL_FROM || 'default',
+        recipient
+      });
 
       if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
         const nodemailer = require('nodemailer');
@@ -203,21 +226,29 @@ router.get('/recipes', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    const query = supabase.from('bakery_recipes').select('*');
+    let query = supabase.from('bakery_recipes').select('*');
     if (req.tenantId) {
-      query.eq('tenant_id', req.tenantId);
+      query = query.eq('tenant_id', req.tenantId);
     } else {
       console.warn('[Supabase Warning] Recipes requested but tenantId is missing from request.');
       return res.status(400).json({ error: 'Tenant not identified' });
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    if (error && error.message.includes('tenant_id') && error.message.includes('does not exist')) {
+      console.warn('[Supabase Warning] bakery_recipes.tenant_id is missing. Falling back to global recipe query.');
+      ({ data, error } = await supabase.from('bakery_recipes').select('*'));
+    }
+
     if (error) {
       console.error('[Supabase Error] Fetch Recipes Failed:', error.message);
-      if (error.message.includes('column') && error.message.includes('does not exist')) {
-        return res.status(500).json({
-          error: 'Database schema mismatch: missing tenant_id column in bakery_recipes. Please run the latest supabase_schema.sql.'
-        });
+      const isMissingTable =
+        error.code === 'PGRST205' ||
+        (error.message.includes('relation') && error.message.includes('bakery_recipes')) ||
+        (error.message.includes('Could not find the table') && error.message.includes('bakery_recipes'));
+      if (isMissingTable) {
+        // Older databases may not have the recipes table yet. Keep POS usable instead of hard-failing.
+        return res.json([]);
       }
       throw error;
     }
@@ -246,6 +277,88 @@ router.get('/recipes', async (req, res) => {
     res.json(formattedRecipes);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch recipes' });
+  }
+});
+
+// GET: Ingredient cost defaults
+router.get('/ingredients/costs', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('bakery_ingredient_costs')
+      .select('*')
+      .eq('tenant_id', req.tenantId);
+
+    if (error) {
+      console.error('[Supabase Error] Fetch Ingredient Costs Failed:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch ingredient costs', details: error.message });
+    }
+
+    const formatted = (data || []).map(item => ({
+      name: item.name,
+      bulkPrice: item.bulk_price,
+      bulkWeight: item.bulk_weight,
+      costPerUnit: item.cost_per_unit,
+      updatedAt: item.updated_at
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching ingredient costs:', error);
+    res.status(500).json({ error: 'Failed to fetch ingredient costs' });
+  }
+});
+
+// POST: Upsert ingredient cost defaults
+router.post('/ingredients/costs', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  const costs = Array.isArray(req.body) ? req.body : [];
+  if (costs.length === 0) {
+    return res.status(400).json({ error: 'No ingredient costs provided' });
+  }
+
+  const payload = costs
+    .filter(item => item?.name)
+    .map(item => ({
+      tenant_id: req.tenantId,
+      name: item.name,
+      bulk_price: item.bulkPrice ?? null,
+      bulk_weight: item.bulkWeight ?? null,
+      cost_per_unit: item.costPerUnit ?? null,
+      updated_at: new Date().toISOString()
+    }));
+
+  if (payload.length === 0) {
+    return res.status(400).json({ error: 'No valid ingredient costs provided' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('bakery_ingredient_costs')
+      .upsert(payload, { onConflict: 'tenant_id,name' })
+      .select();
+
+    if (error) {
+      console.error('[Supabase Error] Upsert Ingredient Costs Failed:', error.message);
+      return res.status(500).json({ error: 'Failed to save ingredient costs', details: error.message });
+    }
+
+    res.json({ updated: data?.length || 0 });
+  } catch (error) {
+    console.error('Error saving ingredient costs:', error);
+    res.status(500).json({ error: 'Failed to save ingredient costs' });
   }
 });
 
@@ -868,6 +981,8 @@ router.get('/:orderId', async (req, res) => {
       id: data.order_id,
       customerName: data.customer_name,
       customerPhone: data.customer_phone,
+      customerEmail: data.customer_email,
+      notificationPreference: data.notification_preference,
       customerId: data.customer_id,
       totalPrice: data.total_price,
       type: data.fulfillment_type,
@@ -916,6 +1031,8 @@ router.get('/', async (req, res) => {
       id: order.order_id,
       customerName: order.customer_name,
       customerPhone: order.customer_phone,
+      customerEmail: order.customer_email,
+      notificationPreference: order.notification_preference,
       customerId: order.customer_id,
       totalPrice: order.total_price,
       type: order.fulfillment_type,

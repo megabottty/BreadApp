@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, inject, computed, effect } from '@angular/core';
 import { HelpService } from '../../services/help.service';
 import { ModalService } from '../../services/modal.service';
-import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, NgOptimizedImage } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -9,14 +9,15 @@ import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../l
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
 import { TenantService } from '../../services/tenant.service';
+import { AppLoadService } from '../../services/app-load.service';
 
 @Component({
   selector: 'app-storefront',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, ReviewModalComponent],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, NgOptimizedImage, ReviewModalComponent, RouterLink],
   templateUrl: './storefront.html',
   styleUrls: ['./storefront.css']
 })
@@ -137,49 +138,114 @@ export class StorefrontComponent implements OnInit {
   }
 
   private tenantService = inject(TenantService);
+  private appLoadService = inject(AppLoadService);
 
   private get headers() {
     const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
-  private getOptimizedRecipesForStorage(recipes: CalculatedRecipe[]): CalculatedRecipe[] {
+  private getOptimizedRecipesForStorage(recipes: CalculatedRecipe[]) {
     return recipes.map(r => ({
-      ...r,
-      imageUrl: r.imageUrl?.startsWith('data:') ? '' : r.imageUrl,
-      images: r.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      flavorProfile: r.flavorProfile,
+      description: r.description,
+      price: r.price,
+      imageUrl: r.imageUrl,
+      images: r.images,
+      trueHydration: r.trueHydration,
+      averageRating: r.averageRating,
+      isHidden: r.isHidden,
+      servingSizeGrams: r.servingSizeGrams,
+      ingredients: r.ingredients?.map(ing => ({
+        name: ing.name,
+        weight: ing.weight,
+        type: ing.type
+      }))
     }));
+  }
+
+  private normalizeRecipeImages(recipes: CalculatedRecipe[]): CalculatedRecipe[] {
+    return recipes.map(recipe => {
+      if (recipe.images && recipe.images.length > 0) {
+        return recipe;
+      }
+
+      if (recipe.imageUrl) {
+        return {
+          ...recipe,
+          images: [recipe.imageUrl]
+        };
+      }
+
+      return recipe;
+    });
+  }
+
+  private scheduleOptimizedRecipeCache(recipes: CalculatedRecipe[]) {
+    const persist = () => {
+      try {
+        localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
+      } catch (e) {
+        console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+      }
+    };
+
+    if ('requestIdleCallback' in window) {
+      (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(persist);
+    } else {
+      setTimeout(persist, 0);
+    }
+  }
+
+  isInlineImage(url?: string | null): boolean {
+    if (!url) return false;
+    return url.startsWith('data:') || url.startsWith('blob:');
   }
 
   loadRecipes(): void {
     const slug = this.tenantService.tenant()?.slug;
     if (!slug) {
       console.warn('[Storefront] Skipping loadRecipes: No tenant slug identified yet.');
+      this.appLoadService.setStorefrontReady(true);
       return;
     }
     const headers = new HttpHeaders().set('x-tenant-slug', slug);
+    const cached = localStorage.getItem('bakery_recipes');
+    if (cached) {
+      try {
+        const normalized = this.normalizeRecipeImages(JSON.parse(cached));
+        this.products.set(normalized);
+        this.scheduleOptimizedRecipeCache(normalized);
+        this.appLoadService.setStorefrontReady(true);
+      } catch (e) {
+        console.warn('Failed to load cached recipes from localStorage', e);
+        this.appLoadService.setStorefrontReady(true);
+      }
+    } else {
+      this.appLoadService.setStorefrontReady(true);
+    }
     this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
       next: (recipes: CalculatedRecipe[]) => {
-        this.products.set(recipes);
+        const normalized = this.normalizeRecipeImages(recipes);
+        this.products.set(normalized);
         // Sync local storage just in case other parts of the app still rely on it
-        try {
-          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
-        } catch (e) {
-          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-        }
+        this.scheduleOptimizedRecipeCache(normalized);
 
-        // Fetch reviews for each recipe to ensure ratings are up to date
-        recipes.forEach(r => {
-          if (r.id) this.reviewService.fetchReviewsForRecipe(r.id);
-        });
+        this.appLoadService.setStorefrontReady(true);
       },
       error: (err: any) => {
         console.error('Failed to load recipes from database:', err);
         // Fallback to local storage if DB fails
         const saved = localStorage.getItem('bakery_recipes');
         if (saved) {
-          this.products.set(JSON.parse(saved));
+          const normalized = this.normalizeRecipeImages(JSON.parse(saved));
+          this.products.set(normalized);
+          this.scheduleOptimizedRecipeCache(normalized);
         }
+        this.appLoadService.setStorefrontReady(true);
       }
     });
   }
@@ -256,11 +322,7 @@ export class StorefrontComponent implements OnInit {
         console.log('Product deleted from cloud:', product.id);
         const updated = this.products().filter(p => p.id !== product.id);
         this.products.set(updated);
-        try {
-          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
-        } catch (e) {
-          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-        }
+        this.scheduleOptimizedRecipeCache(updated);
         this.cancelDelete();
       },
       error: (err) => {
@@ -268,11 +330,7 @@ export class StorefrontComponent implements OnInit {
         // Fallback to local delete
         const updated = this.products().filter(p => p.id !== product.id);
         this.products.set(updated);
-        try {
-          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
-        } catch (e) {
-          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-        }
+        this.scheduleOptimizedRecipeCache(updated);
         this.cancelDelete();
       }
     });
@@ -284,12 +342,16 @@ export class StorefrontComponent implements OnInit {
 
   openReviewModal(product: CalculatedRecipe) {
     this.selectedProductForReview.set(product);
+    if (product.id) {
+      this.reviewService.fetchReviewsForRecipe(product.id);
+    }
   }
 
   toggleReviews(productId: string) {
     if (this.showReviewsForProduct() === productId) {
       this.showReviewsForProduct.set(null);
     } else {
+      this.reviewService.fetchReviewsForRecipe(productId);
       this.showReviewsForProduct.set(productId);
     }
   }

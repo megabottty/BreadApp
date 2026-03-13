@@ -180,6 +180,8 @@ h1 {
   display: flex;
   flex-direction: column;
   height: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: 420px 520px;
 }
 
 .product-card:hover {
@@ -705,6 +707,26 @@ h1 {
 .btn-info-circle:hover {
   background: var(--tag-bg);
   border-color: var(--accent-sage);
+}
+
+/* Storefront Delete Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal-content {
+  width: min(520px, 92vw);
+  position: relative;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+  animation: modalPop 0.25s ease-out;
 }
 
 /* Professional Subscription Modal */

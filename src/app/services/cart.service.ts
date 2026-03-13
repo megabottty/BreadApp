@@ -10,9 +10,19 @@ import { environment } from '../../environments/environment';
 
 export type FulfillmentType = 'PICKUP' | 'SHIPPING';
 
+export interface CartProduct {
+  id?: string;
+  name: string;
+  category: CalculatedRecipe['category'];
+  price?: number;
+  trueHydration?: number;
+  ingredients?: CalculatedRecipe['ingredients'];
+}
+
 export interface CartItem {
-  product: CalculatedRecipe;
+  product: CartProduct;
   quantity: number;
+  unitWeightGrams?: number;
   isSubscription?: boolean;
   notes?: string;
   selectedOptions?: { name: string; price: number }[];
@@ -104,7 +114,7 @@ export class CartService {
 
   totalWeight = computed(() =>
     this.cartItems().reduce((acc, item) => {
-      const unitWeight = item.product.ingredients.reduce((sum, ing) => sum + ing.weight, 0);
+      const unitWeight = item.unitWeightGrams ?? this.getUnitWeightFromProduct(item.product);
       return acc + (unitWeight * item.quantity * this.getPackSize(item));
     }, 0)
   );
@@ -258,7 +268,10 @@ export class CartService {
     if (saved) {
       try {
         const data = JSON.parse(saved);
-        this.cartItems.set(data.items || []);
+        const items = Array.isArray(data.items)
+          ? data.items.map((item: CartItem) => this.normalizeCartItem(item))
+          : [];
+        this.cartItems.set(items);
         this.fulfillmentType.set(data.fulfillmentType || 'PICKUP');
         this.zipCode.set(data.zipCode || '');
         this.notes.set(data.notes || '');
@@ -271,14 +284,7 @@ export class CartService {
   private saveCart() {
     if (this.isInitialLoad) return;
     const data = {
-      items: this.cartItems().map(item => ({
-        ...item,
-        product: {
-          ...item.product,
-          imageUrl: item.product.imageUrl?.startsWith('data:') ? '' : item.product.imageUrl,
-          images: item.product.images?.map(img => img.startsWith('data:') ? '' : img).filter(img => img !== '')
-        }
-      })),
+      items: this.cartItems().map(item => this.toPersistedItem(item)),
       fulfillmentType: this.fulfillmentType(),
       zipCode: this.zipCode(),
       notes: this.notes()
@@ -310,7 +316,15 @@ export class CartService {
             : item
         );
       } else {
-        updated = [...prev, { product, quantity, notes, selectedOptions, packOption: resolvedPackOption }];
+        const unitWeightGrams = this.getUnitWeightFromProduct(product);
+        const productSnapshot: CartProduct = {
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          trueHydration: product.trueHydration
+        };
+        updated = [...prev, { product: productSnapshot, quantity, unitWeightGrams, notes, selectedOptions, packOption: resolvedPackOption }];
       }
       return updated;
     });
@@ -338,7 +352,7 @@ export class CartService {
     ));
   }
 
-  getPackOptions(product: CalculatedRecipe): PackOption[] {
+  getPackOptions(product: CartProduct | CalculatedRecipe): PackOption[] {
     if (product.category === 'BAGEL') {
       return [
         { id: 'single', label: 'Single Bagel', size: 1, price: 2 },
@@ -390,6 +404,45 @@ export class CartService {
 
   private resolvePackOption(item: CartItem): PackOption | undefined {
     return item.packOption || this.getPackOptions(item.product)[0];
+  }
+
+  private getUnitWeightFromProduct(product: CartProduct | CalculatedRecipe): number {
+    const ingredients = product.ingredients;
+    if (!ingredients || ingredients.length === 0) {
+      return 0;
+    }
+    return ingredients.reduce((sum, ing) => sum + ing.weight, 0);
+  }
+
+  private normalizeCartItem(item: CartItem): CartItem {
+    const product = item?.product || { name: 'Item', category: 'OTHER' as CalculatedRecipe['category'] };
+    const normalizedProduct: CartProduct = {
+      id: product.id,
+      name: product.name,
+      category: product.category || 'OTHER',
+      price: product.price,
+      trueHydration: product.trueHydration,
+      ingredients: product.ingredients
+    };
+    return {
+      ...item,
+      product: normalizedProduct,
+      unitWeightGrams: item.unitWeightGrams ?? this.getUnitWeightFromProduct(normalizedProduct)
+    };
+  }
+
+  private toPersistedItem(item: CartItem): CartItem {
+    return {
+      ...item,
+      unitWeightGrams: item.unitWeightGrams ?? this.getUnitWeightFromProduct(item.product),
+      product: {
+        id: item.product.id,
+        name: item.product.name,
+        category: item.product.category,
+        price: item.product.price,
+        trueHydration: item.product.trueHydration
+      }
+    };
   }
 
   private isSameCartItem(a: CartItem, b: CartItem): boolean {

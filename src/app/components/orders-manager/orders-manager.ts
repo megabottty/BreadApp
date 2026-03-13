@@ -257,9 +257,9 @@ export class OrdersManagerComponent implements OnInit {
 
   private triggerNotification(order: Order): void {
     if (order.status === 'READY' && order.type === 'PICKUP') {
-      this.notificationService.sendReadyForPickup(order.customerName, order.customerPhone);
+      this.notificationService.sendReadyForPickup(order.customerName, order.customerPhone, order.customerEmail || '', order.notificationPreference);
     } else if (order.status === 'SHIPPED' && order.type === 'SHIPPING') {
-      this.notificationService.sendOutForDelivery(order.customerName, order.customerPhone, 'https://daily-dough.com/track/' + order.id);
+      this.notificationService.sendOutForDelivery(order.customerName, order.customerPhone, order.customerEmail || '', 'https://daily-dough.com/track/' + order.id, order.notificationPreference);
     }
   }
 
@@ -325,6 +325,46 @@ export class OrdersManagerComponent implements OnInit {
         });
       }
     );
+  }
+
+  async sendTestNotifications() {
+    const email = this.authService.user()?.email || '';
+    const phone = prompt('Enter the phone number to receive a test SMS (optional):', '')?.trim() || '';
+
+    if (!email && !phone) {
+      this.modalService.showAlert('Add an email or phone number to send a test notification.', 'Missing Info', 'warning');
+      return;
+    }
+
+    const sendEmail = email ? confirm(`Send a test email to ${email}?`) : false;
+    const sendSms = phone ? confirm(`Send a test SMS to ${phone}?`) : false;
+
+    if (!sendEmail && !sendSms) {
+      this.modalService.showAlert('No notification was sent.', 'Cancelled', 'info');
+      return;
+    }
+
+    const message = 'Test notification from The Daily Dough. Your alerts are working! 🥖';
+    const subject = 'Test notification from The Daily Dough';
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #7D8F69;">Test notification</h2>
+        <p>Your Daily Dough notifications are configured and working.</p>
+      </div>
+    `;
+
+    try {
+      if (sendSms && phone) {
+        await this.notificationService.sendSMS(phone, message);
+      }
+      if (sendEmail && email) {
+        await this.notificationService.sendEmail(email, subject, html);
+      }
+      this.modalService.showAlert('Test notification sent. Check your inbox or phone.', 'Success', 'success');
+    } catch (error) {
+      console.error('Failed to send test notification:', error);
+      this.modalService.showAlert('Failed to send test notification. Check your server logs and credentials.', 'Error', 'error');
+    }
   }
 
   getRecipeCategory(recipeName: string): string {

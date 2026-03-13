@@ -48,6 +48,9 @@ export class BakerDashboardComponent {
   supplyPlanItems = signal<SupplyPlanItem[]>([]);
   supplyPlanMeta = signal<SupplyPlanMeta | null>(null);
   supplyPlanLoading = signal<boolean>(false);
+  billingSummary = signal<BillingSummary | null>(null);
+  billingLoading = signal<boolean>(false);
+  pendingSetupSessionId = signal<string | null>(null);
 
   // Inventory logic
   ingredientNeeds = computed(() => {
@@ -109,6 +112,14 @@ export class BakerDashboardComponent {
   }
 
   constructor() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment_setup') === 'success') {
+      const sessionId = params.get('session_id');
+      if (sessionId) {
+        this.pendingSetupSessionId.set(sessionId);
+      }
+    }
+
     this.loadData();
 
     // Reload inventory whenever tab changes to it
@@ -116,6 +127,21 @@ export class BakerDashboardComponent {
       if (this.activeTab() === 'inventory') {
         this.inventoryService.loadInventory();
         this.loadSupplyPlan();
+      }
+    });
+
+    // Confirm Stripe setup return when we have both a tenant and session id.
+    effect(() => {
+      const sessionId = this.pendingSetupSessionId();
+      const tenant = this.currentTenant();
+      if (!sessionId || !tenant) return;
+      this.confirmSetupSession(sessionId, tenant.id, tenant.slug);
+    });
+
+    // Load billing data when billing tab is opened.
+    effect(() => {
+      if (this.activeTab() === 'billing') {
+        this.loadBillingSummary();
       }
     });
   }
@@ -374,6 +400,52 @@ export class BakerDashboardComponent {
       }
     });
   }
+
+  loadBillingSummary() {
+    const customerId = this.currentTenant()?.stripe_account_id;
+    if (!customerId) {
+      this.billingSummary.set(null);
+      this.billingLoading.set(false);
+      return;
+    }
+
+    this.billingLoading.set(true);
+    this.http.get<BillingSummary>(`${environment.apiUrl}/payments/billing-summary/${customerId}`, { headers: this.headers }).subscribe({
+      next: (summary) => {
+        this.billingSummary.set(summary);
+        this.billingLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load billing summary:', err);
+        this.billingSummary.set(null);
+        this.billingLoading.set(false);
+      }
+    });
+  }
+
+  private confirmSetupSession(sessionId: string, tenantId: string, tenantSlug: string) {
+    this.http.post<{ customerId: string }>(`${environment.apiUrl}/payments/confirm-setup-session`, {
+      sessionId,
+      tenantId
+    }, { headers: this.headers }).subscribe({
+      next: () => {
+        this.pendingSetupSessionId.set(null);
+        window.history.replaceState({}, '', '/dashboard');
+        this.tenantService.loadTenantInfo(tenantSlug);
+        this.loadBillingSummary();
+        this.modalService.showAlert('Payment method linked successfully.', 'Billing Updated', 'success');
+      },
+      error: (err) => {
+        console.error('Failed to confirm setup session:', err);
+        this.pendingSetupSessionId.set(null);
+      }
+    });
+  }
+
+  openInvoice(url: string | null) {
+    if (!url) return;
+    window.open(url, '_blank');
+  }
 }
 
 interface SupplyPlanItem {
@@ -395,4 +467,26 @@ interface SupplyPlanMeta {
 interface SupplyPlanResponse {
   plan: SupplyPlanMeta;
   items: SupplyPlanItem[];
+}
+
+interface BillingInvoice {
+  id: string;
+  amountPaid: number;
+  currency: string;
+  status: string | null;
+  createdAt: string | null;
+  invoicePdf: string | null;
+  hostedInvoiceUrl: string | null;
+}
+
+interface BillingSummary {
+  paymentMethod: {
+    brand: string;
+    last4: string;
+    expMonth: number;
+    expYear: number;
+  } | null;
+  invoices: BillingInvoice[];
+  nextBillingDate: string | null;
+  subscriptionStatus: string | null;
 }
