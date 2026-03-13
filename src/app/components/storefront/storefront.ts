@@ -9,7 +9,7 @@ import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review, calculateBaker
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
 import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
@@ -26,6 +26,7 @@ export class StorefrontComponent implements OnInit {
   protected authService = inject(AuthService);
   protected reviewService = inject(ReviewService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private http = inject(HttpClient);
   private helpService = inject(HelpService);
   private modalService = inject(ModalService);
@@ -136,6 +137,9 @@ export class StorefrontComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe(params => {
+      this.searchTerm.set(params.get('q') || '');
+    });
   }
 
   private tenantService = inject(TenantService);

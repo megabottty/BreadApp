@@ -7,6 +7,19 @@
 <nav class="main-nav" role="navigation" aria-label="Main Navigation">
   <a routerLink="/front" class="nav-brand" (click)="closeMenu()">{{title()}}</a>
 
+  @if (showStorefrontSearch()) {
+    <div class="title-search-wrap">
+      <label for="title-search" class="sr-only">Search products</label>
+      <input
+        id="title-search"
+        class="title-search"
+        type="text"
+        [ngModel]="storefrontSearch()"
+        (ngModelChange)="onStorefrontSearchChange($any($event))"
+        placeholder="Search products">
+    </div>
+  }
+
   <button class="menu-toggle"
           (click)="toggleMenu()"
           [attr.aria-expanded]="isMenuOpen()"
