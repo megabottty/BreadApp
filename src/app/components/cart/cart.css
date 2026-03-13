@@ -375,6 +375,39 @@ h1 {
   font-size: 16px; /* Prevents auto-zoom on iOS */
 }
 
+.form-group select {
+  width: 100%;
+  padding: 0.75rem 2.5rem 0.75rem 0.75rem;
+  border: 1px solid #E0DCCF;
+  border-radius: 10px;
+  box-sizing: border-box;
+  font-size: 16px;
+  color: #4A4A4A;
+  background-color: #FEFDFB;
+  cursor: pointer;
+  line-height: 1.3;
+  /* Keep a visible chevron so this clearly reads as a dropdown. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, #7D8F69 50%),
+    linear-gradient(135deg, #7D8F69 50%, transparent 50%),
+    linear-gradient(to right, #E0DCCF, #E0DCCF);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px),
+    calc(100% - 2.2rem) 50%;
+  background-size:
+    6px 6px,
+    6px 6px,
+    1px 1.6rem;
+  background-repeat: no-repeat;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #7D8F69;
+  box-shadow: 0 0 0 3px rgba(125, 143, 105, 0.12);
+}
+
 .form-group input.invalid {
   border-color: #D88569;
 }
