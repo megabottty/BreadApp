@@ -5,7 +5,7 @@ import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, NgOpt
 import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review } from '../../logic/bakers-math';
+import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review, calculateBakersMath } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
@@ -36,6 +36,7 @@ export class StorefrontComponent implements OnInit {
   selectedFlavor = signal<FlavorProfile | 'ALL'>('ALL');
 
   selectedProductForReview = signal<CalculatedRecipe | null>(null);
+  selectedProductDetails = signal<CalculatedRecipe | null>(null);
   showReviewsForProduct = signal<string | null>(null);
   showSubscriptionInfo = signal(false);
   searchTerm = signal('');
@@ -292,6 +293,77 @@ export class StorefrontComponent implements OnInit {
 
   addToCart(product: CalculatedRecipe): void {
     this.modalService.showCustomization(product);
+  }
+
+  onProductCardClick(product: CalculatedRecipe, event: Event): void {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+
+    // Ignore clicks on already interactive controls inside the card.
+    if (target.closest('button, a, input, textarea, select, .rating-display, .reviews-list, .reply-editor')) {
+      return;
+    }
+
+    this.openProductDetails(product);
+  }
+
+  openProductDetails(product: CalculatedRecipe): void {
+    this.selectedProductDetails.set(product);
+  }
+
+  closeProductDetails(): void {
+    this.selectedProductDetails.set(null);
+  }
+
+  getNutritionDisplay(product: CalculatedRecipe): {
+    hasData: boolean;
+    label: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  } {
+    const hasIngredients = Array.isArray(product.ingredients) && product.ingredients.length > 0;
+    const fallback = (!product.totalNutrition || product.totalNutrition.calories === 0) && hasIngredients
+      ? calculateBakersMath({
+        ...product,
+        ingredients: product.ingredients
+      })
+      : product;
+
+    const totalNutrition = fallback.totalNutrition;
+    const perServing = fallback.nutritionPerServing;
+
+    if (perServing && perServing.calories > 0) {
+      return {
+        hasData: true,
+        label: `Per serving (${fallback.servingSizeGrams || product.servingSizeGrams || 50}g)`,
+        calories: perServing.calories,
+        protein: perServing.protein,
+        carbs: perServing.carbs,
+        fat: perServing.fat
+      };
+    }
+
+    if (totalNutrition && totalNutrition.calories > 0) {
+      return {
+        hasData: true,
+        label: 'Per whole item',
+        calories: totalNutrition.calories,
+        protein: totalNutrition.protein,
+        carbs: totalNutrition.carbs,
+        fat: totalNutrition.fat
+      };
+    }
+
+    return {
+      hasData: false,
+      label: 'Nutrition data unavailable',
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0
+    };
   }
 
   subscribe(product: CalculatedRecipe): void {
