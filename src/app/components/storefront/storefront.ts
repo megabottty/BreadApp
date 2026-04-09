@@ -9,7 +9,7 @@ import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review, calculateBaker
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
 import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
@@ -17,7 +17,7 @@ import { AppLoadService } from '../../services/app-load.service';
 @Component({
   selector: 'app-storefront',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, NgOptimizedImage, ReviewModalComponent, RouterLink],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, NgOptimizedImage, ReviewModalComponent],
   templateUrl: './storefront.html',
   styleUrls: ['./storefront.css']
 })
@@ -377,10 +377,6 @@ export class StorefrontComponent implements OnInit {
     this.router.navigate(['/cart']);
   }
 
-  editProduct(product: CalculatedRecipe): void {
-    this.router.navigate(['/calculator', product.id]);
-  }
-
   confirmDeleteProduct(product: CalculatedRecipe): void {
     this.productToDelete.set(product);
   }
@@ -414,6 +410,53 @@ export class StorefrontComponent implements OnInit {
 
   deleteProduct(product: CalculatedRecipe): void {
     this.confirmDeleteProduct(product);
+  }
+
+  editProduct(product: CalculatedRecipe): void {
+    if (!product) {
+      console.error('[Storefront] editProduct called with null product');
+      return;
+    }
+
+    const recipeId = product.id || (product as any)._id;
+    console.log('[Storefront] Attempting to edit product:', {
+      name: product.name,
+      id: product.id,
+      _id: (product as any)._id
+    });
+
+    if (!recipeId) {
+      console.error('[Storefront] editProduct: product missing ID', product);
+      // Try to find by name in the products signal if id is missing
+      const found = this.products().find(p => p.name === product.name && p.id);
+      if (found && found.id) {
+        console.log('[Storefront] Found product ID from signal by name:', found.id);
+        this.router.navigate(['/calculator', found.id]);
+        return;
+      }
+      alert('Could not find an ID for this recipe to edit. Please try reloading the page.');
+      return;
+    }
+
+    console.log('[Storefront] Navigating to /calculator/' + recipeId);
+
+    // Using a tiny timeout to ensure we're out of any current event loop / change detection cycle
+    // and that stopPropagation has fully taken effect if it was a race condition.
+    setTimeout(() => {
+      this.router.navigate(['/calculator', recipeId])
+        .then(success => {
+          if (success) {
+            console.log('[Storefront] Navigation successful to /calculator/' + recipeId);
+          } else {
+            console.error('[Storefront] Navigation FAILED to /calculator/' + recipeId);
+            // Fallback: direct window location if router fails for some reason
+            // window.location.href = `/calculator/${recipeId}`;
+          }
+        })
+        .catch(err => {
+          console.error('[Storefront] Error during navigation:', err);
+        });
+    }, 10);
   }
 
   openReviewModal(product: CalculatedRecipe) {

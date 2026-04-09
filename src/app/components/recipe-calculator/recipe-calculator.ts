@@ -10,7 +10,7 @@ import { IngredientService, FoodSearchItem } from '../../services/ingredient.ser
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of, catchError } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of, catchError, map } from 'rxjs';
 
 @Component({
   selector: 'app-recipe-calculator',
@@ -113,25 +113,86 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
     // Debounced search setup
     this.searchSubject.pipe(
-      debounceTime(500),
+      debounceTime(400),
       distinctUntilChanged((prev, curr) => prev.term === curr.term && prev.index === curr.index),
       switchMap(({ term, index }) => {
         console.log('Debounced search triggered for:', term);
+        // We ALWAYS want to include matching known ingredients immediately,
+        // even before the API returns.
+        const knownIngredients = Array.from(new Set(Object.keys(this.ingredientCostDefaults()).map(n => n.toLowerCase())))
+          .map(name => ({
+            name: this.capitalizeFirstLetter(name),
+            nutrition: this.ingredientService.getNutrition(name) || { caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 },
+            isKnown: true,
+            hasCost: true
+          }))
+          .filter(ki => ki.name.toLowerCase().includes(term.toLowerCase()));
+
         if (term.length >= 2) {
           return this.ingredientService.search(term).pipe(
+            map((results: FoodSearchItem[]) => ({ results, known: knownIngredients, term })),
             catchError((err: any) => {
               console.error('Search error in component:', err);
-              return of([]);
+              return of({ results: [], known: knownIngredients, term });
             })
           );
         } else {
-          return of([]);
+          return of({ results: [], known: knownIngredients, term });
         }
       }),
       takeUntil(this.destroy$)
-    ).subscribe((results: FoodSearchItem[]) => {
-      console.log('Search results received:', results.length);
-      this.searchResults.set(results);
+    ).subscribe(({ results, known, term }: { results: FoodSearchItem[], known: FoodSearchItem[], term: string }) => {
+      // If the user has moved to another field, ignore these results
+      if (this.activeSearchIndex() === null) return;
+
+      const activeIdx = this.activeSearchIndex();
+      const currentTerm = activeIdx !== null ? (this.recipeForm.get('ingredients')?.value[activeIdx]?.name || '') : '';
+
+      // If the user has changed the text significantly while API was pending, ignore
+      if (currentTerm.toLowerCase() !== term.toLowerCase() && currentTerm.length > term.length) {
+        return;
+      }
+
+      console.log('Search results received:', results.length, 'Known matched:', known.length);
+
+      // Enhance search results with cost availability flag
+      const enhancedResults = results.map((res: FoodSearchItem) => {
+        const normalized = this.normalizeIngredientName(res.name);
+        const hasCost = !!(this.ingredientCostDefaults()[normalized] || this.ingredientCostDefaults()[res.name]);
+        return { ...res, hasCost };
+      });
+
+      // Combine: Known products first, then USDA results
+      const combined: FoodSearchItem[] = [...known];
+      enhancedResults.forEach((res: FoodSearchItem) => {
+        if (!combined.some(c => (c.name || '').toLowerCase() === (res.name || '').toLowerCase())) {
+          combined.push(res);
+        }
+      });
+
+      // Sort combined results similarly: prioritize better matches
+      const termLower = term.toLowerCase();
+      combined.sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+
+        // Exact matches first
+        if (aName === termLower && bName !== termLower) return -1;
+        if (bName === termLower && aName !== termLower) return 1;
+
+        // Known products second
+        if (a.isKnown && !b.isKnown) return -1;
+        if (b.isKnown && !a.isKnown) return 1;
+
+        // Prefix matches third
+        if (aName.startsWith(termLower) && !bName.startsWith(termLower)) return -1;
+        if (bName.startsWith(termLower) && !aName.startsWith(termLower)) return 1;
+
+        return 0;
+      });
+
+      // Only update if we're still focused on this term/index
+      this.searchResults.set(combined.slice(0, 15));
     });
 
     this.route.paramMap
@@ -464,19 +525,42 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       const imagesArray = this.recipeForm.get('images') as FormArray;
 
       for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          imagesArray.push(this.fb.control(result));
+        reader.onload = (e: any) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const max_size = 1200;
 
-          if (!this.recipeForm.get('imageUrl')?.value) {
-            this.recipeForm.patchValue({ imageUrl: result });
-          }
+            if (width > height) {
+              if (width > max_size) {
+                height *= max_size / width;
+                width = max_size;
+              }
+            } else {
+              if (height > max_size) {
+                width *= max_size / height;
+                height = max_size;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
-          // Force calculation update to ensure new images are in the signal
-          this.updateCalculations();
+            imagesArray.push(this.fb.control(dataUrl));
+            if (!this.recipeForm.get('imageUrl')?.value) {
+              this.recipeForm.patchValue({ imageUrl: dataUrl });
+            }
+            this.updateCalculations();
+          };
+          img.src = e.target.result;
         };
-        reader.readAsDataURL(files[i]);
+        reader.readAsDataURL(file);
       }
     }
   }
@@ -553,29 +637,74 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   onSearch(event: Event, index: number) {
     const term = (event.target as HTMLInputElement).value;
-    console.log('Search term:', term, 'at index:', index);
     this.activeSearchIndex.set(index);
-    this.searchSubject.next({ term, index });
-    if (term.length < 2) {
-      this.searchResults.set([]);
+
+    const knownIngredients = Array.from(new Set(Object.keys(this.ingredientCostDefaults()).map(n => n.toLowerCase())))
+      .map(name => ({
+        name: this.capitalizeFirstLetter(name),
+        nutrition: this.ingredientService.getNutrition(name) || { caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 },
+        isKnown: true,
+        hasCost: true
+      }));
+
+    if (!term || term.length < 1) {
+      this.searchResults.set(knownIngredients.slice(0, 10));
+      // Don't trigger API for empty term
+      return;
     }
+
+    // IMMEDIATELY show matching known products
+    const filteredKnown = knownIngredients.filter(ki => ki.name.toLowerCase().includes(term.toLowerCase()));
+
+    // If we have local matches, show them immediately to prevent "flashing" while waiting for API
+    if (filteredKnown.length > 0) {
+      // Sort matches to prioritize exact/prefix
+      const termLower = term.toLowerCase();
+      filteredKnown.sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        if (aName === termLower && bName !== termLower) return -1;
+        if (bName === termLower && aName !== termLower) return 1;
+        if (aName.startsWith(termLower) && !bName.startsWith(termLower)) return -1;
+        if (bName.startsWith(termLower) && !aName.startsWith(termLower)) return 1;
+        return aName.localeCompare(bName);
+      });
+
+      // Preserve existing API results if they were for the SAME term,
+      // otherwise just show known ones until debounced API returns.
+      this.searchResults.set(filteredKnown.slice(0, 10));
+    }
+
+    this.searchSubject.next({ term, index });
   }
 
-  onBlur() {
-    // Delay slightly to allow mousedown to trigger selectIngredient
-    setTimeout(() => {
-      this.activeSearchIndex.set(null);
-      this.searchResults.set([]);
-    }, 200);
+  private capitalizeFirstLetter(string: string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
   }
 
-  onIngredientBlur(index: number) {
-    this.onBlur();
+  onBlur(index: number) {
+    // Apply cost defaults on blur
     this.applyIngredientCostDefaults(index);
+
+    // Only clear if the blurring index is the active search index
+    if (this.activeSearchIndex() === index) {
+      setTimeout(() => {
+        // Double check we haven't switched to another field or selected something
+        if (this.activeSearchIndex() === index) {
+          this.activeSearchIndex.set(null);
+          this.searchResults.set([]);
+        }
+      }, 400); // Slightly more generous timeout for mobile/slower interactions
+    }
   }
 
   selectIngredient(item: FoodSearchItem, index: number) {
     console.log('Ingredient selected:', item.name, 'for index:', index);
+
+    // Clear dropdown immediately to prevent re-clicks
+    this.searchResults.set([]);
+    this.activeSearchIndex.set(null);
+
     const ingredientForm = this.ingredients.at(index) as FormGroup;
     ingredientForm.patchValue({ name: item.name });
 
@@ -584,8 +713,6 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     // Add to local DB so getNutrition can find it later
     this.ingredientService.addIngredient(item.name, item.nutrition);
 
-    this.searchResults.set([]);
-    this.activeSearchIndex.set(null);
     this.updateCalculations();
   }
 
@@ -631,19 +758,26 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     const name = (nameOverride ?? (ingredientForm.get('name')?.value || '')).trim();
     if (!name) return;
 
-    const defaults = this.ingredientCostDefaults()[this.normalizeIngredientName(name)]
+    const normalized = this.normalizeIngredientName(name);
+    const defaults = this.ingredientCostDefaults()[normalized]
       || this.ingredientCostDefaults()[name];
+
     if (!defaults) return;
 
-    const bulkPrice = ingredientForm.get('bulkPrice')?.value;
-    const bulkWeight = ingredientForm.get('bulkWeight')?.value;
-    const costPerUnit = ingredientForm.get('costPerUnit')?.value;
+    const currentBulkPrice = ingredientForm.get('bulkPrice')?.value;
+    const currentBulkWeight = ingredientForm.get('bulkWeight')?.value;
+    const currentCostPerUnit = ingredientForm.get('costPerUnit')?.value;
 
-    ingredientForm.patchValue({
-      bulkPrice: bulkPrice ? bulkPrice : (defaults.bulkPrice ?? bulkPrice),
-      bulkWeight: bulkWeight ? bulkWeight : (defaults.bulkWeight ?? bulkWeight),
-      costPerUnit: costPerUnit ? costPerUnit : (defaults.costPerUnit ?? costPerUnit)
-    }, { emitEvent: false });
+    // We overwrite if currently empty/zero OR if we just explicitly selected this ingredient by name
+    const shouldOverwrite = !currentBulkPrice || !currentBulkWeight || !!nameOverride;
+
+    if (shouldOverwrite) {
+      ingredientForm.patchValue({
+        bulkPrice: defaults.bulkPrice ?? currentBulkPrice,
+        bulkWeight: defaults.bulkWeight ?? currentBulkWeight,
+        costPerUnit: defaults.costPerUnit ?? currentCostPerUnit
+      }, { emitEvent: false });
+    }
 
     this.updateCalculations();
   }

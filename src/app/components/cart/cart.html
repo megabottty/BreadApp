@@ -162,7 +162,7 @@
                 <p>{{item.product.trueHydration | percent:'1.0-0'}} Hydration Loaf</p>
 
                 @if (getPackOptions(item).length > 0) {
-                  <div class="form-group">
+                  <div class="form-group pack-option-group">
                     <label for="pack-{{item.product.id}}">Pack Option</label>
                     <select
                       id="pack-{{item.product.id}}"

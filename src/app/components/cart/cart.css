@@ -73,7 +73,7 @@ h1 {
   .cart-item {
     flex-direction: row;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
   }
 }
 
@@ -146,6 +146,17 @@ h1 {
     justify-content: flex-end;
     gap: 2rem;
     width: auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .item-info {
+    flex: 1;
+  }
+
+  .item-actions {
+    align-self: flex-end;
+    margin-top: 0.25rem;
   }
 }
 
@@ -406,6 +417,29 @@ h1 {
   outline: none;
   border-color: #7D8F69;
   box-shadow: 0 0 0 3px rgba(125, 143, 105, 0.12);
+}
+
+.pack-option-group {
+  max-width: 340px;
+}
+
+@media (min-width: 768px) {
+  .pack-option-group {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0.35rem 0 0.65rem;
+  }
+
+  .pack-option-group label {
+    margin: 0;
+    min-width: 82px;
+    white-space: nowrap;
+  }
+
+  .pack-option-group select {
+    width: 240px;
+  }
 }
 
 .form-group input.invalid {

@@ -269,9 +269,8 @@
               <span class="price">{{ (product.price || 12) | currency }}</span>
               <div class="btn-group button-group">
                 @if (authService.isBaker()) {
-                  <button class="btn-edit" type="button"
-                          [routerLink]="['/calculator', product.id]"
-                          (click)="editProduct(product)"
+                  <button type="button" class="btn-edit"
+                          (click)="editProduct(product); $event.stopPropagation()"
                           [attr.aria-label]="'Edit ' + product.name">Edit</button>
                   <button class="btn-delete-product" type="button" (click)="deleteProduct(product)" [attr.aria-label]="'Delete ' + product.name">×</button>
                 } @else {
@@ -467,9 +466,8 @@
                 <span class="price">{{ (product.price || 12) | currency }}</span>
                 <div class="btn-group button-group">
                   @if (authService.isBaker()) {
-                    <button class="btn-edit" type="button"
-                            [routerLink]="['/calculator', product.id]"
-                            (click)="editProduct(product)"
+                    <button type="button" class="btn-edit"
+                            (click)="editProduct(product); $event.stopPropagation()"
                             [attr.aria-label]="'Edit ' + product.name">Edit</button>
                     <button class="btn-delete-product" type="button" (click)="deleteProduct(product)" [attr.aria-label]="'Delete ' + product.name">×</button>
                   } @else {

@@ -153,15 +153,21 @@
           <div [formGroupName]="i" class="ingredient-row">
             <div class="search-container">
               <label for="ingredient-name-{{i}}" class="tiny-label-mobile">Ingredient Name</label>
-              <input type="text" id="ingredient-name-{{i}}" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onIngredientBlur(i)" autocomplete="off">
+              <input type="text" id="ingredient-name-{{i}}" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur(i)" autocomplete="off">
               @if (activeSearchIndex() === i && searchResults().length > 0) {
                 <div class="search-results-wrapper">
                   <ul class="search-results">
                     @for (item of searchResults(); track item.name) {
-                      <li (mousedown)="selectIngredient(item, i)">
+                      <li (mousedown)="selectIngredient(item, i); $event.preventDefault()">
                         <div class="search-item-info">
                           <span class="search-item-name">{{item.name}}</span>
-                          <span class="search-item-meta">{{item.nutrition.caloriesPer100g | number:'1.0-0'}} kcal/100g</span>
+                          @if (item.isKnown) {
+                            <span class="search-item-meta" style="color: var(--color-accent); font-weight: 600;">✨ Known Product</span>
+                          } @else if (item.hasCost) {
+                            <span class="search-item-meta" style="color: var(--color-accent); font-weight: 600;">💰 Price on File</span>
+                          } @else {
+                            <span class="search-item-meta">{{item.nutrition.caloriesPer100g | number:'1.0-0'}} kcal/100g</span>
+                          }
                         </div>
                       </li>
                     }

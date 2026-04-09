@@ -1,16 +1,22 @@
-name: Keep Supabase Awake
+name: Keep App and Supabase Awake
 
 on:
   schedule:
-    - cron: '0 0 * * 1' # Runs every Monday at midnight
+    - cron: '0 */6 * * *' # Runs every 6 hours
   workflow_dispatch: # Allows manual triggering for testing
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase
+      - name: Ping Render Backend
         run: |
-          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/bakery_tenants?select=*&limit=1" \
+          curl -i -X GET "https://bread-app-backend.onrender.com/api/orders/ingredients/costs" \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Ping Supabase Directly
+        run: |
+          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/bakery_tenants?select=id&limit=1" \
           -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"

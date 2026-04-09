@@ -7,6 +7,8 @@ import { environment } from '../../environments/environment';
 export interface FoodSearchItem {
   name: string;
   nutrition: NutritionData;
+  isKnown?: boolean;
+  hasCost?: boolean;
 }
 
 @Injectable({

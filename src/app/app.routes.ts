@@ -58,6 +58,11 @@ export const routes: Routes = [
     canActivate: [bakerGuard]
   },
   {
+    path: 'ingredients',
+    loadComponent: () => import('./components/ingredient-manager/ingredient-manager').then(m => m.IngredientManagerComponent),
+    canActivate: [bakerGuard]
+  },
+  {
     path: 'front',
     loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent)
   },

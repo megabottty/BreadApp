@@ -17,8 +17,8 @@ app.use((req, res, next) => {
 app.use(cors());
 app.options(/.*/, cors()); // Enable pre-flight across-the-board
 app.use(compression());
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // API Routes (all under /api prefix)
 const orderRoutes = require('./routes/orders');
