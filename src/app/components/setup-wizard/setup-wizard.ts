@@ -8,7 +8,7 @@ import { ModalService } from '../../services/modal.service';
 import { environment } from '../../../environments/environment';
 import { StripeLoaderService } from '../../services/stripe-loader.service';
 
-// import { firstValueFrom } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 
 interface Plan {
