@@ -20,6 +20,11 @@ app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
+// Health Check Endpoint (publicly accessible)
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // API Routes (all under /api prefix)
 const orderRoutes = require('./routes/orders');
 const paymentRoutes = require('./routes/payments');

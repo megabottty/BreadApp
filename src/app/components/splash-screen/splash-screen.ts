@@ -13,10 +13,11 @@ import { AppLoadService } from '../../services/app-load.service';
 })
 export class SplashScreenComponent implements OnInit {
   isVisible = signal(true);
+  isOverlayVisible = signal(true);
   message = signal('Preheating the oven...');
   animationDone = signal(false);
   isStorefrontRoute = signal(true);
-  private maxVisibleMs = 5000;
+  private maxVisibleMs = 8000; // Increased to 8s for reliability
 
   private router = inject(Router);
   private appLoadService = inject(AppLoadService);
@@ -51,7 +52,8 @@ export class SplashScreenComponent implements OnInit {
     if (this.isStorefrontRoute()) {
       setTimeout(() => {
         if (this.isVisible()) {
-          this.isVisible.set(false);
+          console.warn('[SplashScreen] Max visible time reached, forcing hide.');
+          this.hide();
         }
       }, this.maxVisibleMs);
     }
@@ -61,8 +63,16 @@ export class SplashScreenComponent implements OnInit {
 
       const isReady = this.appLoadService.storefrontReady();
       if (this.animationDone() && (isReady || !this.isStorefrontRoute())) {
-        this.isVisible.set(false);
+        this.hide();
       }
     });
+  }
+
+  private hide() {
+    this.isOverlayVisible.set(false);
+    // Wait for CSS transition (0.5s) before removing from DOM
+    setTimeout(() => {
+      this.isVisible.set(false);
+    }, 500);
   }
 }

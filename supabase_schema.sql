@@ -245,6 +245,7 @@ ALTER TABLE bakery_top_sellers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bakery_top_seller_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bakery_supply_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bakery_supply_plan_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bakery_ingredient_costs ENABLE ROW LEVEL SECURITY;
 
 -- 10. Create Policies
 
@@ -384,4 +385,9 @@ USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
 -- 10.14 bakery_supply_plan_items Policies
 CREATE POLICY "Bakers can manage their own supply plan items"
 ON bakery_supply_plan_items FOR ALL
+USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+
+-- 10.15 bakery_ingredient_costs Policies
+CREATE POLICY "Bakers can manage their own ingredient costs"
+ON bakery_ingredient_costs FOR ALL
 USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);

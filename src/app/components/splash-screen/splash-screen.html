@@ -1,5 +1,5 @@
 @if (isVisible()) {
-  <div class="splash-overlay">
+  <div class="splash-overlay" [class.fade-out]="!isOverlayVisible()">
     <div class="splash-content">
       <div class="bakery-animation">
         <span class="emoji">🌾</span>

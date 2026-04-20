@@ -11,12 +11,10 @@ jobs:
     steps:
       - name: Ping Render Backend
         run: |
-          curl -i -X GET "https://bread-app-backend.onrender.com/api/orders/ingredients/costs" \
-          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          curl -f -i -X GET "https://bread-app-backend.onrender.com/api/ping"
 
       - name: Ping Supabase Directly
         run: |
-          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/bakery_tenants?select=id&limit=1" \
+          curl -f -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
           -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"

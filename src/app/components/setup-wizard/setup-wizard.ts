@@ -116,14 +116,8 @@ export class SetupWizardComponent implements AfterViewInit {
     if (step === 3) return this.ovenCapacity() > 0;
     if (step === 4) return !!this.address() && !!this.phone() && !!this.email();
     if (step === 5) {
-      // --- START STRIPE BYPASS ---
-      return true;
-      // --- END STRIPE BYPASS ---
-
-      /*
       // --- UNCOMMENT FOR PRODUCTION ---
       return this.isCardComplete() && !this.stripeError() && !!this.stripe;
-      */
     }
     return true;
   });
@@ -245,15 +239,6 @@ export class SetupWizardComponent implements AfterViewInit {
     this.isProcessingPayment.set(true);
 
     try {
-      // --- START STRIPE BYPASS ---
-      // This section allows finishing without a real Stripe card
-      let subscriptionId = 'SUB_MOCK_' + Math.random().toString(36).substring(7);
-      let customerId = 'CUS_MOCK_' + Math.random().toString(36).substring(7);
-      let status: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'TRIAL_BYPASS' = 'TRIAL_BYPASS';
-      // --- END STRIPE BYPASS ---
-
-      /*
-      // --- UNCOMMENT FOR PRODUCTION ---
       // 1. Create Payment Method with Stripe
       const { paymentMethod, error } = await this.stripe.createPaymentMethod({
         type: 'card',
@@ -279,11 +264,9 @@ export class SetupWizardComponent implements AfterViewInit {
         email: this.email() || tenant.email,
         tenantId: tenant.id
       }));
-      subscriptionId = response.subscriptionId;
-      customerId = response.customerId;
-      status = 'TRIAL';
-      // --- END UNCOMMENT FOR PRODUCTION ---
-      */
+      const subscriptionId = response.subscriptionId;
+      const customerId = response.customerId;
+      const status = 'TRIAL';
 
       // 3. Update Business Info
       this.tenantService.updateTenant(tenant.id, {
