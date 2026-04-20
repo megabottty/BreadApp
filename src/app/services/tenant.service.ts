@@ -60,7 +60,7 @@ export class TenantService {
       if (parts[2]) {
         slug = parts[2];
       }
-    } else if (host !== 'localhost' && !host.includes('bluehost.com')) {
+    } else if (host !== 'localhost') {
       // thedailydough.store is the main landing/app domain, but it's also a valid tenant slug
       if (host === 'thedailydough.store') {
         slug = 'thedailydough';

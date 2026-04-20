@@ -50,9 +50,9 @@ The app is designed with a **mobile-first** approach:
 - **Custom Install Prompt**: For iOS and other browsers, a custom guided "Install App" prompt is implemented to improve discoverability and user experience.
 
 ### 5. Hosting & URL Rewriting (SPA Refresh Fix)
-Since this is a Single Page Application (SPA), traditional servers (Apache/Bluehost) need to be told how to handle sub-routes. I have added a `.htaccess` file in the `public/` directory.
+Since this is a Single Page Application (SPA), traditional servers (Apache) need to be told how to handle sub-routes. I have added a `.htaccess` file in the `public/` directory.
 
-When you build the app (`npm run build`), this file is copied to the root of your `dist/` folder. It tells the server to redirect any unknown URLs back to `index.html` so Angular can handle them, preventing the "Bluehost Splash Page" on refresh.
+When you build the app (`npm run build`), this file is copied to the root of your `dist/` folder. It tells the server to redirect any unknown URLs back to `index.html` so Angular can handle them, preventing the "404 page" on refresh.
 
 ---
 
