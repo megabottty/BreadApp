@@ -13,10 +13,10 @@ jobs:
     steps:
       - name: Ping Render Backend
         run: |
-          curl -f -i -X GET "https://bread-app-backend.onrender.com/api/ping"
+          curl -v -L --retry 3 --retry-delay 5 -f -i -X GET "https://bread-app-backend.onrender.com/api/ping"
 
       - name: Ping Supabase Directly
         run: |
-          curl -f -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+          curl -v -L --retry 3 --retry-delay 5 -f -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
           -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"

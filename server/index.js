@@ -42,7 +42,7 @@ app.use('/api/tax', taxRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 
-// Serve Angular static files with long-term caching for hashed assets
+// Serve Angular static files from the dist directory
 app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser'), {
   maxAge: '1y',
   immutable: true,
@@ -53,8 +53,8 @@ app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser'), {
   }
 }));
 
-// Catch-all route to serve index.html for Angular routing (must be LAST)
-app.use((req, res) => {
+// The "Catch-all" route for Angular routing
+app.get('/*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/BreadApp/browser/index.html'));
 });
 

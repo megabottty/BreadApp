@@ -251,94 +251,74 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             || process.env.DEFAULT_CONTACT_EMAIL
             || 'meganmuirhead@gmail.com';
 
-          if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-            const nodemailer = require('nodemailer');
-            const transporter = nodemailer.createTransport({
-              host: process.env.SMTP_HOST,
-              port: parseInt(process.env.SMTP_PORT || '587'),
-              secure: process.env.SMTP_SECURE === 'true',
-              auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
-              },
+        const { sendEmail } = require('../utils/email');
+        const itemsHtml = (parsedItems || []).map(item => `
+          <tr>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.quantity || 0}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">$${(item.price || 0).toFixed(2)}</td>
+          </tr>
+        `).join('');
+
+        await sendEmail({
+          to: recipient,
+          subject: `New Order: ${newOrder.id}`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
+              <h2 style="color: #7D8F69;">New Order Received</h2>
+              <p><strong>Bakery:</strong> ${tenant?.name || 'Your Bakery'}</p>
+              <p><strong>Order ID:</strong> ${newOrder.id}</p>
+              <p><strong>Customer:</strong> ${newOrder.customerName || 'Guest'}</p>
+              <p><strong>Fulfillment:</strong> ${newOrder.type || 'Pickup'}</p>
+              <p><strong>Pickup Date:</strong> ${newOrder.pickupDate || 'N/A'}</p>
+              <hr>
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #f9f9f9;">
+                    <th style="text-align: left; padding: 6px 8px;">Item</th>
+                    <th style="text-align: left; padding: 6px 8px;">Qty</th>
+                    <th style="text-align: left; padding: 6px 8px;">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHtml || '<tr><td colspan="3" style="padding: 6px 8px;">No items</td></tr>'}
+                </tbody>
+              </table>
+              <p style="margin-top: 16px;"><strong>Total:</strong> $${(newOrder.totalPrice || 0).toFixed(2)}</p>
+            </div>
+          `
+        });
+
+        const preference = newOrder.notificationPreference || 'NONE';
+        const shouldSendEmail = preference === 'EMAIL' || preference === 'BOTH';
+
+        if (shouldSendEmail && newOrder.customerEmail) {
+          await sendEmail({
+            to: newOrder.customerEmail,
+            subject: `Order Confirmation #${newOrder.id}`,
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
+                <h2 style="color: #7D8F69;">Thanks for your order!</h2>
+                <p>Hi ${newOrder.customerName || 'there'},</p>
+                <p>We received your order. Your confirmation number is <strong>#${newOrder.id}</strong>.</p>
+                <p>We'll let you know as soon as it's ready.</p>
+              </div>
+            `
+          });
+        }
+
+        const shouldSendSms = preference === 'SMS' || preference === 'BOTH';
+        if (shouldSendSms && newOrder.customerPhone) {
+          if (twilioClient && twilioPhoneNumber) {
+            await twilioClient.messages.create({
+              body: `Hi ${newOrder.customerName || 'there'}, thanks for your order from The Daily Dough! Your order ID is #${newOrder.id}. We'll notify you when it's ready.`,
+              from: twilioPhoneNumber,
+              to: newOrder.customerPhone
             });
-
-            const itemsHtml = (parsedItems || []).map(item => `
-              <tr>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.quantity || 0}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">$${(item.price || 0).toFixed(2)}</td>
-              </tr>
-            `).join('');
-
-            const mailOptions = {
-              from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
-              to: recipient,
-              subject: `New Order: ${newOrder.id}`,
-              html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
-                  <h2 style="color: #7D8F69;">New Order Received</h2>
-                  <p><strong>Bakery:</strong> ${tenant?.name || 'Your Bakery'}</p>
-                  <p><strong>Order ID:</strong> ${newOrder.id}</p>
-                  <p><strong>Customer:</strong> ${newOrder.customerName || 'Guest'}</p>
-                  <p><strong>Fulfillment:</strong> ${newOrder.type || 'Pickup'}</p>
-                  <p><strong>Pickup Date:</strong> ${newOrder.pickupDate || 'N/A'}</p>
-                  <hr>
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                      <tr style="background: #f9f9f9;">
-                        <th style="text-align: left; padding: 6px 8px;">Item</th>
-                        <th style="text-align: left; padding: 6px 8px;">Qty</th>
-                        <th style="text-align: left; padding: 6px 8px;">Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${itemsHtml || '<tr><td colspan="3" style="padding: 6px 8px;">No items</td></tr>'}
-                    </tbody>
-                  </table>
-                  <p style="margin-top: 16px;"><strong>Total:</strong> $${(newOrder.totalPrice || 0).toFixed(2)}</p>
-                </div>
-              `
-            };
-
-            await transporter.sendMail(mailOptions);
-
-            const preference = newOrder.notificationPreference || 'NONE';
-            const shouldSendSms = preference === 'SMS' || preference === 'BOTH';
-            const shouldSendEmail = preference === 'EMAIL' || preference === 'BOTH';
-
-            if (shouldSendEmail && newOrder.customerEmail) {
-              const customerEmailOptions = {
-                from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
-                to: newOrder.customerEmail,
-                subject: `Order Confirmation #${newOrder.id}`,
-                html: `
-                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
-                    <h2 style="color: #7D8F69;">Thanks for your order!</h2>
-                    <p>Hi ${newOrder.customerName || 'there'},</p>
-                    <p>We received your order. Your confirmation number is <strong>#${newOrder.id}</strong>.</p>
-                    <p>We'll let you know as soon as it's ready.</p>
-                  </div>
-                `
-              };
-
-              await transporter.sendMail(customerEmailOptions);
-            }
-
-            if (shouldSendSms && newOrder.customerPhone) {
-              if (twilioClient && twilioPhoneNumber) {
-                await twilioClient.messages.create({
-                  body: `Hi ${newOrder.customerName || 'there'}, thanks for your order from The Daily Dough! Your order ID is #${newOrder.id}. We'll notify you when it's ready.`,
-                  from: twilioPhoneNumber,
-                  to: newOrder.customerPhone
-                });
-              } else {
-                console.warn('[Order SMS] Twilio not configured. Skipping SMS notification.');
-              }
-            }
           } else {
-            console.warn('[Order Email] SMTP not configured. Skipping email notification.');
+            console.warn('[Order SMS] Twilio not configured. Skipping SMS notification.');
           }
+        }
         } catch (emailError) {
           console.error('[Order Email] Failed to send notification:', emailError);
         }

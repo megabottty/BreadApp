@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const twilio = require('twilio');
+const { sendEmail } = require('../utils/email');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-const nodemailer = require('nodemailer');
 
 let client;
 if (accountSid && authToken) {
@@ -43,33 +43,15 @@ router.post('/send-sms', async (req, res) => {
 router.post('/send-email', async (req, res) => {
   const { to, subject, html } = req.body;
 
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log(`[Email Mock - Missing SMTP] To: ${to}, Subject: ${subject}`);
-    return res.status(200).json({ success: true, mocked: true });
-  }
-
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-
-    await transporter.sendMail({
-      from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
-      to,
-      subject,
-      html
-    });
-
-    res.json({ success: true });
+    const result = await sendEmail({ to, subject, html });
+    // Even if email fails, we return 200 with success: false to avoid triggering the error interceptor
+    // as the notification is often a non-critical secondary action for the UI.
+    // If result.success is false, we still return 200.
+    res.status(200).json(result);
   } catch (error) {
-    console.error('Email Error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('[Notifications Route] Unexpected error:', error);
+    res.status(200).json({ success: false, error: error.message });
   }
 });
 

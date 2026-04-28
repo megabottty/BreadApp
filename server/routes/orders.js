@@ -140,28 +140,17 @@ router.post('/', async (req, res) => {
         || process.env.DEFAULT_CONTACT_EMAIL
         || 'meganmuirhead@gmail.com';
 
-      console.log('[Order Email] Debug config:', {
-        smtpHost: process.env.SMTP_HOST ? 'set' : 'missing',
-        smtpUser: process.env.SMTP_USER ? 'set' : 'missing',
-        smtpPass: process.env.SMTP_PASS ? 'set' : 'missing',
-        smtpPort: process.env.SMTP_PORT || '587',
-        smtpSecure: process.env.SMTP_SECURE === 'true',
-        from: process.env.CONTACT_EMAIL_FROM || 'default',
-        recipient
-      });
-
-      if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-        const nodemailer = require('nodemailer');
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT || '587'),
-          secure: process.env.SMTP_SECURE === 'true',
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
+        console.log('[Order Email] Debug config:', {
+          smtpHost: process.env.SMTP_HOST ? 'set' : 'missing',
+          smtpUser: process.env.SMTP_USER ? 'set' : 'missing',
+          smtpPass: process.env.SMTP_PASS ? 'set' : 'missing',
+          smtpPort: process.env.SMTP_PORT || '587',
+          smtpSecure: process.env.SMTP_SECURE === 'true',
+          from: process.env.CONTACT_EMAIL_FROM || 'default',
+          recipient
         });
 
+        const { sendEmail } = require('../utils/email');
         const itemsHtml = (orderData.items || []).map(item => `
           <tr>
             <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
@@ -170,8 +159,7 @@ router.post('/', async (req, res) => {
           </tr>
         `).join('');
 
-        const mailOptions = {
-          from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
+        await sendEmail({
           to: recipient,
           subject: `New Order: ${orderData.id}`,
           html: `
@@ -198,12 +186,7 @@ router.post('/', async (req, res) => {
               <p style="margin-top: 16px;"><strong>Total:</strong> $${(orderData.totalPrice || 0).toFixed(2)}</p>
             </div>
           `
-        };
-
-        await transporter.sendMail(mailOptions);
-      } else {
-        console.warn('[Order Email] SMTP not configured. Skipping email notification.');
-      }
+        });
     } catch (emailError) {
       console.error('[Order Email] Failed to send notification:', emailError);
     }
@@ -1435,18 +1418,8 @@ router.post('/generate-po', async (req, res) => {
 
     const recipient = supplierEmail || tenant.email || process.env.DEFAULT_CONTACT_EMAIL;
 
-    // 2. Configure Nodemailer (similar to contact.js)
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
+    // 2. Send Email using central utility
+    const { sendEmail } = require('../utils/email');
     const itemsHtml = poItems.map(item => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
@@ -1454,8 +1427,7 @@ router.post('/generate-po', async (req, res) => {
       </tr>
     `).join('');
 
-    const mailOptions = {
-      from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
+    const result = await sendEmail({
       to: recipient,
       subject: `Purchase Order: ${tenant.name}`,
       html: `
@@ -1478,9 +1450,17 @@ router.post('/generate-po', async (req, res) => {
           <p style="margin-top: 20px; color: #666; font-size: 12px;">This PO was generated automatically by The Daily Dough Production Engine.</p>
         </div>
       `
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
+    if (!result.success) {
+      console.warn('[PO Warning] PO email failed to send:', result.error);
+      return res.status(200).json({
+        success: false,
+        message: 'PO generated but email failed to send. Check your SMTP settings.',
+        error: result.error
+      });
+    }
+
     res.json({ success: true, message: `PO sent to ${recipient}` });
 
   } catch (error) {
