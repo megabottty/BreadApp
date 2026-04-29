@@ -115,7 +115,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.searchSubject.pipe(
       debounceTime(400),
       distinctUntilChanged((prev, curr) => prev.term === curr.term && prev.index === curr.index),
-      switchMap(({ term, index }) => {
+      switchMap(({ term, index: _index }) => {
         console.log('Debounced search triggered for:', term);
         // We ALWAYS want to include matching known ingredients immediately,
         // even before the API returns.

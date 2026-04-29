@@ -1,13 +1,13 @@
-import { Component, inject, signal, computed, effect, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, inject, signal, computed, effect, AfterViewInit } from '@angular/core';
 import { HelpService } from '../../services/help.service';
 import { CommonModule, CurrencyPipe, PercentPipe, DecimalPipe } from '@angular/common';
-import { AnalyticsService, RevenueMetric, CategoryMetric } from '../../services/analytics.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { Order, CalculatedRecipe } from '../../logic/bakers-math';
 import { TenantService } from '../../services/tenant.service';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartData, ChartType, Chart } from 'chart.js';
+import { ChartConfiguration, ChartData, Chart } from 'chart.js';
 import { registerables } from 'chart.js';
 import { ModalService } from '../../services/modal.service';
 

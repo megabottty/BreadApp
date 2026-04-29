@@ -1,5 +1,3 @@
-import { IngredientService } from '../services/ingredient.service';
-import { inject } from '@angular/core';
 
 export type IngredientType = 'FLOUR' | 'WATER' | 'SALT' | 'LEVAIN' | 'INCLUSION';
 

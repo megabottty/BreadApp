@@ -26,7 +26,7 @@ router.post(['/', '/submit'], async (req, res) => {
   // If a tenant slug is provided, try to find the baker's email
   if (tenantSlug && supabase) {
     try {
-      const { data: tenant, error } = await supabase
+      const { data: tenant, error: _error } = await supabase
         .from('bakery_tenants')
         .select('email')
         .eq('slug', tenantSlug)

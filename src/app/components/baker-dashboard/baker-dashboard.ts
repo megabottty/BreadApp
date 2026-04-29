@@ -9,7 +9,7 @@ import { BusinessAnalyticsComponent } from '../business-analytics/business-analy
 import { PosTerminalComponent } from '../pos-terminal/pos-terminal';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
-import { InventoryService, InventoryItem } from '../../services/inventory.service';
+import { InventoryService } from '../../services/inventory.service';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '../../logic/bakers-math';

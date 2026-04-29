@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { Order, CalculatedRecipe } from '../logic/bakers-math';
 
 export interface RevenueMetric {

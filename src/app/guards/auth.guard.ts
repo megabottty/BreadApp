@@ -15,7 +15,7 @@ export const authGuard: CanActivateFn = (route, state) => {
   return false;
 };
 
-export const bakerGuard: CanActivateFn = (route, state) => {
+export const bakerGuard: CanActivateFn = (_route, _state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
@@ -27,7 +27,7 @@ export const bakerGuard: CanActivateFn = (route, state) => {
   return false;
 };
 
-export const guestGuard: CanActivateFn = (route, state) => {
+export const guestGuard: CanActivateFn = (_route, _state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 

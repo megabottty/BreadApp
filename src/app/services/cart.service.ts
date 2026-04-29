@@ -284,7 +284,7 @@ export class CartService {
 
   private saveCart() {
     if (this.isInitialLoad) return;
-    const data = {
+    const _data = {
       items: this.cartItems().map(item => this.toPersistedItem(item)),
       fulfillmentType: this.fulfillmentType(),
       zipCode: this.zipCode(),
@@ -292,7 +292,7 @@ export class CartService {
     };
     /*
     try {
-      localStorage.setItem('bakery_cart', JSON.stringify(data));
+      localStorage.setItem('bakery_cart', JSON.stringify(_data));
     } catch (e) {
       console.warn('Failed to save cart to localStorage (quota exceeded)', e);
     }

@@ -61,7 +61,7 @@ app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser'), {
   maxAge: 0,
   etag: true, // Let browser use ETag for simple validation, but check every time
-  setHeaders: (res, filePath) => {
+  setHeaders: (res, _filePath) => {
     // Force browser to check with server every time
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');

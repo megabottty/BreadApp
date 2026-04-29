@@ -265,7 +265,7 @@ export class SetupWizardComponent implements AfterViewInit {
         tenantId: tenant.id
       }));
       const subscriptionId = response.subscriptionId;
-      const customerId = response.customerId;
+      const _customerId = response.customerId;
       const status = 'TRIAL';
 
       // 3. Update Business Info

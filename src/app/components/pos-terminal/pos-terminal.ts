@@ -220,7 +220,7 @@ export class PosTerminalComponent {
     });
   }
 
-  private createCardPayment(orderId: string) {
+  private createCardPayment(_orderId: string) {
     // DON'T create order yet - it will be created by webhook after payment
     // Just create Stripe session with order details in metadata
     const subtotal = this.cartSubtotal();

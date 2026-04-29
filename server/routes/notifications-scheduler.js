@@ -106,7 +106,7 @@ router.get('/check-prep-alerts', async (req, res) => {
  * Send prep notification via email/SMS
  */
 async function sendPrepNotification(data) {
-  const { tenantEmail, tenantPhone, orderId, customerName, readyDate, starterNeeded, items } = data;
+  const { tenantEmail: _tenantEmail, tenantPhone: _tenantPhone, orderId, customerName, readyDate, starterNeeded, items } = data;
 
   const message = `
 🥖 PREP ALERT: Order #${orderId}

@@ -87,7 +87,7 @@ export class TaxService {
       headers: this.headers
     }).subscribe({
       next: (settings) => this.taxSettings.set(settings),
-      error: (err) => {
+      error: (_err) => {
         console.warn('No tax settings found, using defaults');
         // Set default settings
         this.taxSettings.set({

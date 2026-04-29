@@ -4,7 +4,7 @@ import { AuthService } from '../../services/auth.service';
 import { Order, CalculatedRecipe, Review } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { ReviewService } from '../../services/review.service';
-import { SubscriptionService, Subscription } from '../../services/subscription.service';
+import { SubscriptionService } from '../../services/subscription.service';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
 import { FormsModule } from '@angular/forms';
