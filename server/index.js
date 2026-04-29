@@ -8,6 +8,21 @@ const compression = require('compression');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Environment validation (fail fast in production for critical secrets)
+if (process.env.NODE_ENV === 'production') {
+  const required = ['STRIPE_SECRET_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'STRIPE_WEBHOOK_SECRET'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length) {
+    console.error('[ENV ERROR] Missing required environment variables in production:', missing.join(', '));
+    // Exit so deployments clearly fail rather than run insecurely
+    process.exit(1);
+  }
+} else {
+  // Development-time helpful warnings
+  if (!process.env.SUPABASE_URL) console.warn('[ENV WARNING] SUPABASE_URL not set');
+  if (!process.env.STRIPE_SECRET_KEY) console.warn('[ENV WARNING] STRIPE_SECRET_KEY not set');
+}
+
 // Global Request Logger (to see exactly what hits the server)
 app.use((req, res, next) => {
   console.log(`[DEBUG LOG] ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`);

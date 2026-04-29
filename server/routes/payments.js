@@ -121,9 +121,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     // Verify webhook signature
     if (webhookSecret) {
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } else if (process.env.NODE_ENV === 'production') {
+      // In production, reject unverified webhooks to avoid forgery
+      console.error('[Stripe Webhook] No webhook secret configured in production. Rejecting unverified webhook.');
+      return res.status(500).send('Webhook secret not configured');
     } else {
       // For development without webhook secret (NOT RECOMMENDED in production)
-      console.warn('[Stripe Webhook] No webhook secret configured - accepting unverified webhook');
+      console.warn('[Stripe Webhook] No webhook secret configured - accepting unverified webhook (development only)');
       event = JSON.parse(req.body);
     }
   } catch (err) {

@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "vitest",
     "test:ci": "vitest --run",
+    "lint": "eslint --ext .ts,.js src server --max-warnings 0",
     "server": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm start\""
   },
@@ -55,10 +56,15 @@
     "jsdom": "^27.1.0",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8",
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "eslint": "^8.44.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "eslint-plugin-vitest": "^0.3.0",
+    "zone.js": "^0.16.1"
   },
   "vitest": {
     "environment": "jsdom",
-    "setupFiles": "src/test-setup.ts"
+    "setupFiles": ["src/test-setup.ts"]
   }
 }
