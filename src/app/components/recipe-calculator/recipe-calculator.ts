@@ -98,7 +98,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     effect(() => {
       const tenant = this.tenantService.tenant();
       if (tenant) {
-        console.log('[RecipeCalculator] Tenant identified, loading recipes:', tenant.slug);
+        logger.info('[RecipeCalculator] Tenant identified, loading recipes:', tenant.slug);
         this.loadSavedRecipes();
         this.loadIngredientCosts();
       }
@@ -116,7 +116,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       debounceTime(400),
       distinctUntilChanged((prev, curr) => prev.term === curr.term && prev.index === curr.index),
       switchMap(({ term, index: _index }) => {
-        console.log('Debounced search triggered for:', term);
+        logger.debug('Debounced search triggered for:', term);
         // We ALWAYS want to include matching known ingredients immediately,
         // even before the API returns.
         const knownIngredients = Array.from(new Set(Object.keys(this.ingredientCostDefaults()).map(n => n.toLowerCase())))
@@ -132,7 +132,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
           return this.ingredientService.search(term).pipe(
             map((results: FoodSearchItem[]) => ({ results, known: knownIngredients, term })),
             catchError((err: any) => {
-              console.error('Search error in component:', err);
+              logger.error('Search error in component:', err);
               return of({ results: [], known: knownIngredients, term });
             })
           );
@@ -153,7 +153,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         return;
       }
 
-      console.log('Search results received:', results.length, 'Known matched:', known.length);
+      logger.debug('Search results received:', results.length, 'Known matched:', known.length);
 
       // Enhance search results with cost availability flag
       const enhancedResults = results.map((res: FoodSearchItem) => {
@@ -224,7 +224,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     try {
       localStorage.setItem('recipe_calculator_draft', JSON.stringify(draft));
     } catch (e) {
-      console.warn('Failed to save draft to localStorage (quota exceeded)', e);
+      logger.warn('Failed to save draft to localStorage (quota exceeded)', e);
     }
   }
 
@@ -248,7 +248,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
           }
         );
       } catch (e) {
-        console.error('Error loading draft', e);
+        logger.error('Error loading draft', e);
       }
     }
   }
@@ -341,7 +341,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   loadSavedRecipes(): void {
     const slug = this.tenantService.tenant()?.slug;
     if (!slug) {
-      console.warn('[RecipeCalculator] Skipping loadSavedRecipes: No tenant slug identified yet.');
+      logger.warn('[RecipeCalculator] Skipping loadSavedRecipes: No tenant slug identified yet.');
       return;
     }
     const headers = new HttpHeaders().set('x-tenant-slug', slug);
@@ -355,7 +355,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         }
         this.tryLoadRecipeById(this.pendingRecipeId);
       },
-      error: (err) => console.error('Error loading recipes', err)
+      error: (err) => logger.error('Error loading recipes', err)
     });
   }
 
@@ -438,7 +438,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       // Check if user has tenant_id in metadata, if not, sync it
       const user = this.authService.user();
       if (user && !user.tenant_id && tenant.id) {
-        console.log('[Recipe Calculator] Syncing tenant_id to user metadata...');
+        logger.debug('[Recipe Calculator] Syncing tenant_id to user metadata...');
         try {
           await this.authService.syncTenantToMetadata(tenant.id, slug);
           this.modalService.showAlert('User metadata synced successfully! The page will reload to apply changes.', 'Success', 'success');
@@ -446,7 +446,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
           setTimeout(() => window.location.reload(), 2000);
           return;
         } catch (error) {
-          console.error('[Recipe Calculator] Failed to sync tenant metadata:', error);
+          logger.error('[Recipe Calculator] Failed to sync tenant metadata:', error);
           this.modalService.showAlert('Failed to sync user permissions. Please try logging out and back in.', 'Error', 'error');
           this.isSaving.set(false);
           return;
@@ -585,11 +585,11 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   deleteRecipe(id: string | undefined): void {
     if (!id) return;
-    console.log('Attempting to delete recipe with ID:', id);
+    logger.info('Attempting to delete recipe with ID:', id);
     const headers = new HttpHeaders().set('x-tenant-slug', this.tenantService.tenant()?.slug || 'the-daily-dough');
     this.http.delete(`${environment.apiUrl}/orders/recipes/${id}`, { headers }).subscribe({
       next: () => {
-        console.log('Delete successful for ID:', id);
+        logger.info('Delete successful for ID:', id);
         const updated = this.savedRecipes().filter(r => r.id !== id);
         this.savedRecipes.set(updated);
         try {
@@ -622,7 +622,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   executeDelete(): void {
     const recipe = this.recipeToDelete();
-    console.log('executeDelete called, recipeToDelete is:', recipe);
+    logger.debug('executeDelete called, recipeToDelete is:', recipe);
     if (recipe && recipe.id) {
       this.deleteRecipe(recipe.id);
     } else {

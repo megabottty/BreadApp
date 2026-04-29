@@ -9,6 +9,7 @@ import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
 import { Order, OrderItem } from '../../logic/bakers-math';
 import { ActivatedRoute } from '@angular/router';
+import { logger } from '../../utils/logger';
 
 @Component({
   selector: 'app-cart',
@@ -250,7 +251,7 @@ export class CartComponent implements OnInit {
     // If paying at pickup, create order immediately (payment happens later at pickup)
     if (this.payAtPickup() && this.fulfillmentType() === 'PICKUP') {
       const orderId = 'POS-' + Math.random().toString(36).substring(7).toUpperCase();
-      console.log('Pay at pickup selected - creating order without payment...');
+      logger.info('Pay at pickup selected - creating order without payment...');
 
       const newOrder: Order = {
         id: orderId,
@@ -274,7 +275,7 @@ export class CartComponent implements OnInit {
 
       this.cartService.saveOrderToDatabase(newOrder).subscribe({
         next: (response) => {
-          console.log('Order synced to cloud successfully:', response);
+          logger.info('Order synced to cloud successfully:', response);
           this.notificationService.sendOrderConfirmation(customerName, customerPhone, customerEmail, orderId, notificationPreference);
           this.notificationService.sendBakerOrderAlert(orderId, customerName);
           this.modalService.showAlert(
@@ -289,7 +290,7 @@ export class CartComponent implements OnInit {
           this.guestEmail.set('');
         },
         error: (err) => {
-          console.error('Cloud sync failed. Check if backend is running:', err);
+          logger.error('Cloud sync failed. Check if backend is running:', err);
           this.modalService.showAlert('Could not connect to the backend server. Make sure it is running (npm run server).', 'Connection Error', 'error');
         }
       });
@@ -298,7 +299,7 @@ export class CartComponent implements OnInit {
 
     // For card payments: Create Stripe session FIRST (don't create order yet)
     // Order will be created by webhook after successful payment
-    console.log('Initiating Stripe Checkout (order will be created after payment)...');
+    logger.info('Initiating Stripe Checkout (order will be created after payment)...');
     const email = customerEmail || 'customer@example.com';
 
     // Pass order details as metadata to Stripe
@@ -329,13 +330,13 @@ export class CartComponent implements OnInit {
 
     this.cartService.createCheckoutSession(this.items(), email, orderId, orderMetadata).subscribe({
       next: (session) => {
-        console.log('Stripe session created:', session);
+        logger.info('Stripe session created:', session);
         if (session.url) {
           window.location.href = session.url; // Redirect to Stripe
         }
       },
       error: (err) => {
-        console.error('Stripe session creation failed:', err);
+        logger.error('Stripe session creation failed:', err);
         this.modalService.showAlert('Failed to initiate payment. Please make sure your backend server is running on port 3000.', 'Payment Error', 'error');
       }
     });
