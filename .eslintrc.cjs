@@ -3,9 +3,16 @@ module.exports = {
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 2022,
-    sourceType: 'module',
-    project: './tsconfig.json'
+    sourceType: 'module'
   },
+  overrides: [
+    {
+      files: ['**/*.ts'],
+      parserOptions: {
+        project: false
+      }
+    }
+  ],
   env: {
     node: true,
     es2022: true
@@ -24,6 +31,17 @@ module.exports = {
   ],
   rules: {
     'no-console': ['warn', { allow: ['warn', 'error'] }],
-    '@typescript-eslint/no-explicit-any': 'off'
-  }
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_', 'varsIgnorePattern': '^_' }]
+  },
+  overrides: [
+    {
+      files: ['server/**', 'server/**/*.js'],
+      rules: {
+        'no-console': 'off',
+        '@typescript-eslint/no-var-requires': 'off'
+      }
+    }
+  ]
 }

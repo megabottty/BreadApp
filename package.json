@@ -8,7 +8,9 @@
     "watch": "ng build --watch --configuration development",
     "test": "vitest",
     "test:ci": "vitest --run",
-    "lint": "eslint --ext .ts,.js src server --max-warnings 0",
+    "lint": "eslint --ext .ts,.js src server",
+    "lint:fix": "eslint --ext .ts,.js src server --fix",
+    "lint:ci": "eslint --ext .ts,.js src server --max-warnings 0",
     "server": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm start\""
   },
