@@ -26,55 +26,68 @@ export class ProductCustomizationModalComponent {
     const product = this.modalService.activeModal()?.product;
     if (!product) return [];
 
-    // If the database has add-ons for this recipe, use them
+    const productName = (product.name || '').toLowerCase();
+    const isMonkeyBread = productName.includes('monkey');
+
+    let addons: any[] = [];
+
+    // 1. If the database has add-ons for this recipe, use them
     if (product.available_addons && product.available_addons.length > 0) {
-      return product.available_addons.map(addon => ({
+      addons = product.available_addons.map(addon => ({
         ...addon,
         selected: false
       }));
     }
-
-    // Fallback logic for items without DB add-ons
-    if (product.name.toLowerCase().includes('roll')) {
-      return [
-        { name: 'Extra Frosting', price: 1.50, selected: false },
-        { name: 'Warm it up', price: 0, selected: false }
-      ];
+    // 2. Otherwise use fallback logic based on category/name
+    else {
+      if (productName.includes('roll')) {
+        addons = [
+          { name: 'Extra Frosting', price: 1.50, selected: false },
+          { name: 'Warm it up', price: 0, selected: false }
+        ];
+      } else if (product.category === 'BREAD' || productName.includes('bread') || productName.includes('loaf')) {
+        addons = [
+          { name: 'Sliced', price: 2.00, selected: false },
+          { name: 'Double Baked (Extra Crusty)', price: 1.00, selected: false }
+        ];
+      }
     }
 
-    if (product.category === 'BREAD' || product.name.toLowerCase().includes('bread') || product.name.toLowerCase().includes('loaf')) {
-      return [
-        { name: 'Sliced', price: 2.00, selected: false },
-        { name: 'Double Baked (Extra Crusty)', price: 1.00, selected: false }
-      ];
+    // 3. Special rule: Monkey Bread should never have slicing or double baked options
+    if (isMonkeyBread) {
+      addons = addons.filter(addon => {
+        const addonName = (addon.name || '').toLowerCase();
+        const isForbidden =
+          addonName.includes('slice') ||
+          addonName.includes('baked') ||
+          addonName.includes('crunchy') ||
+          addonName.includes('crusty');
+        return !isForbidden;
+      });
     }
 
-    return [];
+    return addons;
   }
 
   addOns = signal<any[]>(this.getAddOns());
 
-  // We use an effect to initialize add-ons when the modal opens with a new product
+  // We use an effect to initialize add-ons when the modal opens
   constructor() {
     effect(() => {
       const modal = this.modalService.activeModal();
       if (modal?.type === 'customization' && modal.product) {
+        // Reset state every time the modal is opened with a product
+        this.addOns.set(this.getAddOns());
         const product = modal.product;
-        // Only reset if it's a different product than last time
-        if (product.id !== this.lastProductId) {
-          this.addOns.set(this.getAddOns());
-          this.lastProductId = product.id;
-          const options = this.cartService.getPackOptions(product);
-          this.packOptions.set(options);
-          this.selectedPackId.set(options[0]?.id || '');
-          this.notes.set('');
-          this.quantity.set(1);
-        }
+        const options = this.cartService.getPackOptions(product);
+        this.packOptions.set(options);
+        this.selectedPackId.set(options[0]?.id || '');
+        this.notes.set('');
+        this.quantity.set(1);
       }
     });
   }
 
-  private lastProductId: string | undefined;
 
   // This method is no longer called from the template to avoid NG0600
   updateAddOns() {

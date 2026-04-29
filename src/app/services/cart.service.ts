@@ -141,8 +141,9 @@ export class CartService {
   private authService = inject(AuthService);
 
   constructor() {
-    this.loadCart();
-    this.loadLoyalty();
+    // Local caching removed per user request
+    // this.loadCart();
+    // this.loadLoyalty();
     this.isInitialLoad = false;
 
     // Automatically load promos once tenant is identified
@@ -153,9 +154,9 @@ export class CartService {
     });
 
     // Automatically save cart whenever any relevant signal changes
-    effect(() => {
-      this.saveCart();
-    });
+    // effect(() => {
+    //   this.saveCart();
+    // });
   }
 
   loadPromos() {
@@ -260,7 +261,7 @@ export class CartService {
     this.totalLoavesPurchased.set(data.totalLoavesPurchased);
     this.totalOrders.set(data.totalOrders);
     this.qualifyingOrders.set(data.qualifyingOrders);
-    localStorage.setItem('bakery_loyalty', JSON.stringify(data));
+    // localStorage.setItem('bakery_loyalty', JSON.stringify(data));
   }
 
   private loadCart() {
@@ -289,11 +290,13 @@ export class CartService {
       zipCode: this.zipCode(),
       notes: this.notes()
     };
+    /*
     try {
       localStorage.setItem('bakery_cart', JSON.stringify(data));
     } catch (e) {
       console.warn('Failed to save cart to localStorage (quota exceeded)', e);
     }
+    */
   }
 
   addToCart(product: CalculatedRecipe, quantity: number = 1, notes?: string, selectedOptions?: { name: string; price: number }[], packOption?: PackOption) {

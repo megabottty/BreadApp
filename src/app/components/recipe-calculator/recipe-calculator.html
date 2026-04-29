@@ -23,7 +23,7 @@
         </select>
       </div>
 
-      @if (recipeForm.get('category')?.value === 'BREAD' || recipeForm.get('category')?.value === 'BAGEL') {
+      @if (recipeForm.get('category')?.value === 'BREAD' || recipeForm.get('category')?.value === 'BAGEL' || recipeForm.get('category')?.value === 'SPECIAL') {
         <div class="form-group">
           <label for="flavor-profile">Flavor Profile (Badge)</label>
           <select id="flavor-profile" formControlName="flavorProfile">
@@ -32,7 +32,7 @@
               <option [value]="profile">{{profile}}</option>
             }
           </select>
-          <small class="form-hint">Choose 'PLAIN' for standard bread to show the badge.</small>
+          <small class="form-hint">Choose a flavor profile to show the storefront badge (e.g. PLAIN, SWEET, SAVORY).</small>
         </div>
       }
 

@@ -68,8 +68,20 @@ export class App {
 
   onStorefrontSearchChange(value: string) {
     this.storefrontSearch.set(value);
+    this.navigateStorefrontSearch(value);
+  }
+
+  submitStorefrontSearch(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.navigateStorefrontSearch(this.storefrontSearch());
+    (event.target as HTMLInputElement | null)?.blur();
+  }
+
+  private navigateStorefrontSearch(value: string) {
     this.router.navigate(['/front'], {
-      queryParams: { q: value || null },
+      queryParams: { q: value?.trim() || null },
       queryParamsHandling: 'merge'
     });
   }

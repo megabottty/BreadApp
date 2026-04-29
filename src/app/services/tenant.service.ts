@@ -46,13 +46,16 @@ export class TenantService {
     const host = window.location.hostname;
     const path = window.location.pathname;
 
-  let slug = 'thedailydough'; // Updated default to match registered slug
+    let slug = 'thedailydough'; // Updated default to match registered slug
 
+    // Local caching of slug removed per user request
+    /*
     // Check if we have a saved slug from registration
     const savedSlug = localStorage.getItem('bakery_slug');
     if (savedSlug) {
       slug = savedSlug;
     }
+    */
 
     // Path-based logic: /b/slug/...
     if (path.startsWith('/b/')) {
@@ -87,9 +90,7 @@ export class TenantService {
     // "/" immediately redirects to "/front", so we should still preload tenant there.
     const isRegistrationOrLogin = path.includes('/register') || path.includes('/login');
 
-    if (savedSlug) {
-      this.loadTenantInfo(savedSlug);
-    } else if (!isRegistrationOrLogin) {
+    if (!isRegistrationOrLogin) {
       // If we are on a specific route that isn't the home/auth pages, try to load the default
       this.loadTenantInfo(slug);
     } else {

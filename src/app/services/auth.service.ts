@@ -97,7 +97,7 @@ export class AuthService {
       // If we have a bakery slug in metadata, ensure TenantService loads it
       if (bakerySlug) {
         console.log('[Auth Debug] Found bakery slug in metadata, loading tenant:', bakerySlug);
-        localStorage.setItem('bakery_slug', bakerySlug);
+        // localStorage.setItem('bakery_slug', bakerySlug);
         // Force reload info to ensure signal is updated
         this.tenantService.loadTenantInfo(bakerySlug);
       }
@@ -206,7 +206,7 @@ export class AuthService {
         console.log('[Auth Debug] Bakery created:', tenant.slug);
 
         // Save slug to localStorage so TenantService can find it immediately
-        localStorage.setItem('bakery_slug', tenant.slug);
+        // localStorage.setItem('bakery_slug', tenant.slug);
 
         // Explicitly load the new tenant info
         this.tenantService.loadTenantInfo(tenant.slug);

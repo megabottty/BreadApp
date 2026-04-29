@@ -1,11 +1,13 @@
 <div class="storefront-container">
   <header>
-    <div style="display: flex; align-items: center; gap: 1rem; justify-content: center;">
-      <h1 style="margin: 0;">Our Daily Bakes</h1>
-      <button class="btn-hint" (click)="showHint()" aria-label="Show help information">💡 Help</button>
-      <button class="btn-info-circle" (click)="showSubscriptionInfo.set(true)" title="How Subscriptions Work" aria-label="How Subscriptions Work">
-        How Subscriptions Work 🔄
-      </button>
+    <div class="storefront-header">
+      <h1>Our Daily Bakes</h1>
+      <div class="storefront-header-actions">
+        <button class="btn-hint" (click)="showHint()" aria-label="Show help information">💡 Help</button>
+        <button class="btn-info-circle" (click)="showSubscriptionInfo.set(true)" title="How Subscriptions Work" aria-label="How Subscriptions Work">
+          How Subscriptions Work 🔄
+        </button>
+      </div>
     </div>
     <p class="subtitle">Freshly baked in our home kitchen with love and wild yeast.</p>
   </header>

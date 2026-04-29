@@ -29,12 +29,24 @@ export class PwaService {
       (window.navigator as any).standalone === true
     );
 
+    /*
     // Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(reg => {
         console.log('[PWA] Service Worker registered:', reg.scope);
       }).catch(err => {
         console.error('[PWA] Service Worker registration failed:', err);
+      });
+    }
+    */
+
+    // If a service worker is already registered, unregister it to clear cache
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+          registration.unregister();
+          console.log('[PWA] Service Worker unregistered');
+        }
       });
     }
 

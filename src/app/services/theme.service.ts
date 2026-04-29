@@ -14,7 +14,7 @@ export class ThemeService {
     effect(() => {
       const theme = this.currentTheme();
       document.body.setAttribute('data-theme', theme);
-      localStorage.setItem('bakery_theme', theme);
+      // localStorage.setItem('bakery_theme', theme);
     });
   }
 
@@ -30,7 +30,10 @@ export class ThemeService {
   }
 
   private loadTheme(): Theme {
+    /*
     const saved = localStorage.getItem('bakery_theme') as Theme;
     return (['natural', 'sunset', 'midnight'].includes(saved)) ? saved : 'natural';
+    */
+    return 'natural';
   }
 }

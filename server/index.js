@@ -44,22 +44,23 @@ app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 
 // Serve Angular static files from the dist directory
 app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser'), {
-  maxAge: '1y',
-  immutable: true,
+  maxAge: 0,
+  etag: true, // Let browser use ETag for simple validation, but check every time
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
+    // Force browser to check with server every time
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
   }
 }));
 
 // The "Catch-all" route for Angular routing
-app.get('/*', (req, res) => {
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/BreadApp/browser/index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is rising on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
   const key = process.env.STRIPE_SECRET_KEY || '';
   if (key.startsWith('sk_live')) {
     console.log('⚠️  SERVER STATUS: Running in LIVE mode (sk_live)');

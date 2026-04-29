@@ -218,6 +218,9 @@ export class StorefrontComponent implements OnInit {
       return;
     }
     const headers = new HttpHeaders().set('x-tenant-slug', slug);
+
+    // Local caching removed per user request
+    /*
     const cached = localStorage.getItem('bakery_recipes');
     if (cached) {
       try {
@@ -232,6 +235,8 @@ export class StorefrontComponent implements OnInit {
     } else {
       this.appLoadService.setStorefrontReady(true);
     }
+    */
+
     this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
       next: (recipes: CalculatedRecipe[]) => {
         const normalized = this.normalizeRecipeImages(recipes);
@@ -327,6 +332,10 @@ export class StorefrontComponent implements OnInit {
     carbs: number;
     fat: number;
   } {
+    const isCinnamonRoll = (product.name || '').toLowerCase().includes('cinnamon roll');
+    const nutritionDivisor = isCinnamonRoll ? 12 : 1;
+    const nutritionLabel = isCinnamonRoll ? 'Per cinnamon roll (1 of 12)' : null;
+
     const hasIngredients = Array.isArray(product.ingredients) && product.ingredients.length > 0;
     const fallback = (!product.totalNutrition || product.totalNutrition.calories === 0) && hasIngredients
       ? calculateBakersMath({
@@ -341,22 +350,22 @@ export class StorefrontComponent implements OnInit {
     if (perServing && perServing.calories > 0) {
       return {
         hasData: true,
-        label: `Per serving (${fallback.servingSizeGrams || product.servingSizeGrams || 50}g)`,
-        calories: perServing.calories,
-        protein: perServing.protein,
-        carbs: perServing.carbs,
-        fat: perServing.fat
+        label: nutritionLabel || `Per serving (${fallback.servingSizeGrams || product.servingSizeGrams || 50}g)`,
+        calories: perServing.calories / nutritionDivisor,
+        protein: perServing.protein / nutritionDivisor,
+        carbs: perServing.carbs / nutritionDivisor,
+        fat: perServing.fat / nutritionDivisor
       };
     }
 
     if (totalNutrition && totalNutrition.calories > 0) {
       return {
         hasData: true,
-        label: 'Per whole item',
-        calories: totalNutrition.calories,
-        protein: totalNutrition.protein,
-        carbs: totalNutrition.carbs,
-        fat: totalNutrition.fat
+        label: nutritionLabel || 'Per whole item',
+        calories: totalNutrition.calories / nutritionDivisor,
+        protein: totalNutrition.protein / nutritionDivisor,
+        carbs: totalNutrition.carbs / nutritionDivisor,
+        fat: totalNutrition.fat / nutritionDivisor
       };
     }
 

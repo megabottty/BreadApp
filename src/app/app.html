@@ -14,6 +14,7 @@
         type="text"
         [ngModel]="storefrontSearch()"
         (ngModelChange)="onStorefrontSearchChange($any($event))"
+        (keydown.enter)="submitStorefrontSearch($event)"
         placeholder="Search products">
     </div>
   }

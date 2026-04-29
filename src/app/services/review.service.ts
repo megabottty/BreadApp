@@ -19,7 +19,8 @@ export class ReviewService {
   }
 
   constructor() {
-    this.loadReviewsFromLocalStorage();
+    // Local caching removed per user request
+    // this.loadReviewsFromLocalStorage();
   }
 
   private loadReviewsFromLocalStorage() {
@@ -51,7 +52,7 @@ export class ReviewService {
         });
 
         // Also update localStorage for persistence consistency
-        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        // localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
       },
       error: (err) => console.error(`[ReviewService] Error fetching reviews for ${recipeId}`, err)
     });
@@ -78,21 +79,25 @@ export class ReviewService {
     this.http.post<any>(`${this.apiUrl}/reviews`, review, { headers: this.headers }).subscribe({
       next: (formatted: Review) => {
         this.allReviews.update(prev => [...prev, formatted]);
+        /*
         try {
           localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
         } catch (e) {
           console.warn('Failed to save reviews to localStorage (quota exceeded)', e);
         }
+        */
         this.updateRecipeAverage(formatted.recipeId);
       },
       error: (err) => {
         console.error('Failed to save review to DB, saving locally', err);
         this.allReviews.update(prev => [...prev, review]);
+        /*
         try {
           localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
         } catch (e) {
           console.warn('Failed to save reviews to localStorage (quota exceeded)', e);
         }
+        */
         this.updateRecipeAverage(review.recipeId);
       }
     });
@@ -103,7 +108,7 @@ export class ReviewService {
       next: () => {
         const review = this.allReviews().find(r => r.id === reviewId);
         this.allReviews.update(prev => prev.filter(r => r.id !== reviewId));
-        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        // localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
         if (review) {
           this.updateRecipeAverage(review.recipeId);
         }
@@ -118,7 +123,7 @@ export class ReviewService {
         this.allReviews.update(prev => prev.map(r =>
           r.id === reviewId ? { ...r, reply: updated.reply } : r
         ));
-        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        // localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
       },
       error: (err) => console.error('Failed to reply to review', err)
     });
@@ -130,7 +135,7 @@ export class ReviewService {
         this.allReviews.update(prev => prev.map(r =>
           r.id === reviewId ? { ...r, rating: updated.rating, comment: updated.comment } : r
         ));
-        localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
+        // localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
         const review = this.allReviews().find(r => r.id === reviewId);
         if (review) {
           this.updateRecipeAverage(review.recipeId);
