@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { ModalService } from '../../services/modal.service';
 import { environment } from '../../../environments/environment';
 import { StripeLoaderService } from '../../services/stripe-loader.service';
+import { logger } from '../../utils/logger';
 
 import { firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
@@ -110,7 +111,7 @@ export class SetupWizardComponent implements AfterViewInit {
 
   isStepValid = computed(() => {
     const step = this.currentStep();
-    console.log(`[SetupWizard Debug] Validating Step ${step}. CardComplete: ${this.isCardComplete()}, StripeError: ${this.stripeError()}`);
+    logger.debug(`[SetupWizard Debug] Validating Step ${step}. CardComplete: ${this.isCardComplete()}, StripeError: ${this.stripeError()}`);
     if (step === 1) return !!this.businessType();
     if (step === 2) return !!this.primaryColor() && !!this.secondaryColor();
     if (step === 3) return this.ovenCapacity() > 0;
@@ -148,10 +149,10 @@ export class SetupWizardComponent implements AfterViewInit {
       const key = environment.stripePublicKey;
 
       // DEEP DEBUG LOG FOR USER
-      console.log('%c [Stripe Key Audit] ', 'background: #222; color: #bada55; font-size: 14px');
-      console.log('Current Key:', key);
-      console.log('Is Test Key:', key.startsWith('pk_test'));
-      console.log('Is Live Key:', key.startsWith('pk_live'));
+      logger.debug('%c [Stripe Key Audit] ', 'background: #222; color: #bada55; font-size: 14px');
+      logger.debug('Current Key:', key);
+      logger.debug('Is Test Key:', key.startsWith('pk_test'));
+      logger.debug('Is Live Key:', key.startsWith('pk_live'));
 
       if (!key || key.includes('your_public_key_here')) {
         this.stripeError.set('Stripe Public Key is not configured in environment.ts');
@@ -165,7 +166,7 @@ export class SetupWizardComponent implements AfterViewInit {
       }
 
       this.stripe = stripeFactory(key);
-      console.log('[Stripe Debug] Initializing with key:', key);
+      logger.debug('[Stripe Debug] Initializing with key:', key);
       const elements = this.stripe.elements();
 
       const style = {
@@ -196,7 +197,7 @@ export class SetupWizardComponent implements AfterViewInit {
         }
       });
     } catch (e) {
-      console.error('Stripe initialization failed:', e);
+      logger.error('Stripe initialization failed:', e);
     }
   }
 
@@ -255,7 +256,7 @@ export class SetupWizardComponent implements AfterViewInit {
         return;
       }
 
-      console.log('[SetupWizard] Stripe PaymentMethod created:', paymentMethod.id);
+      logger.info('[SetupWizard] Stripe PaymentMethod created:', paymentMethod.id);
 
       // 2. Call Backend to create subscription
       const response = await firstValueFrom(this.http.post<{subscriptionId: string, customerId: string}>(`${environment.apiUrl}/payments/create-subscription`, {

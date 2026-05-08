@@ -1,5 +1,6 @@
 import { Injectable, signal, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { logger } from '../utils/logger';
 
 @Injectable({
   providedIn: 'root'
@@ -43,16 +44,16 @@ export class PwaService {
     // If a service worker is already registered, unregister it to clear cache
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) {
+        for (const registration of registrations) {
           registration.unregister();
-          console.log('[PWA] Service Worker unregistered');
+          logger.info('[PWA] Service Worker unregistered');
         }
       });
     }
 
     // Capture the beforeinstallprompt event (Chrome/Android)
     window.addEventListener('beforeinstallprompt', (e) => {
-      console.log('[PWA] beforeinstallprompt event fired');
+      logger.info('[PWA] beforeinstallprompt event fired');
       e.preventDefault();
       this.deferredPrompt = e;
 
@@ -80,9 +81,9 @@ export class PwaService {
       this.deferredPrompt.prompt();
       this.deferredPrompt.userChoice.then((choiceResult: any) => {
         if (choiceResult.outcome === 'accepted') {
-          console.log('[PWA] User accepted the install prompt');
+          logger.info('[PWA] User accepted the install prompt');
         } else {
-          console.log('[PWA] User dismissed the install prompt');
+          logger.info('[PWA] User dismissed the install prompt');
           sessionStorage.setItem('pwa_prompt_shown', 'true');
         }
         this.deferredPrompt = null;

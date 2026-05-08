@@ -47,7 +47,7 @@ export class OrderConfirmationComponent implements OnInit {
   fetchOrder(id: string) {
     this.cartService.getOrderById(id).subscribe({
       next: (data) => {
-        console.log('[Confirmation Debug] Received Order Data:', data);
+        logger.debug('[Confirmation Debug] Received Order Data:', data);
         this.order.set(data);
         this.loading.set(false);
         // Clear cart now that we've confirmed the order

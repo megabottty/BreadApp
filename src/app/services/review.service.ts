@@ -3,6 +3,7 @@ import { Review, Recipe } from '../logic/bakers-math';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { TenantService } from './tenant.service';
 import { environment } from '../../environments/environment';
+import { logger } from '../utils/logger';
 
 @Injectable({
   providedIn: 'root'
@@ -36,10 +37,10 @@ export class ReviewService {
 
   fetchReviewsForRecipe(recipeId: string) {
     if (!recipeId) return;
-    console.log(`[ReviewService] Fetching reviews for recipe: ${recipeId}`);
+    logger.info(`[ReviewService] Fetching reviews for recipe: ${recipeId}`);
     this.http.get<any[]>(`${this.apiUrl}/recipes/${recipeId}/reviews`, { headers: this.headers }).subscribe({
       next: (reviews) => {
-        console.log(`[ReviewService] Received ${reviews.length} reviews for recipe: ${recipeId}`);
+        logger.debug(`[ReviewService] Received ${reviews.length} reviews for recipe: ${recipeId}`);
         this.allReviews.update(prev => {
           // Filter out existing reviews for this recipe to avoid duplicates
           const otherReviews = prev.filter(p => p.recipeId !== recipeId);
@@ -54,7 +55,7 @@ export class ReviewService {
         // Also update localStorage for persistence consistency
         // localStorage.setItem('bakery_reviews', JSON.stringify(this.allReviews()));
       },
-      error: (err) => console.error(`[ReviewService] Error fetching reviews for ${recipeId}`, err)
+      error: (err) => logger.error(`[ReviewService] Error fetching reviews for ${recipeId}`, err)
     });
   }
 

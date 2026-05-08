@@ -94,7 +94,7 @@ export class TenantService {
       // If we are on a specific route that isn't the home/auth pages, try to load the default
       this.loadTenantInfo(slug);
     } else {
-      console.log('[Tenant Service] Auth route detected - waiting for registration/login to confirm tenant.');
+      logger.debug('[Tenant Service] Auth route detected - waiting for registration/login to confirm tenant.');
     }
   }
 
@@ -111,7 +111,7 @@ export class TenantService {
       return;
     }
 
-    console.log(`[TenantService] Loading info for slug: ${slug}`);
+    logger.info(`[TenantService] Loading info for slug: ${slug}`);
 
     // Use absolute URL if on localhost to ensure we hit the backend
     const url = window.location.hostname === 'localhost'
@@ -123,14 +123,14 @@ export class TenantService {
       context: new HttpContext().set(SKIP_NOTIFICATION, true)
     }).subscribe({
       next: (tenant) => {
-        console.log(`[TenantService] Tenant info loaded:`, tenant);
+        logger.info(`[TenantService] Tenant info loaded:`, tenant);
         this.currentTenant.set(tenant);
         this.applyBranding(tenant);
       },
       error: (err) => {
         // Handle connection refused or other network errors silently if we want to reduce noise
         if (err.status === 0) {
-          console.warn('[TenantService] Backend server is not reachable. Please ensure the backend is running (npm run server).');
+          logger.warn('[TenantService] Backend server is not reachable. Please ensure the backend is running (npm run server).');
           return;
         }
         // If it's a 404, we don't want to spam error logs, just a warning is enough
@@ -138,11 +138,11 @@ export class TenantService {
           this.currentTenant.set(null);
           // No warning needed for the default tenant if not found, it might be the first run
           if (slug !== 'thedailydough') {
-            console.warn(`[TenantService] Bakery not found for slug: ${slug}. This usually means the bakery hasn't been registered yet.`);
+            logger.warn(`[TenantService] Bakery not found for slug: ${slug}. This usually means the bakery hasn't been registered yet.`);
           }
         } else {
           this.currentTenant.set(null);
-          console.error(`[TenantService] Failed to load tenant info for slug: ${slug}`, err);
+          logger.error(`[TenantService] Failed to load tenant info for slug: ${slug}`, err);
         }
       }
     });
@@ -176,7 +176,7 @@ export class TenantService {
         this.currentTenant.set(updated);
         this.applyBranding(updated);
       },
-      error: (err) => console.error('[TenantService] Failed to update tenant:', err)
+      error: (err) => logger.error('[TenantService] Failed to update tenant:', err)
     });
   }
 

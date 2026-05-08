@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
+import { logger } from '../utils/logger';
 
 import { ModalService } from './modal.service';
 
@@ -42,12 +43,12 @@ export class NotificationService {
       this.logs.update(prev => [newLog, ...prev]);
 
       if (response.mocked) {
-        console.log(`[Twilio Mock - Backend] No credentials found, logged SMS: ${message}`);
+        logger.info(`[Twilio Mock - Backend] No credentials found, logged SMS: ${message}`);
       }
 
       return success;
     } catch (error) {
-      console.error('Failed to send SMS:', error);
+      logger.error('Failed to send SMS:', error);
       return false;
     }
   }
@@ -70,12 +71,12 @@ export class NotificationService {
       this.logs.update(prev => [newLog, ...prev]);
 
       if (response.mocked) {
-        console.log(`[Email Mock - Backend] No SMTP configured, logged email: ${subject}`);
+        logger.info(`[Email Mock - Backend] No SMTP configured, logged email: ${subject}`);
       }
 
       return success;
     } catch (error) {
-      console.error('Failed to send email:', error);
+      logger.error('Failed to send email:', error);
       return false;
     }
   }

@@ -13,6 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
 import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
+import { logger } from '../../utils/logger';
 
 @Component({
   selector: 'app-storefront',
@@ -130,7 +131,7 @@ export class StorefrontComponent implements OnInit {
     effect(() => {
       const tenant = this.tenantService.tenant();
       if (tenant) {
-        console.log('[Storefront] Tenant identified, loading recipes:', tenant.slug);
+        logger.info('[Storefront] Tenant identified, loading recipes:', tenant.slug);
         this.loadRecipes();
       }
     });
@@ -400,7 +401,7 @@ export class StorefrontComponent implements OnInit {
 
     this.http.delete(`${environment.apiUrl}/orders/recipes/${product.id}`).subscribe({
       next: () => {
-        console.log('Product deleted from cloud:', product.id);
+        logger.info('Product deleted from cloud:', product.id);
         const updated = this.products().filter(p => p.id !== product.id);
         this.products.set(updated);
         this.scheduleOptimizedRecipeCache(updated);
@@ -423,23 +424,23 @@ export class StorefrontComponent implements OnInit {
 
   editProduct(product: CalculatedRecipe): void {
     if (!product) {
-      console.error('[Storefront] editProduct called with null product');
+      logger.error('[Storefront] editProduct called with null product');
       return;
     }
 
     const recipeId = product.id || (product as any)._id;
-    console.log('[Storefront] Attempting to edit product:', {
+    logger.debug('[Storefront] Attempting to edit product:', {
       name: product.name,
       id: product.id,
       _id: (product as any)._id
     });
 
     if (!recipeId) {
-      console.error('[Storefront] editProduct: product missing ID', product);
+      logger.error('[Storefront] editProduct: product missing ID', product);
       // Try to find by name in the products signal if id is missing
       const found = this.products().find(p => p.name === product.name && p.id);
       if (found && found.id) {
-        console.log('[Storefront] Found product ID from signal by name:', found.id);
+        logger.debug('[Storefront] Found product ID from signal by name:', found.id);
         this.router.navigate(['/calculator', found.id]);
         return;
       }
@@ -447,7 +448,7 @@ export class StorefrontComponent implements OnInit {
       return;
     }
 
-    console.log('[Storefront] Navigating to /calculator/' + recipeId);
+    logger.info('[Storefront] Navigating to /calculator/' + recipeId);
 
     // Using a tiny timeout to ensure we're out of any current event loop / change detection cycle
     // and that stopPropagation has fully taken effect if it was a race condition.
@@ -455,7 +456,7 @@ export class StorefrontComponent implements OnInit {
       this.router.navigate(['/calculator', recipeId])
         .then(success => {
           if (success) {
-            console.log('[Storefront] Navigation successful to /calculator/' + recipeId);
+            logger.info('[Storefront] Navigation successful to /calculator/' + recipeId);
           } else {
             console.error('[Storefront] Navigation FAILED to /calculator/' + recipeId);
             // Fallback: direct window location if router fails for some reason
@@ -463,7 +464,7 @@ export class StorefrontComponent implements OnInit {
           }
         })
         .catch(err => {
-          console.error('[Storefront] Error during navigation:', err);
+          logger.error('[Storefront] Error during navigation:', err);
         });
     }, 10);
   }

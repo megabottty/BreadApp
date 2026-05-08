@@ -11,6 +11,7 @@ import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of, catchError, map } from 'rxjs';
+import { logger } from '../../utils/logger';
 
 @Component({
   selector: 'app-recipe-calculator',
@@ -469,7 +470,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
             try {
               localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(prev)));
             } catch (e) {
-              console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
+              logger.warn('Failed to save recipes to localStorage (quota exceeded)', e);
             }
             return [...prev];
           });
@@ -483,7 +484,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           this.isSaving.set(false);
-          console.error('Failed to save recipe to cloud:', err);
+          logger.error('Failed to save recipe to cloud:', err);
           let errorMessage = 'Failed to save to cloud. Saving locally for now.';
           if (err.status === 404) {
             errorMessage = 'Your bakery profile was not found. Please ensure you have completed the setup wizard.';
@@ -626,7 +627,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     if (recipe && recipe.id) {
       this.deleteRecipe(recipe.id);
     } else {
-      console.warn('Cannot execute delete: recipe or recipe.id is missing', recipe);
+      logger.warn('Cannot execute delete: recipe or recipe.id is missing', recipe);
     }
     this.cancelDelete();
   }
@@ -699,7 +700,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   }
 
   selectIngredient(item: FoodSearchItem, index: number) {
-    console.log('Ingredient selected:', item.name, 'for index:', index);
+    logger.debug('Ingredient selected:', item.name, 'for index:', index);
 
     // Clear dropdown immediately to prevent re-clicks
     this.searchResults.set([]);

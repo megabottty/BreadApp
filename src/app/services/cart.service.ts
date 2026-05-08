@@ -251,7 +251,7 @@ export class CartService {
         this.totalOrders.set(parsed.totalOrders || 0);
         this.qualifyingOrders.set(parsed.qualifyingOrders || 0);
       }
-    } catch (e) {
+    } catch {
       const legacyCount = parseInt(saved, 10);
       this.totalLoavesPurchased.set(Number.isNaN(legacyCount) ? 0 : legacyCount);
     }

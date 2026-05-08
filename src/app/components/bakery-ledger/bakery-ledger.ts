@@ -1,5 +1,6 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { HelpService } from '../../services/help.service';
+import { logger } from '../../utils/logger';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -109,7 +110,7 @@ export class BakeryLedgerComponent implements OnInit {
     effect(() => {
       const tenant = this.tenantService.tenant();
       if (tenant) {
-        console.log('[BakeryLedger] Tenant identified, loading orders and promos:', tenant.slug);
+        logger.info('[BakeryLedger] Tenant identified, loading orders and promos:', tenant.slug);
         this.loadOrders();
         this.loadPromos();
         this.loadSavedRecipes();

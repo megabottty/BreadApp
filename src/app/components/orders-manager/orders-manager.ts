@@ -201,7 +201,7 @@ export class OrdersManagerComponent implements OnInit {
     effect(() => {
       const tenant = this.tenantService.tenant();
       if (tenant) {
-        console.log('[OrdersManager] Tenant identified, loading orders and recipes:', tenant.slug);
+        logger.info('[OrdersManager] Tenant identified, loading orders and recipes:', tenant.slug);
         this.loadRealOrders();
         this.loadSavedRecipes();
       }

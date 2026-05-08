@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { createClient, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
 import { TenantService } from './tenant.service';
+import { logger } from '../utils/logger';
 
 export type UserRole = 'BAKER' | 'CUSTOMER' | null;
 
@@ -33,7 +34,7 @@ export class AuthService {
     const supabaseKey = environment.supabaseKey;
 
     if (supabaseUrl === 'https://your-project.supabase.co') {
-      console.warn('Supabase URL is still using the placeholder in environment.ts. Please update it!');
+      logger.warn('Supabase URL is still using the placeholder in environment.ts. Please update it!');
     }
 
     this.supabase = createClient(supabaseUrl, supabaseKey);
@@ -46,7 +47,7 @@ export class AuthService {
     try {
       const { data: { session }, error } = await this.supabase.auth.getSession();
       if (error) {
-        console.warn('[Auth] Session initialization error:', error.message);
+        logger.warn('[Auth] Session initialization error:', error.message);
         // If there's an error getting the session (like invalid refresh token),
         // Supabase might still have local data that needs clearing
         if (error.status === 400 || error.message.includes('Refresh Token')) {
@@ -55,17 +56,17 @@ export class AuthService {
       }
 
       if (session) {
-        console.log('Session found on init:', session.user.email);
+        logger.info('Session found on init:', session.user.email);
         this.handleAuthChange(session.user);
       } else {
-        console.log('No session found on init');
+        logger.debug('No session found on init');
       }
     } catch (e) {
-      console.error('[Auth] Unexpected error during session init:', e);
+      logger.error('[Auth] Unexpected error during session init:', e);
     }
 
     this.supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email);
+      logger.debug('Auth state changed:', event, session?.user?.email);
       // Handle special event for signed out or token refresh failures
       if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         this.handleAuthChange(session?.user ?? null);
@@ -77,7 +78,7 @@ export class AuthService {
 
   private handleAuthChange(supabaseUser: SupabaseUser | null) {
     if (supabaseUser) {
-      console.log('[Auth Debug] Supabase User Metadata:', supabaseUser.user_metadata);
+      logger.debug('[Auth Debug] Supabase User Metadata:', supabaseUser.user_metadata);
 
       const role = supabaseUser.user_metadata['role'] || 'CUSTOMER';
       const onboardingCompleted = supabaseUser.user_metadata['onboarding_completed'];
@@ -91,12 +92,12 @@ export class AuthService {
         tenant_id: supabaseUser.user_metadata['tenant_id']
       };
 
-      console.log('[Auth Debug] Final User Object with Role:', user);
+      logger.debug('[Auth Debug] Final User Object with Role:', user);
       this.currentUser.set(user);
 
       // If we have a bakery slug in metadata, ensure TenantService loads it
       if (bakerySlug) {
-        console.log('[Auth Debug] Found bakery slug in metadata, loading tenant:', bakerySlug);
+        logger.debug('[Auth Debug] Found bakery slug in metadata, loading tenant:', bakerySlug);
         // localStorage.setItem('bakery_slug', bakerySlug);
         // Force reload info to ensure signal is updated
         this.tenantService.loadTenantInfo(bakerySlug);
@@ -106,7 +107,7 @@ export class AuthService {
       // Only redirect if we are on a page that isn't the wizard itself or the front
       const path = window.location.pathname;
       if (role === 'BAKER' && !onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
-        console.log('[Auth Debug] Redirecting BAKER to Setup Wizard');
+        logger.info('[Auth Debug] Redirecting BAKER to Setup Wizard');
         this.router.navigate(['/setup-wizard']);
       }
     } else {
@@ -115,19 +116,19 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    console.log('[Auth Debug] Attempting login:', email);
+    logger.debug('[Auth Debug] Attempting login:', email);
     const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
       password
     });
 
     if (error) {
-      console.error('[Auth Error] Login failed:', error.message);
+      logger.error('[Auth Error] Login failed:', error.message);
       throw error;
     }
 
     if (data.user) {
-      console.log('[Auth Debug] Login successful, user metadata:', data.user.user_metadata);
+      logger.info('[Auth Debug] Login successful, user metadata:', data.user.user_metadata);
       const role = data.user.user_metadata['role'] as UserRole;
 
       // Update the currentUser signal immediately
@@ -147,7 +148,7 @@ export class AuthService {
   }
 
   async register(name: string, email: string, password: string, role: UserRole = 'CUSTOMER', bakeryName?: string, bakerySlug?: string) {
-    console.log('[Auth Debug] Attempting to register:', email, role);
+    logger.debug('[Auth Debug] Attempting to register:', email, role);
 
     // 1. Create the Auth User in Supabase
     const { data, error } = await this.supabase.auth.signUp({
@@ -163,23 +164,23 @@ export class AuthService {
     });
 
     if (error) {
-      console.error('[Auth Error] Registration failed:', error.message);
+      logger.error('[Auth Error] Registration failed:', error.message);
       throw error;
     }
 
-    console.log('[Auth Debug] Registration successful:', data.user?.email);
+    logger.info('[Auth Debug] Registration successful:', data.user?.email);
 
     // 2. If Baker, create their Bakery Tenant via the backend API
     if (role === 'BAKER' && bakeryName && bakerySlug) {
       try {
-        console.log('[Auth Debug] Creating bakery for tenant:', bakerySlug);
+        logger.debug('[Auth Debug] Creating bakery for tenant:', bakerySlug);
 
         // Use an absolute URL if we are in development to be 100% sure we hit the backend
         // In production, /api works because they are on the same domain
         const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
         const apiUrl = `${baseUrl}${environment.apiUrl}/orders/register-bakery`;
 
-        console.log('[Auth Debug] Calling API:', apiUrl, 'with body:', { name: bakeryName, slug: bakerySlug });
+        logger.debug('[Auth Debug] Calling API:', apiUrl, 'with body:', { name: bakeryName, slug: bakerySlug });
 
         const tenantResponse = await fetch(apiUrl, {
           method: 'POST',
@@ -187,23 +188,23 @@ export class AuthService {
           body: JSON.stringify({ name: bakeryName, slug: bakerySlug })
         });
 
-        console.log('[Auth Debug] API Response Status:', tenantResponse.status);
+        logger.debug('[Auth Debug] API Response Status:', tenantResponse.status);
 
         if (!tenantResponse.ok) {
           const rawResponse = await tenantResponse.text();
-          console.error('[Auth Error] Server returned error response:', rawResponse);
+          logger.error('[Auth Error] Server returned error response:', rawResponse);
 
           let errData;
           try {
             errData = JSON.parse(rawResponse);
-          } catch (e) {
+          } catch {
             errData = { error: `Server error (${tenantResponse.status}): ${rawResponse.substring(0, 100)}` };
           }
           throw new Error(errData.error || errData.message || `Server returned ${tenantResponse.status}`);
         }
 
         const tenant = await tenantResponse.json();
-        console.log('[Auth Debug] Bakery created:', tenant.slug);
+        logger.info('[Auth Debug] Bakery created:', tenant.slug);
 
         // Save slug to localStorage so TenantService can find it immediately
         // localStorage.setItem('bakery_slug', tenant.slug);
@@ -217,7 +218,7 @@ export class AuthService {
         });
 
       } catch (tenantError: any) {
-        console.error('[Auth Error] Bakery creation failed:', tenantError.message);
+        logger.error('[Auth Error] Bakery creation failed:', tenantError.message);
 
         // Pass through specific backend errors if they exist
         let errorMessage = tenantError.message || 'Failed to create bakery setup. Please check your connection and try again.';
@@ -239,7 +240,7 @@ export class AuthService {
       const { data: sessionData } = await this.supabase.auth.getSession();
 
       if (!sessionData.session) {
-        console.log('[Auth Debug] No session after registration, likely needs email verification');
+        logger.debug('[Auth Debug] No session after registration, likely needs email verification');
         return { needsVerification: true };
       }
 
@@ -273,22 +274,22 @@ export class AuthService {
       });
 
       if (error) {
-        console.error('[Auth Error] Failed to sync tenant metadata:', error);
+        logger.error('[Auth Error] Failed to sync tenant metadata:', error);
         throw error;
       }
 
-      console.log('[Auth Debug] Successfully synced tenant_id to user metadata:', data);
+      logger.info('[Auth Debug] Successfully synced tenant_id to user metadata:', data);
 
       // Force refresh the session to get the updated JWT with new metadata
       const { data: sessionData, error: refreshError } = await this.supabase.auth.refreshSession();
 
       if (refreshError) {
-        console.error('[Auth Error] Failed to refresh session:', refreshError);
+        logger.error('[Auth Error] Failed to refresh session:', refreshError);
         throw refreshError;
       }
 
       if (sessionData.session?.user) {
-        console.log('[Auth Debug] Session refreshed, new user metadata:', sessionData.session.user.user_metadata);
+        logger.debug('[Auth Debug] Session refreshed, new user metadata:', sessionData.session.user.user_metadata);
         this.handleAuthChange(sessionData.session.user);
       }
 
@@ -297,7 +298,7 @@ export class AuthService {
 
       return data;
     } catch (error) {
-      console.error('[Auth Error] Unexpected error syncing tenant:', error);
+      logger.error('[Auth Error] Unexpected error syncing tenant:', error);
       throw error;
     }
   }
