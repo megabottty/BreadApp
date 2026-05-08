@@ -11,7 +11,8 @@ module.exports = [
       parser: require('@typescript-eslint/parser'),
       parserOptions: {
         ecmaVersion: 2022,
-        sourceType: 'module'
+        sourceType: 'module',
+        project: ['./tsconfig.app.json', './tsconfig.spec.json']
       },
       globals: {
         describe: 'readonly',
@@ -35,6 +36,11 @@ module.exports = [
   },
   {
     files: ['server/**', 'server/**/*.js'],
+    languageOptions: {
+      parserOptions: {
+        project: false
+      }
+    },
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-var-requires': 'off',
