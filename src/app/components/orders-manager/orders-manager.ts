@@ -10,6 +10,7 @@ import { AuthService } from '../../services/auth.service';
 import { SubscriptionService } from '../../services/subscription.service';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
+import { logger } from '../../utils/logger';
 
 @Component({
   selector: 'app-orders-manager',

@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CartService } from '../../services/cart.service';
 import { Order } from '../../logic/bakers-math';
 import { TenantService } from '../../services/tenant.service';
+import { logger } from '../../utils/logger';
 
 @Component({
   selector: 'app-order-confirmation',
