@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { createClient, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
+import type { SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
 import { TenantService } from './tenant.service';
 import { logger } from '../utils/logger';
 
@@ -21,7 +21,13 @@ export interface User {
 export class AuthService {
   private router = inject(Router);
   private tenantService = inject(TenantService);
-  private supabase: SupabaseClient;
+  private supabase: SupabaseClient | null = null;
+  private async ensureSupabase() {
+    if (this.supabase) return this.supabase;
+    const { createClient } = await import('@supabase/supabase-js');
+    this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
+    return this.supabase;
+  }
   private currentUser = signal<User | null>(null);
 
   user = computed(() => this.currentUser());
@@ -37,15 +43,14 @@ export class AuthService {
       logger.warn('Supabase URL is still using the placeholder in environment.ts. Please update it!');
     }
 
-    this.supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Check for saved session
+    // Don't eagerly load Supabase; create client on-demand to avoid adding it to the initial bundle.
     this.initSession();
   }
 
   private async initSession() {
     try {
-      const { data: { session }, error } = await this.supabase.auth.getSession();
+      const supabase = await this.ensureSupabase();
+      const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
         logger.warn('[Auth] Session initialization error:', error.message);
         // If there's an error getting the session (like invalid refresh token),
@@ -65,14 +70,10 @@ export class AuthService {
       logger.error('[Auth] Unexpected error during session init:', e);
     }
 
-    this.supabase.auth.onAuthStateChange((event, session) => {
+    const supabase = await this.ensureSupabase();
+    supabase.auth.onAuthStateChange((event, session) => {
       logger.debug('Auth state changed:', event, session?.user?.email);
-      // Handle special event for signed out or token refresh failures
-      if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-        this.handleAuthChange(session?.user ?? null);
-      } else {
-        this.handleAuthChange(session?.user ?? null);
-      }
+      this.handleAuthChange(session?.user ?? null);
     });
   }
 
@@ -117,7 +118,8 @@ export class AuthService {
 
   async login(email: string, password: string) {
     logger.debug('[Auth Debug] Attempting login:', email);
-    const { data, error } = await this.supabase.auth.signInWithPassword({
+    const supabase = await this.ensureSupabase();
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
@@ -151,7 +153,8 @@ export class AuthService {
     logger.debug('[Auth Debug] Attempting to register:', email, role);
 
     // 1. Create the Auth User in Supabase
-    const { data, error } = await this.supabase.auth.signUp({
+    const supabase = await this.ensureSupabase();
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -213,7 +216,8 @@ export class AuthService {
         this.tenantService.loadTenantInfo(tenant.slug);
 
         // Update user metadata with tenant_id if possible, or just rely on the slug in the URL later
-        await this.supabase.auth.updateUser({
+        const supabase = await this.ensureSupabase();
+        await supabase.auth.updateUser({
           data: { tenant_id: tenant.id, bakery_slug: tenant.slug }
         });
 
@@ -237,7 +241,8 @@ export class AuthService {
 
     if (data.user) {
       // Check if session exists (if not, email confirmation is likely enabled)
-      const { data: sessionData } = await this.supabase.auth.getSession();
+      const supabase = await this.ensureSupabase();
+    const { data: sessionData } = await supabase.auth.getSession();
 
       if (!sessionData.session) {
         logger.debug('[Auth Debug] No session after registration, likely needs email verification');
@@ -257,7 +262,8 @@ export class AuthService {
   }
 
   async logout() {
-    await this.supabase.auth.signOut();
+    const supabase = await this.ensureSupabase();
+    await supabase.auth.signOut();
     this.currentUser.set(null);
     this.router.navigate(['/front']);
   }
@@ -265,7 +271,8 @@ export class AuthService {
   // Helper method to sync tenant_id to user metadata (for existing users)
   async syncTenantToMetadata(tenantId: string, bakerySlug: string) {
     try {
-      const { data, error } = await this.supabase.auth.updateUser({
+      const supabase = await this.ensureSupabase();
+      const { data, error } = await supabase.auth.updateUser({
         data: {
           tenant_id: tenantId,
           bakery_slug: bakerySlug,
@@ -281,7 +288,7 @@ export class AuthService {
       logger.info('[Auth Debug] Successfully synced tenant_id to user metadata:', data);
 
       // Force refresh the session to get the updated JWT with new metadata
-      const { data: sessionData, error: refreshError } = await this.supabase.auth.refreshSession();
+      const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
 
       if (refreshError) {
         logger.error('[Auth Error] Failed to refresh session:', refreshError);
