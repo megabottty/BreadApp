@@ -9,7 +9,7 @@ import { ModalService } from '../../services/modal.service';
 import { TaxService } from '../../services/tax.service';
 import { ToastService } from '../../services/toast.service';
 import { CalculatedRecipe, Order, OrderItem } from '../../logic/bakers-math';
-import * as QRCode from 'qrcode';
+
 
 @Component({
   selector: 'app-pos-terminal',
@@ -271,7 +271,7 @@ export class PosTerminalComponent {
           this.qrPaymentTotal.set(total);
           // Generate QR code for the payment link
           try {
-            const qrCodeDataUrl = await QRCode.toDataURL(session.url, {
+            const qrCodeDataUrl = await (await import('qrcode')).toDataURL(session.url, {
               width: 300,
               margin: 2,
               color: {
