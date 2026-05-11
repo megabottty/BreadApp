@@ -7,11 +7,14 @@ import { TenantService } from '../../services/tenant.service';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartData, Chart } from 'chart.js';
-import { registerables } from 'chart.js';
+import type { ChartConfiguration, ChartData } from 'chart.js';
 import { ModalService } from '../../services/modal.service';
 
-Chart.register(...registerables);
+// Dynamically import and register Chart.js to avoid bundling it in the initial bundle
+(async () => {
+  const { Chart, registerables } = await import('chart.js');
+  Chart.register(...registerables);
+})();
 
 @Component({
   selector: 'app-business-analytics',
