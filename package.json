@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "vitest",
-    "test:ci": "vitest --run",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
     "lint": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,js}\"",
     "lint:fix": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,js}\" --fix",
     "lint:ci": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,js}\" --max-warnings 0",
