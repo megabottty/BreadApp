@@ -8,6 +8,8 @@ export interface ModalConfig {
   type: 'info' | 'success' | 'warning' | 'error' | 'confirm' | 'customization';
   onConfirm?: () => void;
   onCancel?: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
   product?: CalculatedRecipe;
 }
 
@@ -21,8 +23,8 @@ export class ModalService {
     this.activeModal.set({ title, message, type });
   }
 
-  showConfirm(message: string, title: string = 'Confirm', onConfirm?: () => void, onCancel?: () => void) {
-    this.activeModal.set({ title, message, type: 'confirm', onConfirm, onCancel });
+  showConfirm(message: string, title: string = 'Confirm', onConfirm?: () => void, onCancel?: () => void, confirmLabel: string = 'Confirm', cancelLabel: string = 'Cancel') {
+    this.activeModal.set({ title, message, type: 'confirm', onConfirm, onCancel, confirmLabel, cancelLabel });
   }
 
   showCustomization(product: CalculatedRecipe) {

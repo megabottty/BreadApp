@@ -7,6 +7,7 @@
     <div class="header-actions">
       <button class="btn-primary" (click)="openManualOrder()">➕ Manual Order</button>
       <button class="btn-outline" (click)="sendTestNotifications()">📨 Test Notifications</button>
+      <button class="btn-outline" (click)="showOpenOrders.set(!showOpenOrders())">📋 Open Orders ({{openOrders().length}})</button>
       <div class="date-picker">
         <label for="bake-date">Bake Date</label>
         <input type="date" id="bake-date" [ngModel]="bakeDate()" (ngModelChange)="bakeDate.set($event)">
@@ -59,7 +60,7 @@
       </div>
 
       <div class="aggregation-list">
-        @for (order of filteredOrders(); track order.id) {
+        @for (order of (showOpenOrders() ? openOrders() : filteredOrders()); track order.id) {
           <div class="aggregation-item order-card clickable"
                (click)="openOrderDetails(order)"
                role="button"
@@ -264,6 +265,14 @@
             <button class="btn-save btn-small" (click)="saveBakerNotes()">Save Notes</button>
           </div>
         </div>
+
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:1rem; padding:1rem 2rem; background:var(--card-bg);">
+          @if (canCancelOrder(order)) {
+            <button class="btn-danger" (click)="cancelOrder(order)" aria-label="Cancel this order">Cancel Order</button>
+          }
+          <button class="btn-outline" (click)="closeOrderDetails()">Close</button>
+        </div>
+
       </div>
     </div>
   }

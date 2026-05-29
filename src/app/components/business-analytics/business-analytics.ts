@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed, effect, AfterViewInit } from '@angular/core';
 import { HelpService } from '../../services/help.service';
+import { RecipeService } from '../../services/recipe.service';
 import { CommonModule, CurrencyPipe, PercentPipe, DecimalPipe } from '@angular/common';
 import { AnalyticsService } from '../../services/analytics.service';
 import { Order, CalculatedRecipe } from '../../logic/bakers-math';
@@ -30,9 +31,11 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
   private http = inject(HttpClient);
   private helpService = inject(HelpService);
   private modalService = inject(ModalService);
+  private recipeService = inject(RecipeService);
 
   allOrders = signal<Order[]>([]);
-  savedRecipes = signal<CalculatedRecipe[]>([]);
+  // Source of truth for recipes is RecipeService.savedRecipes
+  savedRecipes = this.recipeService.savedRecipes;
   isLoading = signal(true);
   forecastItems = signal<ForecastItem[]>([]);
   topSellers = signal<TopSellerItem[]>([]);
@@ -124,6 +127,8 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
     effect(() => {
       const tenant = this.tenantService.tenant();
       if (tenant) {
+        // Ensure shared recipe cache is loaded before/while analytics loads
+        this.recipeService.loadRecipes();
         this.loadData();
       }
     });
@@ -178,15 +183,15 @@ export class BusinessAnalyticsComponent implements AfterViewInit {
     this.isLoading.set(true);
     const headers = new HttpHeaders().set('x-tenant-slug', slug);
 
-    // Concurrent load
+    // Concurrent load (recipes handled by RecipeService)
     Promise.all([
       this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).toPromise(),
-      this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).toPromise(),
       this.http.get<ForecastResponse>(`${environment.apiUrl}/orders/analytics/forecast`, { headers }).toPromise(),
       this.http.get<TopSellersResponse>(`${environment.apiUrl}/orders/analytics/top-sellers`, { headers }).toPromise()
-    ]).then(([orders, recipes, forecastResponse, topSellersResponse]) => {
+    ]).then(([orders, forecastResponse, topSellersResponse]) => {
       this.allOrders.set(orders || []);
-      this.savedRecipes.set(recipes || []);
+      // Read recipes from RecipeService's signal (it was requested above)
+      this.savedRecipes.set(this.recipeService.savedRecipes());
       this.forecastItems.set(forecastResponse?.items || []);
       this.forecastMeta.set(forecastResponse?.forecast || null);
       this.topSellers.set(topSellersResponse?.items || []);

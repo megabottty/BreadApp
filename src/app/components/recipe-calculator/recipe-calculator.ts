@@ -234,18 +234,14 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
   private saveDraft(): void {
     const draft = this.recipeForm.getRawValue();
-    try {
-      localStorage.setItem('recipe_calculator_draft', JSON.stringify(draft));
-    } catch (e) {
-      logger.warn('Failed to save draft to localStorage (quota exceeded)', e);
-    }
+    this.recipeService.saveCalculatorDraft(draft);
   }
 
   private loadDraft(): void {
-    const saved = localStorage.getItem('recipe_calculator_draft');
+    const saved = this.recipeService.loadCalculatorDraft();
     if (saved && !this.route.snapshot.paramMap.get('id')) {
       try {
-        const draft = JSON.parse(saved);
+        const draft = saved;
         this.modalService.showConfirm(
           'You have an unsaved recipe draft. Would you like to restore it?',
           'Unsaved Draft Found',
@@ -254,10 +250,10 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
             this.loadRecipeIntoForm(draft);
             this.isLoadingRecipe = false;
             this.hasUnsavedChanges.set(true);
-            localStorage.removeItem('recipe_calculator_draft');
+            this.recipeService.removeCalculatorDraft();
           },
           () => {
-            localStorage.removeItem('recipe_calculator_draft');
+            this.recipeService.removeCalculatorDraft();
           }
         );
       } catch (e) {
@@ -419,7 +415,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     ingredientsArray.push(this.createIngredient('Salt', 10, 'SALT', 0.05));
 
     this.hasUnsavedChanges.set(false);
-    localStorage.removeItem('recipe_calculator_draft');
+    this.recipeService.removeCalculatorDraft();
     this.updateCalculations();
   }
 
@@ -451,45 +447,29 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         }
       }
 
-      const headers = new HttpHeaders().set('x-tenant-slug', slug);
       const rawIngredients = this.recipeForm.getRawValue().ingredients || [];
       this.persistIngredientCostDefaults(rawIngredients);
-      this.http.post<CalculatedRecipe>(`${environment.apiUrl}/orders/recipes`, current, { headers }).subscribe({
+
+      // Delegate network save + local-signal update to RecipeService
+      this.recipeService.saveRecipe(current).subscribe({
         next: (saved: CalculatedRecipe) => {
           this.isSaving.set(false);
-          this.savedRecipes.update(prev => {
-            const index = prev.findIndex(r => r.id === saved.id);
-            if (index !== -1) {
-              prev[index] = saved;
-            } else {
-              prev.push(saved);
-            }
-            try {
-              localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(prev)));
-            } catch (e) {
-              logger.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-            }
-            return [...prev];
-          });
-          // Update form with the ID from the database if it's a new recipe
+          // Ensure form gets ID from backend/local fallback
           if (saved.id && !this.recipeForm.get('id')?.value) {
             this.recipeForm.patchValue({ id: saved.id }, { emitEvent: false });
           }
-          this.modalService.showAlert('Recipe saved to cloud successfully! ☁️', 'Success', 'success');
+
+          this.modalService.showAlert('Recipe saved successfully!', 'Success', 'success');
           this.hasUnsavedChanges.set(false);
-          localStorage.removeItem('recipe_calculator_draft');
+          this.recipeService.removeCalculatorDraft();
         },
         error: (err: any) => {
+          // Service is resilient and should emit a saved recipe even on failure,
+          // but keep a defensive error handler for unexpected network/operator errors.
           this.isSaving.set(false);
-          logger.error('Failed to save recipe to cloud:', err);
-          let errorMessage = 'Failed to save to cloud. Saving locally for now.';
-          if (err.status === 404) {
-            errorMessage = 'Your bakery profile was not found. Please ensure you have completed the setup wizard.';
-          } else if (err.error?.details) {
-            errorMessage = `Cloud save failed: ${err.error.details}`;
-          }
-          this.modalService.showAlert(errorMessage, 'Save Warning', 'warning');
-          // Fallback to old local save logic
+          logger.error('Failed to save recipe (unexpected):', err);
+          this.modalService.showAlert('Failed to save recipe. Changes were saved locally.', 'Save Warning', 'warning');
+          // As a final fallback, ensure local copy exists
           this.saveLocally(current);
         }
       });
@@ -497,25 +477,18 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   }
 
   private saveLocally(recipeToSave: CalculatedRecipe): void {
-    this.savedRecipes.update(prev => {
-      let updated: CalculatedRecipe[];
-      if (recipeToSave.id) {
-        updated = prev.map(r => r.id === recipeToSave.id ? recipeToSave : r);
-      } else {
-        recipeToSave.id = Date.now().toString();
-        updated = [...prev, recipeToSave];
-        this.recipeForm.patchValue({ id: recipeToSave.id }, { emitEvent: false });
+    if (recipeToSave.id) {
+      this.recipeService.updateLocal(recipeToSave);
+    } else {
+      const local = { ...recipeToSave } as CalculatedRecipe;
+      local.id = Date.now().toString();
+      this.recipeService.addLocal(local);
+      this.recipeForm.patchValue({ id: local.id }, { emitEvent: false });
     }
-    try {
-      localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
-    } catch (e) {
-      console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-    }
+
     this.hasUnsavedChanges.set(false);
-    localStorage.removeItem('recipe_calculator_draft');
-    return updated;
-  });
-}
+    this.recipeService.removeCalculatorDraft();
+  }
 
   onFileSelected(event: any) {
     const files = event.target.files;
@@ -584,28 +557,14 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   deleteRecipe(id: string | undefined): void {
     if (!id) return;
     logger.info('Attempting to delete recipe with ID:', id);
-    const headers = new HttpHeaders().set('x-tenant-slug', this.tenantService.tenant()?.slug || 'the-daily-dough');
-    this.http.delete(`${environment.apiUrl}/orders/recipes/${id}`, { headers }).subscribe({
+    this.recipeService.deleteRecipe(id).subscribe({
       next: () => {
-        logger.info('Delete successful for ID:', id);
-        const updated = this.savedRecipes().filter(r => r.id !== id);
-        this.savedRecipes.set(updated);
-        try {
-          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
-        } catch (e) {
-          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-        }
+        logger.info('Delete processed for ID:', id);
+        // RecipeService already updates the savedRecipes signal and local cache.
       },
       error: (err) => {
-        console.error('Error deleting recipe', err);
-        // Fallback for local-only recipes or server failure
-        const updated = this.savedRecipes().filter(r => r.id !== id);
-        this.savedRecipes.set(updated);
-        try {
-          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(updated)));
-        } catch (e) {
-          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-        }
+        // Should be resilient, but keep logging
+        console.error('Error deleting recipe (unexpected):', err);
       }
     });
   }

@@ -37,6 +37,8 @@ export class OrdersManagerComponent implements OnInit {
   selectedOrder = signal<Order | null>(null);
   bakerNotes = signal<string>('');
   rightTab = signal<'ingredients' | 'batches'>('ingredients');
+  // Toggle to view all open orders (not completed/cancelled)
+  showOpenOrders = signal<boolean>(false);
 
   productionBatches = computed(() => {
     const agg = this.aggregatedOrders();
@@ -189,6 +191,11 @@ export class OrdersManagerComponent implements OnInit {
     });
   });
 
+  // All open orders across dates (not completed or cancelled)
+  openOrders = computed(() => {
+    return this.allOrders().filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+  });
+
   statusSummary = computed(() => {
     const orders = this.filteredOrders();
     return {
@@ -319,7 +326,10 @@ export class OrdersManagerComponent implements OnInit {
             this.modalService.showAlert('Failed to cancel order. Please try again.', 'Error', 'error');
           }
         });
-      }
+      },
+      undefined,
+      'Yes, cancel order',
+      'Cancel'
     );
   }
 

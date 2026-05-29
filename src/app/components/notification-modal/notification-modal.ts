@@ -20,8 +20,8 @@ import { ModalService } from '../../services/modal.service';
           </div>
           <div class="modal-footer">
             @if (modal.type === 'confirm') {
-              <button class="btn-outline" (click)="cancel(modal)">Cancel</button>
-              <button class="btn-primary" (click)="confirm(modal)">Yes, Restore</button>
+              <button class="btn-outline" (click)="cancel(modal)">{{modal.cancelLabel || 'Cancel'}}</button>
+              <button class="btn-primary" (click)="confirm(modal)">{{modal.confirmLabel || 'Confirm'}}</button>
             } @else {
               <button class="btn-primary" (click)="close()">Got it</button>
             }

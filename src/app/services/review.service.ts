@@ -4,6 +4,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { TenantService } from './tenant.service';
 import { environment } from '../../environments/environment';
 import { logger } from '../utils/logger';
+import { RecipeService } from './recipe.service';
 
 @Injectable({
   providedIn: 'root'
@@ -18,6 +19,8 @@ export class ReviewService {
     const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
+
+  private recipeService = inject(RecipeService);
 
   constructor() {
     // Local caching removed per user request
@@ -147,26 +150,16 @@ export class ReviewService {
   }
 
   private updateRecipeAverage(recipeId: string) {
-    const recipesStr = localStorage.getItem('bakery_recipes');
-    if (recipesStr) {
-      try {
-        const recipes: Recipe[] = JSON.parse(recipesStr);
-        const index = recipes.findIndex(r => r.id === recipeId);
-        if (index !== -1) {
-          const reviews = this.allReviews().filter(r => r.recipeId === recipeId);
-          const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-          recipes[index].averageRating = reviews.length > 0 ? sum / reviews.length : 0;
-          recipes[index].ratings = reviews; // Keep a few or all? For now all.
-
-          try {
-            localStorage.setItem('bakery_recipes', JSON.stringify(recipes));
-          } catch (e) {
-            console.warn('Failed to update recipes in localStorage (quota exceeded)', e);
-          }
-        }
-      } catch (e) {
-        console.error('Error updating recipe average', e);
-      }
+    // Use RecipeService's savedRecipes signal as the source of truth and update via its API
+    const recipes = this.recipeService.savedRecipes();
+    const index = recipes.findIndex(r => r.id === recipeId);
+    if (index !== -1) {
+      const reviews = this.allReviews().filter(r => r.recipeId === recipeId);
+      const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+      const updated = { ...recipes[index], averageRating: reviews.length > 0 ? sum / reviews.length : 0, ratings: reviews } as Recipe;
+      this.recipeService.updateLocal(updated as any);
+      // persist via RecipeService
+      this.recipeService.persistToLocalCache();
     }
   }
 }

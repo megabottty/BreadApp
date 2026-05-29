@@ -192,21 +192,6 @@ export class StorefrontComponent implements OnInit {
     });
   }
 
-  private scheduleOptimizedRecipeCache(recipes: CalculatedRecipe[]) {
-    const persist = () => {
-      try {
-        localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
-      } catch (e) {
-        console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-      }
-    };
-
-    if ('requestIdleCallback' in window) {
-      (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(persist);
-    } else {
-      setTimeout(persist, 0);
-    }
-  }
 
   isInlineImage(url?: string | null): boolean {
     if (!url) return false;
@@ -363,20 +348,18 @@ export class StorefrontComponent implements OnInit {
     const product = this.productToDelete();
     if (!product || !product.id) return;
 
-    this.http.delete(`${environment.apiUrl}/orders/recipes/${product.id}`).subscribe({
+    this.recipeService.deleteRecipe(product.id).subscribe({
       next: () => {
-        logger.info('Product deleted from cloud:', product.id);
-        const updated = this.products().filter(p => p.id !== product.id);
-        this.products.set(updated);
-        this.scheduleOptimizedRecipeCache(updated);
+        logger.info('Product delete processed for:', product.id);
+        // RecipeService updates the products signal (savedRecipes) and persists cache.
         this.cancelDelete();
       },
       error: (err) => {
-        console.error('Failed to delete product from cloud:', err);
-        // Fallback to local delete
+        console.error('Failed to delete product (unexpected):', err);
+        // Ensure UI still reflects deletion as fallback
         const updated = this.products().filter(p => p.id !== product.id);
         this.products.set(updated);
-        this.scheduleOptimizedRecipeCache(updated);
+        this.recipeService.persistToLocalCache(updated);
         this.cancelDelete();
       }
     });

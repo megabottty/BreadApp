@@ -3,6 +3,8 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe } from '../logic/bakers-math';
 import { TenantService } from './tenant.service';
 import { environment } from '../../environments/environment';
+import { of } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class RecipeService {
@@ -58,6 +60,15 @@ export class RecipeService {
     }
   }
 
+  /**
+   * Public helper to persist recipes to localStorage. Components should call this
+   * instead of writing directly to localStorage to keep cache behavior centralized.
+   */
+  persistToLocalCache(recipes?: CalculatedRecipe[]) {
+    const toPersist = recipes || this.savedRecipes();
+    this.scheduleOptimizedRecipeCache(toPersist);
+  }
+
   loadRecipes(): void {
     const slug = this.tenantService.tenant()?.slug;
     if (!slug) return;
@@ -105,5 +116,81 @@ export class RecipeService {
   removeLocal(id: string) {
     this.savedRecipes.update(prev => prev.filter(r => r.id !== id));
     this.scheduleOptimizedRecipeCache(this.savedRecipes());
+  }
+
+  /**
+   * Save a recipe to the cloud. On success the savedRecipes signal is updated.
+   * On failure the recipe is saved locally (assigned an id if missing) and returned.
+   */
+  saveRecipe(recipe: CalculatedRecipe) {
+    const headers = this.headers;
+    return this.http.post<CalculatedRecipe>(`${environment.apiUrl}/orders/recipes`, recipe, { headers }).pipe(
+      // update signal on success
+      tap((saved: CalculatedRecipe) => {
+        const existing = this.savedRecipes().find(r => r.id === saved.id);
+        if (existing) {
+          this.updateLocal(saved);
+        } else {
+          this.addLocal(saved);
+        }
+      }),
+      // on error, fallback to saving locally and emit the locally-saved recipe
+      catchError((err) => {
+        console.warn('[RecipeService] save failed, saving locally', err);
+        const local = { ...recipe } as CalculatedRecipe;
+        if (!local.id) local.id = Date.now().toString();
+        this.addLocal(local);
+        return of(local);
+      })
+    );
+  }
+
+  /**
+   * Delete a recipe by id. Removes from savedRecipes optimistically; on server error still removes locally.
+   */
+  deleteRecipe(id: string) {
+    const headers = this.headers;
+    return this.http.delete<void>(`${environment.apiUrl}/orders/recipes/${id}`, { headers }).pipe(
+      tap(() => this.removeLocal(id)),
+      catchError((err) => {
+        console.warn('[RecipeService] delete failed, removing locally', err);
+        this.removeLocal(id);
+        return of(undefined);
+      })
+    );
+  }
+
+  // Calculator draft helpers
+  saveCalculatorDraft(draft: any) {
+    const persist = () => {
+      try {
+        localStorage.setItem('recipe_calculator_draft', JSON.stringify(draft));
+      } catch (e) {
+        // ignore quota errors
+      }
+    };
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(persist);
+    } else {
+      setTimeout(persist, 0);
+    }
+  }
+
+  loadCalculatorDraft(): any | null {
+    const saved = localStorage.getItem('recipe_calculator_draft');
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  removeCalculatorDraft() {
+    try {
+      localStorage.removeItem('recipe_calculator_draft');
+    } catch (e) {
+      // ignore
+    }
   }
 }
