@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { TenantService } from '../../services/tenant.service';
 import { ToastService } from '../../services/toast.service';
 import { Order, CalculatedRecipe } from '../../logic/bakers-math';
+import { RecipeService } from '../../services/recipe.service';
 
 interface PrepScheduleItem {
   order: Order;
@@ -503,9 +504,10 @@ export class PrepTimelineComponent implements OnInit {
   private http = inject(HttpClient);
   private tenantService = inject(TenantService);
   private toastService = inject(ToastService);
+  private recipeService = inject(RecipeService);
 
   allOrders = signal<Order[]>([]);
-  savedRecipes = signal<CalculatedRecipe[]>([]);
+  savedRecipes = this.recipeService.savedRecipes;
 
   private get headers() {
     const slug = this.tenantService.tenant()?.slug;
@@ -518,7 +520,7 @@ export class PrepTimelineComponent implements OnInit {
       const tenant = this.tenantService.tenant();
       if (tenant) {
         this.loadOrders();
-        this.loadRecipes();
+        this.recipeService.loadRecipes();
       }
     });
   }
@@ -535,10 +537,8 @@ export class PrepTimelineComponent implements OnInit {
   }
 
   loadRecipes() {
-    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers: this.headers }).subscribe({
-      next: (recipes) => this.savedRecipes.set(recipes),
-      error: (err) => console.error('Failed to load recipes:', err)
-    });
+    // Delegated to RecipeService
+    this.recipeService.loadRecipes();
   }
 
   prepSchedule = computed(() => {

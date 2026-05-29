@@ -13,6 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
 import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
+import { RecipeService } from '../../services/recipe.service';
 import { logger } from '../../utils/logger';
 
 @Component({
@@ -31,8 +32,9 @@ export class StorefrontComponent implements OnInit {
   private http = inject(HttpClient);
   private helpService = inject(HelpService);
   private modalService = inject(ModalService);
+  private recipeService = inject(RecipeService);
 
-  products = signal<CalculatedRecipe[]>([]);
+  products = this.recipeService.savedRecipes;
   categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SPECIAL', 'OTHER']);
   selectedCategory = signal<RecipeCategory | 'ALL'>('ALL');
   selectedFlavor = signal<FlavorProfile | 'ALL'>('ALL');
@@ -132,7 +134,7 @@ export class StorefrontComponent implements OnInit {
       const tenant = this.tenantService.tenant();
       if (tenant) {
         logger.info('[Storefront] Tenant identified, loading recipes:', tenant.slug);
-        this.loadRecipes();
+        this.recipeService.loadRecipes();
       }
     });
   }
@@ -212,53 +214,15 @@ export class StorefrontComponent implements OnInit {
   }
 
   loadRecipes(): void {
+    // Delegate recipe loading to RecipeService which manages the savedRecipes signal and caching.
     const slug = this.tenantService.tenant()?.slug;
     if (!slug) {
       console.warn('[Storefront] Skipping loadRecipes: No tenant slug identified yet.');
       this.appLoadService.setStorefrontReady(true);
       return;
     }
-    const headers = new HttpHeaders().set('x-tenant-slug', slug);
-
-    // Local caching removed per user request
-    /*
-    const cached = localStorage.getItem('bakery_recipes');
-    if (cached) {
-      try {
-        const normalized = this.normalizeRecipeImages(JSON.parse(cached));
-        this.products.set(normalized);
-        this.scheduleOptimizedRecipeCache(normalized);
-        this.appLoadService.setStorefrontReady(true);
-      } catch (e) {
-        console.warn('Failed to load cached recipes from localStorage', e);
-        this.appLoadService.setStorefrontReady(true);
-      }
-    } else {
-      this.appLoadService.setStorefrontReady(true);
-    }
-    */
-
-    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
-      next: (recipes: CalculatedRecipe[]) => {
-        const normalized = this.normalizeRecipeImages(recipes);
-        this.products.set(normalized);
-        // Sync local storage just in case other parts of the app still rely on it
-        this.scheduleOptimizedRecipeCache(normalized);
-
-        this.appLoadService.setStorefrontReady(true);
-      },
-      error: (err: any) => {
-        console.error('Failed to load recipes from database:', err);
-        // Fallback to local storage if DB fails
-        const saved = localStorage.getItem('bakery_recipes');
-        if (saved) {
-          const normalized = this.normalizeRecipeImages(JSON.parse(saved));
-          this.products.set(normalized);
-          this.scheduleOptimizedRecipeCache(normalized);
-        }
-        this.appLoadService.setStorefrontReady(true);
-      }
-    });
+    this.recipeService.loadRecipes();
+    this.appLoadService.setStorefrontReady(true);
   }
 
   deleteReview(reviewId: string): void {

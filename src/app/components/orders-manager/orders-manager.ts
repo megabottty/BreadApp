@@ -5,6 +5,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
 import { Order, CalculatedRecipe, aggregateOrders, calculateMasterDough } from '../../logic/bakers-math';
+import { RecipeService } from '../../services/recipe.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { SubscriptionService } from '../../services/subscription.service';
@@ -26,10 +27,11 @@ export class OrdersManagerComponent implements OnInit {
   private subscriptionService = inject(SubscriptionService);
   private modalService = inject(ModalService);
   private helpService = inject(HelpService);
+  private recipeService = inject(RecipeService);
 
   bakeDate = signal<string>(new Date().toISOString().split('T')[0]);
   allOrders = signal<Order[]>([]);
-  savedRecipes = signal<CalculatedRecipe[]>([]);
+  savedRecipes = this.recipeService.savedRecipes;
   showNotifications = signal<boolean>(false);
   showManualOrderModal = signal<boolean>(false);
   selectedOrder = signal<Order | null>(null);
@@ -204,7 +206,7 @@ export class OrdersManagerComponent implements OnInit {
       if (tenant) {
         logger.info('[OrdersManager] Tenant identified, loading orders and recipes:', tenant.slug);
         this.loadRealOrders();
-        this.loadSavedRecipes();
+        this.recipeService.loadRecipes();
       }
     });
   }
@@ -221,15 +223,8 @@ export class OrdersManagerComponent implements OnInit {
   }
 
   loadSavedRecipes(): void {
-    const headers = this.headers;
-    if (!headers.has('x-tenant-slug')) {
-      console.warn('[OrdersManager] Skipping loadSavedRecipes: No tenant slug identified yet.');
-      return;
-    }
-    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
-      next: (recipes) => this.savedRecipes.set(recipes),
-      error: (err) => console.error('Error loading recipes', err)
-    });
+    // Delegated to RecipeService which manages recipe fetching and caching.
+    this.recipeService.loadRecipes();
   }
 
   loadRealOrders(): void {

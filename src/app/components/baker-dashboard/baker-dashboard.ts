@@ -10,6 +10,7 @@ import { PosTerminalComponent } from '../pos-terminal/pos-terminal';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
 import { InventoryService } from '../../services/inventory.service';
+import { RecipeService } from '../../services/recipe.service';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '../../logic/bakers-math';
@@ -34,6 +35,7 @@ export class BakerDashboardComponent {
   protected modalService = inject(ModalService);
   private helpService = inject(HelpService);
   private inventoryService = inject(InventoryService);
+  private recipeService = inject(RecipeService);
   private http = inject(HttpClient);
 
   ovenCapacityValue = signal<number>(6);
@@ -41,7 +43,7 @@ export class BakerDashboardComponent {
   activeTab = signal<'orders' | 'pos' | 'ledger' | 'recipes' | 'settings' | 'inventory' | 'forecast' | 'billing'>('orders');
   currentTenant = this.tenantService.tenant;
 
-  savedRecipes = signal<CalculatedRecipe[]>([]);
+  savedRecipes = this.recipeService.savedRecipes;
   allOrders = signal<Order[]>([]);
   inventory = this.inventoryService.inventory;
   targetDeliveryTime = signal<string>('08:00');
@@ -167,7 +169,7 @@ export class BakerDashboardComponent {
   loadData() {
     const headers = this.headers;
     if (headers.has('x-tenant-slug')) {
-      this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe(r => this.savedRecipes.set(r));
+      this.recipeService.loadRecipes();
       this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe(o => this.allOrders.set(o));
       this.inventoryService.loadInventory();
       const tenant = this.currentTenant();

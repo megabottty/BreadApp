@@ -12,6 +12,7 @@ import { TenantService } from '../../services/tenant.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of, catchError, map } from 'rxjs';
 import { logger } from '../../utils/logger';
+import { RecipeService } from '../../services/recipe.service';
 
 @Component({
   selector: 'app-recipe-calculator',
@@ -30,6 +31,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   private tenantService = inject(TenantService);
   private http = inject(HttpClient);
   private fb = inject(FormBuilder);
+  private recipeService = inject(RecipeService);
 
   currentTenant = this.tenantService.tenant;
 
@@ -45,7 +47,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   calculatedRecipe = signal<CalculatedRecipe | undefined>(undefined);
-  savedRecipes = signal<CalculatedRecipe[]>([]);
+  savedRecipes = this.recipeService.savedRecipes;
   ingredientCostDefaults = signal<Record<string, { bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }>>({});
 
   showNotifications = signal<boolean>(false);
@@ -100,8 +102,18 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       const tenant = this.tenantService.tenant();
       if (tenant) {
         logger.info('[RecipeCalculator] Tenant identified, loading recipes:', tenant.slug);
-        this.loadSavedRecipes();
+        this.recipeService.loadRecipes();
         this.loadIngredientCosts();
+      }
+    });
+
+    // If a recipe ID was requested before recipes finished loading, attempt to load it when recipes arrive
+    effect(() => {
+      const pendingId = this.pendingRecipeId;
+      const recipes = this.recipeService.savedRecipes();
+      if (pendingId && recipes.length > 0) {
+        this.tryLoadRecipeById(pendingId);
+        this.pendingRecipeId = null;
       }
     });
   }
@@ -340,24 +352,9 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   }
 
   loadSavedRecipes(): void {
-    const slug = this.tenantService.tenant()?.slug;
-    if (!slug) {
-      logger.warn('[RecipeCalculator] Skipping loadSavedRecipes: No tenant slug identified yet.');
-      return;
-    }
-    const headers = new HttpHeaders().set('x-tenant-slug', slug);
-    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
-      next: (recipes) => {
-        this.savedRecipes.set(recipes);
-        try {
-          localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
-        } catch (e) {
-          console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-        }
-        this.tryLoadRecipeById(this.pendingRecipeId);
-      },
-      error: (err) => logger.error('Error loading recipes', err)
-    });
+    // Delegate to RecipeService. RecipeService handles caching and normalization.
+    this.recipeService.loadRecipes();
+    // tryLoadRecipeById will be attempted by the effect that watches recipeService.savedRecipes
   }
 
   getRecipeCategory(recipeName: string): string {
