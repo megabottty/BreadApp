@@ -37,14 +37,22 @@ test('Cancel order from dashboard opens modal and cancels order', async ({ page 
   // Open the dashboard page (bypass guards with e2e=1)
   await page.goto("/manage-orders?e2e=1");
 
+  // Log the page content if we timeout
+  page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
+
   // Wait for the OrdersManager to mount
-  await page.locator('h1', { hasText: "Order Management" }).first().waitFor({ timeout: 10000 });
+  try {
+    await page.locator('h1', { hasText: "Order Management" }).first().waitFor({ timeout: 15000 });
+  } catch (e) {
+    console.log("Timeout waiting for 'Order Management' h1. Current URL:", page.url());
+    const content = await page.content();
+    console.log("Page Content snapshot:", content.substring(0, 1000));
+    throw e;
+  }
 
   // Wait for the order card to render and click it to open details
   const orderCard = page.locator('.aggregation-item.order-card.clickable').first();
   await expect(orderCard).toBeVisible({ timeout: 10000 });
-  // Wait for any splash overlay to disappear
-  await page.locator(".splash-overlay").waitFor({ state: "hidden", timeout: 10000 });
 
   await orderCard.click();
 

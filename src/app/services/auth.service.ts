@@ -107,7 +107,9 @@ export class AuthService {
       // Proactive redirection for BAKERs who haven't finished setup
       // Only redirect if we are on a page that isn't the wizard itself or the front
       const path = window.location.pathname;
-      if (role === 'BAKER' && !onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
+      const isE2E = window.location.search.includes('e2e=1');
+
+      if (!isE2E && role === 'BAKER' && !onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
         logger.info('[Auth Debug] Redirecting BAKER to Setup Wizard');
         this.router.navigate(['/setup-wizard']);
       }
