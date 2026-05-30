@@ -41,13 +41,13 @@ app.get('/api/ping', (req, res) => {
 });
 
 // API Routes (all under /api prefix)
-const orderRoutes = require('./routes/orders');
-const paymentRoutes = require('./routes/payments');
-const notificationRoutes = require('./routes/notifications');
-const contactRoutes = require('./routes/contact');
-const taxRoutes = require('./routes/tax');
-const expenseRoutes = require('./routes/expenses');
-const notificationSchedulerRoutes = require('./routes/notifications-scheduler');
+const orderRoutes = require('./routes/orders.cjs');
+const paymentRoutes = require('./routes/payments.cjs');
+const notificationRoutes = require('./routes/notifications.cjs');
+const contactRoutes = require('./routes/contact.cjs');
+const taxRoutes = require('./routes/tax.cjs');
+const expenseRoutes = require('./routes/expenses.cjs');
+const notificationSchedulerRoutes = require('./routes/notifications-scheduler.cjs');
 
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);

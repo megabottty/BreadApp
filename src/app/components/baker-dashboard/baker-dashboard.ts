@@ -1,11 +1,10 @@
-import { Component, inject, signal, computed, effect } from '@angular/core';
+import { Component, inject, signal, computed, effect, Type } from '@angular/core';
 import { HelpService } from '../../services/help.service';
 import { CommonModule } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { OrdersManagerComponent } from '../orders-manager/orders-manager';
 import { BakeryLedgerComponent } from '../bakery-ledger/bakery-ledger';
 import { RecipeCalculatorComponent } from '../recipe-calculator/recipe-calculator';
-import { BusinessAnalyticsComponent } from '../business-analytics/business-analytics';
 import { PosTerminalComponent } from '../pos-terminal/pos-terminal';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
@@ -24,7 +23,6 @@ import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '
     OrdersManagerComponent,
     BakeryLedgerComponent,
     RecipeCalculatorComponent,
-    BusinessAnalyticsComponent,
     PosTerminalComponent
   ],
   templateUrl: './baker-dashboard.html',
@@ -41,6 +39,7 @@ export class BakerDashboardComponent {
   ovenCapacityValue = signal<number>(6);
 
   activeTab = signal<'orders' | 'pos' | 'ledger' | 'recipes' | 'settings' | 'inventory' | 'forecast' | 'billing'>('orders');
+  businessAnalyticsComponent = signal<Type<any> | null>(null);
   currentTenant = this.tenantService.tenant;
 
   savedRecipes = this.recipeService.savedRecipes;
@@ -144,6 +143,13 @@ export class BakerDashboardComponent {
     effect(() => {
       if (this.activeTab() === 'billing') {
         this.loadBillingSummary();
+      }
+    });
+
+    // Lazy-load BusinessAnalyticsComponent when forecast tab is opened
+    effect(() => {
+      if (this.activeTab() === 'forecast' && !this.businessAnalyticsComponent()) {
+        this.loadBusinessAnalytics();
       }
     });
   }
@@ -441,6 +447,14 @@ export class BakerDashboardComponent {
         console.error('Failed to confirm setup session:', err);
         this.pendingSetupSessionId.set(null);
       }
+    });
+  }
+
+  private loadBusinessAnalytics() {
+    import('../business-analytics/business-analytics').then(module => {
+      this.businessAnalyticsComponent.set(module.BusinessAnalyticsComponent);
+    }).catch(err => {
+      console.error('Failed to load BusinessAnalyticsComponent:', err);
     });
   }
 

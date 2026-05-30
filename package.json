@@ -8,10 +8,10 @@
     "watch": "ng build --watch --configuration development",
     "test": "vitest",
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
-    "lint": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,js}\"",
-    "lint:fix": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,js}\" --fix",
-    "lint:ci": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,js}\" --max-warnings 0",
-    "server": "node server/index.js",
+    "lint": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,cjs}\"",
+    "lint:fix": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,cjs}\" --fix",
+    "lint:ci": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,cjs}\" --max-warnings 0",
+    "server": "node server/index.cjs",
     "dev": "concurrently \"npm run server\" \"npm start\"",
     "e2e": "playwright test"
   },
@@ -28,6 +28,7 @@
     ]
   },
   "private": true,
+  "type": "module",
   "packageManager": "npm@11.6.2",
   "dependencies": {
     "@angular/animations": "^21.2.8",

@@ -35,7 +35,7 @@ module.exports = [
     }
   },
   {
-    files: ['server/**', 'server/**/*.js'],
+    files: ['server/**', 'server/**/*.cjs'],
     languageOptions: {
       parserOptions: {
         project: false
