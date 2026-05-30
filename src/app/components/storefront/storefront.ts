@@ -11,6 +11,8 @@ import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
+import { SubscriptionModalComponent } from '../subscription-modal/subscription-modal';
+import { ProductDetailsModalComponent } from '../product-details-modal/product-details-modal';
 import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
 import { RecipeService } from '../../services/recipe.service';
@@ -19,7 +21,7 @@ import { logger } from '../../utils/logger';
 @Component({
   selector: 'app-storefront',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, NgOptimizedImage, ReviewModalComponent],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, NgOptimizedImage, ReviewModalComponent, SubscriptionModalComponent, ProductDetailsModalComponent],
   templateUrl: './storefront.html',
   styleUrls: ['./storefront.css']
 })
