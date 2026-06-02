@@ -53,8 +53,14 @@ test('Cancel order from dashboard opens modal and cancels order', async ({ page 
     console.log("Page Content snapshot:", content.substring(0, 1000));
 
     // Check if app-root is empty
-    const appRootContent = await page.locator('app-root').innerHTML();
-    console.log("app-root innerHTML:", appRootContent);
+    const appRoot = page.locator('app-root');
+    const appRootCount = await appRoot.count();
+    if (appRootCount > 0) {
+      const appRootContent = await appRoot.innerHTML();
+      console.log("app-root innerHTML:", appRootContent);
+    } else {
+      console.log("app-root NOT FOUND in DOM");
+    }
 
     await page.screenshot({ path: 'test-results/error-screenshot.png', fullPage: true });
     throw e;
