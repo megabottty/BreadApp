@@ -167,6 +167,7 @@ export class NotificationModalComponent {
   }
 
   confirm(modal: any) {
+    console.log('NotificationModal confirm clicked', !!modal.onConfirm);
     if (modal.onConfirm) modal.onConfirm();
     this.close();
   }

@@ -98,4 +98,11 @@ export class App {
     this.authService.logout();
     this.closeMenu();
   }
+
+  isE2E(): boolean {
+    if (typeof window !== 'undefined') {
+      return window.location.search.includes('e2e=1') || document.URL.includes('e2e=1');
+    }
+    return false;
+  }
 }

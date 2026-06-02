@@ -306,6 +306,7 @@ export class OrdersManagerComponent implements OnInit {
   }
 
   cancelOrder(order: Order) {
+    console.log('cancelOrder called for order:', order.id);
     const pickupDate = order.pickupDate ? new Date(order.pickupDate) : null;
     const daysUntilPickup = pickupDate ? Math.ceil((pickupDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
@@ -313,8 +314,10 @@ export class OrdersManagerComponent implements OnInit {
       `Are you sure you want to cancel order #${order.id} for ${order.customerName}?\n\nThis order is scheduled for ${pickupDate?.toLocaleDateString()} (${daysUntilPickup} days away).\n\nCustomer will be notified of the cancellation.`,
       'Cancel Order',
       () => {
+        console.log('onConfirm callback executing for order cancellation');
         this.http.patch(`${environment.apiUrl}/orders/${order.id}/status`, { status: 'CANCELLED' }, { headers: this.headers }).subscribe({
           next: () => {
+            console.log('PATCH success');
             this.allOrders.update(orders =>
               orders.map(o => o.id === order.id ? { ...o, status: 'CANCELLED' } : o)
             );

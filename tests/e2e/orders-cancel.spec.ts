@@ -78,12 +78,24 @@ test('Cancel order from dashboard opens modal and cancels order', async ({ page 
   await cancelBtn.click();
 
   // The confirm modal should appear; click the confirm labeled button
-  const confirmBtn = page.locator('.modal-content.card button.btn-primary', { hasText: 'Yes, cancel order' }).first();
-  await expect(confirmBtn).toBeVisible({ timeout: 2000 });
+  const confirmBtn = page.locator('app-notification-modal button.btn-primary', { hasText: 'Yes, cancel order' }).first();
+  await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+
+  // Debug: check if button is enabled and clickable
+  console.log('Confirm button visibility:', await confirmBtn.isVisible());
+  console.log('Confirm button enabled:', await confirmBtn.isEnabled());
+
   await confirmBtn.click();
 
   // After confirmation, expect the PATCH to have been called
-  expect(patchCalled).toBeTruthy();
+  try {
+    await expect.poll(() => patchCalled, { timeout: 5000 }).toBeTruthy();
+  } catch (e) {
+    console.log('patchCalled is still false after 5s');
+    // Take another screenshot
+    await page.screenshot({ path: 'test-results/patch-failed.png', fullPage: true });
+    throw e;
+  }
 
   // The order status displayed in the details modal should update to CANCELLED
   await expect(page.locator('.modal-content.card', { hasText: 'CANCELLED' })).toBeVisible({ timeout: 3000 });

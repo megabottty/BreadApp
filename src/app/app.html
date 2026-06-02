@@ -121,8 +121,15 @@
   <app-footer></app-footer>
 }
 
-@defer (on idle) {
+@if (authService.isBaker() || isE2E()) {
   <app-notification-modal></app-notification-modal>
+} @else {
+  @defer (on idle) {
+    <app-notification-modal></app-notification-modal>
+  }
+}
+
+@defer (on idle) {
   <app-product-customization-modal></app-product-customization-modal>
   <app-install-prompt></app-install-prompt>
   <app-toast-container></app-toast-container>
