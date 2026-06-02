@@ -45,6 +45,7 @@ export class SubscriptionService {
   }
 
   private loadSubscriptionsFromLocalStorage() {
+    if (typeof localStorage === 'undefined') return;
     const saved = localStorage.getItem('bakery_subscriptions');
     if (saved) {
       try {

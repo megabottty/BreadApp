@@ -28,6 +28,7 @@ export class ReviewService {
   }
 
   private loadReviewsFromLocalStorage() {
+    if (typeof localStorage === 'undefined') return;
     const saved = localStorage.getItem('bakery_reviews');
     if (saved) {
       try {

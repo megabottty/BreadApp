@@ -34,19 +34,29 @@ test('Cancel order from dashboard opens modal and cancels order', async ({ page 
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
 
+  // Log browser diagnostics
+  page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
+  page.on('pageerror', err => console.log('BROWSER ERROR:', err.message));
+  page.on('requestfailed', request => {
+    console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText);
+  });
+
   // Open the dashboard page (bypass guards with e2e=1)
   await page.goto("/manage-orders?e2e=1");
 
-  // Log the page content if we timeout
-  page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
-
-  // Wait for the OrdersManager to mount
+  // Log the page content and screenshot if we timeout
   try {
     await page.locator('h1', { hasText: "Order Management" }).first().waitFor({ timeout: 15000 });
   } catch (e) {
     console.log("Timeout waiting for 'Order Management' h1. Current URL:", page.url());
     const content = await page.content();
     console.log("Page Content snapshot:", content.substring(0, 1000));
+
+    // Check if app-root is empty
+    const appRootContent = await page.locator('app-root').innerHTML();
+    console.log("app-root innerHTML:", appRootContent);
+
+    await page.screenshot({ path: 'test-results/error-screenshot.png', fullPage: true });
     throw e;
   }
 

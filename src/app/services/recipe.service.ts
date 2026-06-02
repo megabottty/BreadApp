@@ -46,6 +46,7 @@ export class RecipeService {
 
   private scheduleOptimizedRecipeCache(recipes: CalculatedRecipe[]) {
     const persist = () => {
+      if (typeof localStorage === 'undefined') return;
       try {
         localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
       } catch (e) {
@@ -82,6 +83,7 @@ export class RecipeService {
       },
       error: (err) => {
         console.error('[RecipeService] Failed to load recipes:', err);
+        if (typeof localStorage === 'undefined') return;
         const saved = localStorage.getItem('bakery_recipes');
         if (saved) {
           try {
@@ -163,6 +165,7 @@ export class RecipeService {
   // Calculator draft helpers
   saveCalculatorDraft(draft: any) {
     const persist = () => {
+      if (typeof localStorage === 'undefined') return;
       try {
         localStorage.setItem('recipe_calculator_draft', JSON.stringify(draft));
       } catch (e) {
@@ -177,6 +180,7 @@ export class RecipeService {
   }
 
   loadCalculatorDraft(): any | null {
+    if (typeof localStorage === 'undefined') return null;
     const saved = localStorage.getItem('recipe_calculator_draft');
     if (!saved) return null;
     try {
@@ -187,6 +191,7 @@ export class RecipeService {
   }
 
   removeCalculatorDraft() {
+    if (typeof localStorage === 'undefined') return;
     try {
       localStorage.removeItem('recipe_calculator_draft');
     } catch (e) {

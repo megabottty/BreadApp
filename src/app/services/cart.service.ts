@@ -237,6 +237,7 @@ export class CartService {
   }
 
   private loadLoyalty() {
+    if (typeof localStorage === 'undefined') return;
     const saved = localStorage.getItem('bakery_loyalty');
     if (!saved) return;
 
@@ -261,10 +262,13 @@ export class CartService {
     this.totalLoavesPurchased.set(data.totalLoavesPurchased);
     this.totalOrders.set(data.totalOrders);
     this.qualifyingOrders.set(data.qualifyingOrders);
-    // localStorage.setItem('bakery_loyalty', JSON.stringify(data));
+    if (typeof localStorage !== 'undefined') {
+      // localStorage.setItem('bakery_loyalty', JSON.stringify(data));
+    }
   }
 
   private loadCart() {
+    if (typeof localStorage === 'undefined') return;
     const saved = localStorage.getItem('bakery_cart');
     if (saved) {
       try {
@@ -284,6 +288,7 @@ export class CartService {
 
   private saveCart() {
     if (this.isInitialLoad) return;
+    if (typeof localStorage === 'undefined') return;
     const _data = {
       items: this.cartItems().map(item => this.toPersistedItem(item)),
       fulfillmentType: this.fulfillmentType(),

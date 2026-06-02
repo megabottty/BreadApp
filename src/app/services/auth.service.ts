@@ -106,6 +106,7 @@ export class AuthService {
 
       // Proactive redirection for BAKERs who haven't finished setup
       // Only redirect if we are on a page that isn't the wizard itself or the front
+      if (typeof window === 'undefined') return;
       const path = window.location.pathname;
       const isE2E = window.location.search.includes('e2e=1');
 
@@ -164,7 +165,7 @@ export class AuthService {
           full_name: name,
           role: role
         },
-        emailRedirectTo: window.location.origin + '/login'
+        emailRedirectTo: (typeof window !== 'undefined' ? window.location.origin : '') + '/login'
       }
     });
 
@@ -182,7 +183,8 @@ export class AuthService {
 
         // Use an absolute URL if we are in development to be 100% sure we hit the backend
         // In production, /api works because they are on the same domain
-        const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+        const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
+        const baseUrl = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !isE2E) ? 'http://localhost:3000' : '';
         const apiUrl = `${baseUrl}${environment.apiUrl}/orders/register-bakery`;
 
         logger.debug('[Auth Debug] Calling API:', apiUrl, 'with body:', { name: bakeryName, slug: bakerySlug });

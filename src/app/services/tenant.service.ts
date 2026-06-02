@@ -43,6 +43,8 @@ export class TenantService {
   }
 
   private identifyTenant() {
+    if (typeof window === 'undefined') return;
+
     // Logic to identify tenant from URL
     const host = window.location.hostname;
     const path = window.location.pathname;
@@ -115,7 +117,8 @@ export class TenantService {
     logger.info(`[TenantService] Loading info for slug: ${slug}`);
 
     // Use absolute URL if on localhost to ensure we hit the backend
-    const url = window.location.hostname === 'localhost'
+    const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
+    const url = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !isE2E)
       ? `http://localhost:3000/api/orders/info`
       : `${this.apiUrl}/orders/info`;
 
@@ -166,7 +169,8 @@ export class TenantService {
   }
 
   updateTenant(id: string, updates: Partial<Tenant>) {
-    const url = window.location.hostname === 'localhost'
+    const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
+    const url = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !isE2E)
       ? `http://localhost:3000/api/orders/info`
       : `${this.apiUrl}/orders/info`;
 
@@ -182,6 +186,7 @@ export class TenantService {
   }
 
   private applyBranding(tenant: Tenant) {
+    if (typeof document === 'undefined') return;
     document.documentElement.style.setProperty('--accent-sage', tenant.primary_color);
     document.documentElement.style.setProperty('--accent-terracotta', tenant.secondary_color);
     // You could also update the favicon or site title here

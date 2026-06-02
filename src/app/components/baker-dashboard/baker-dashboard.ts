@@ -113,7 +113,7 @@ export class BakerDashboardComponent {
   }
 
   constructor() {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     if (params.get('payment_setup') === 'success') {
       const sessionId = params.get('session_id');
       if (sessionId) {

@@ -13,7 +13,9 @@ export class ThemeService {
   constructor() {
     effect(() => {
       const theme = this.currentTheme();
-      document.body.setAttribute('data-theme', theme);
+      if (typeof document !== 'undefined') {
+        document.body.setAttribute('data-theme', theme);
+      }
       // localStorage.setItem('bakery_theme', theme);
     });
   }

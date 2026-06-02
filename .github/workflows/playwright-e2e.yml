@@ -26,7 +26,7 @@ jobs:
         run: npm run build --silent
 
       - name: Serve built app
-        run: npx http-server dist/BreadApp -p 4300 -c-1 & sleep 3
+        run: npx http-server dist/BreadApp/browser -p 4300 -c-1 & sleep 3
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
