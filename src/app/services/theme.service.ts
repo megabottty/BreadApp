@@ -18,9 +18,6 @@ export class ThemeService {
       if (typeof document !== 'undefined') {
         document.body.setAttribute('data-theme', theme);
       }
-<<<<<<< Updated upstream
-      // localStorage.setItem('bakery_theme', theme);
-=======
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('bakery_theme', theme);
       }
@@ -31,7 +28,6 @@ export class ThemeService {
           console.error('Failed to save theme to profile', err);
         });
       }
->>>>>>> Stashed changes
     });
   }
 
