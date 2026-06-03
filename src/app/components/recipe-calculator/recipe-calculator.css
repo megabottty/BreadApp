@@ -159,7 +159,7 @@ textarea:focus {
   justify-content: center;
   cursor: pointer;
   background: #FEFDFB;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   transition: all 0.2s;
   font-size: 0.7rem;
 }
@@ -228,7 +228,7 @@ textarea:focus {
   justify-content: center;
   cursor: pointer;
   background: #FEFDFB;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   transition: all 0.2s;
 }
 
@@ -624,7 +624,7 @@ textarea:focus {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   margin-bottom: 0.5rem;
 }
 
@@ -1171,7 +1171,7 @@ td {
   height: 32px;
   border-radius: 50%;
   cursor: pointer;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-size: 1.2rem;
   display: flex;
   align-items: center;

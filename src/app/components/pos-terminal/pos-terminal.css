@@ -10,22 +10,22 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--card-bg);
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px var(--shadow-color);
   overflow: hidden;
 }
 
 .pos-header {
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
-  background: #fdfdfd;
+  background: var(--card-bg);
 }
 
 .search-bar {
   display: flex;
   align-items: center;
-  background: white;
+  background: var(--input-bg);
   border: 1px solid var(--border-color);
   padding: 0.5rem 1rem;
   border-radius: 12px;
@@ -38,6 +38,8 @@
   width: 100%;
   padding-left: 0.5rem;
   font-size: 1rem;
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .category-tabs {
@@ -50,13 +52,14 @@
 .category-tabs button {
   padding: 0.5rem 1.25rem;
   border: 1px solid var(--border-color);
-  background: white;
+  background: var(--card-bg);
   border-radius: 20px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s;
+  color: var(--text-secondary);
 }
 
 .category-tabs button.active {
@@ -75,7 +78,7 @@
 }
 
 .product-card {
-  background: white;
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1.25rem;
@@ -88,7 +91,7 @@
 
 .product-card:hover {
   border-color: var(--accent-sage);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px var(--shadow-color);
   transform: translateY(-2px);
 }
 
@@ -114,9 +117,9 @@
 /* Right Side: Cart */
 .pos-cart {
   width: 380px;
-  background: white;
+  background: var(--card-bg);
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px var(--shadow-color);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -191,7 +194,8 @@
   height: 28px;
   border-radius: 50%;
   border: 1px solid var(--border-color);
-  background: white;
+  background: var(--card-bg);
+  color: var(--text-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -235,7 +239,7 @@
 .cart-footer {
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);
-  background: #fdfdfd;
+  background: var(--card-bg);
 }
 
 .customer-details {
@@ -250,6 +254,8 @@
   border-radius: 8px;
   border: 1px solid var(--border-color);
   font-size: 0.9rem;
+  background: var(--input-bg);
+  color: var(--text-primary);
 }
 
 .totals {
@@ -282,7 +288,8 @@
 .method-btn {
   padding: 0.75rem;
   border: 1px solid var(--border-color);
-  background: white;
+  background: var(--card-bg);
+  color: var(--text-primary);
   border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -291,7 +298,7 @@
 
 .method-btn.active {
   border-color: var(--accent-sage);
-  background: rgba(0, 100, 148, 0.05);
+  background: color-mix(in srgb, var(--accent-sage) 10%, transparent);
   color: var(--accent-sage);
 }
 
@@ -355,7 +362,7 @@
 }
 
 .qr-modal-content {
-  background: white;
+  background: var(--card-bg);
   border-radius: 24px;
   padding: 2.5rem;
   max-width: 450px;
@@ -401,13 +408,13 @@
 }
 
 .qr-code-container {
-  background: white;
+  background: white; /* Keep QR white for scanning reliability */
   border: 2px solid var(--border-color);
   border-radius: 16px;
   padding: 1.5rem;
   margin: 0 auto 1.5rem;
   display: inline-block;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px var(--shadow-color);
 }
 
 .qr-code-image {

@@ -113,7 +113,7 @@ h1 {
   border-left: 3px solid var(--accent-sage);
   padding-left: 0.75rem !important;
   font-size: 0.85rem !important;
-  color: #8C967D !important;
+  color: var(--text-accent-muted) !important;
 }
 
 .subscription-toggle {
@@ -352,7 +352,7 @@ h1 {
   background: #FEFDFB;
   border-radius: 10px;
   cursor: pointer;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-weight: 500;
   transition: all 0.2s;
 }

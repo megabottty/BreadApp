@@ -18,7 +18,7 @@ h1 {
 }
 
 .subtitle {
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-style: italic;
 }
 
@@ -96,7 +96,7 @@ h2 {
 
 .order-date {
   font-size: 0.85rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
 }
 
 .order-body {
@@ -121,7 +121,7 @@ h2 {
 .detail-item strong {
   font-size: 0.75rem;
   text-transform: uppercase;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   letter-spacing: 0.05em;
 }
 
@@ -355,7 +355,7 @@ textarea {
 
 .perk-desc {
   font-size: 0.8rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
 }
 
 .progress-bar {
@@ -481,7 +481,7 @@ textarea {
   padding: 2px 6px;
   border-radius: 4px;
   background: #F8F7F2;
-  color: #8C967D;
+  color: var(--text-accent-muted);
 }
 
 .sub-details {
@@ -534,7 +534,7 @@ textarea {
 }
 
 .empty-msg {
-  color: #8C967D;
+  color: var(--text-accent-muted);
   margin-bottom: 1.5rem;
 }
 

@@ -84,6 +84,7 @@ export class AuthService {
       const role = supabaseUser.user_metadata['role'] || 'CUSTOMER';
       const onboardingCompleted = supabaseUser.user_metadata['onboarding_completed'];
       const bakerySlug = supabaseUser.user_metadata['bakery_slug'];
+      const theme = supabaseUser.user_metadata['theme'];
 
       const user: User = {
         id: supabaseUser.id,
@@ -102,6 +103,16 @@ export class AuthService {
         // localStorage.setItem('bakery_slug', bakerySlug);
         // Force reload info to ensure signal is updated
         this.tenantService.loadTenantInfo(bakerySlug);
+      }
+
+      // If we have a theme in metadata, apply it
+      if (theme) {
+        // We'll need a way to apply this theme, possibly via ThemeService
+        // For now, handleAuthChange is called when ThemeService might not be ready or might cause circular deps
+        // if we inject it here. Let's use a simpler way or ensure ThemeService reacts to this.
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bakery_theme', theme);
+        }
       }
 
       // Proactive redirection for BAKERs who haven't finished setup
@@ -270,6 +281,26 @@ export class AuthService {
     await supabase.auth.signOut();
     this.currentUser.set(null);
     this.router.navigate(['/front']);
+  }
+
+  async updateUserMetadata(data: any) {
+    try {
+      const supabase = await this.ensureSupabase();
+      const { error } = await supabase.auth.updateUser({
+        data: data
+      });
+
+      if (error) {
+        logger.error('[Auth Error] Failed to update user metadata:', error);
+        throw error;
+      }
+
+      // Refresh session to get updated metadata
+      await supabase.auth.refreshSession();
+    } catch (error) {
+      logger.error('[Auth Error] Unexpected error updating metadata:', error);
+      throw error;
+    }
   }
 
   // Helper method to sync tenant_id to user metadata (for existing users)
