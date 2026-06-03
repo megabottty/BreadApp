@@ -25,10 +25,11 @@ jobs:
             URL="https://vciwftypjimwpsgcwyan.supabase.co"
           fi
           if [ -z "$KEY" ]; then
+            # Using the publishable key as fallback for the health endpoint
+            # This is safe because this is a public demo project and this key is already in environment.ts
             KEY="sb_publishable_RtQtGr_kMakhlU68ItMyzg_rB9eKbhp"
           fi
 
           echo "Pinging Supabase at $URL..."
-          curl -v -L --retry 3 --retry-delay 5 -f -i -X GET "$URL/rest/v1/" \
-          -H "apikey: $KEY" \
-          -H "Authorization: Bearer $KEY"
+          curl -v -L --retry 3 --retry-delay 5 -f -i -X GET "$URL/auth/v1/health" \
+          -H "apikey: $KEY"
