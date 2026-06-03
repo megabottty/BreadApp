@@ -9,6 +9,7 @@ import { ModalService } from '../../services/modal.service';
 import { TaxService } from '../../services/tax.service';
 import { ToastService } from '../../services/toast.service';
 import { CalculatedRecipe, Order, OrderItem } from '../../logic/bakers-math';
+import { RecipeService } from '../../services/recipe.service';
 
 
 @Component({
@@ -25,8 +26,9 @@ export class PosTerminalComponent {
   private helpService = inject(HelpService);
   private taxService = inject(TaxService);
   private toastService = inject(ToastService);
+  private recipeService = inject(RecipeService);
 
-  savedRecipes = signal<CalculatedRecipe[]>([]);
+  savedRecipes = this.recipeService.savedRecipes;
   cart = signal<OrderItem[]>([]);
   searchTerm = signal('');
   categoryFilter = signal('ALL');
@@ -101,25 +103,15 @@ export class PosTerminalComponent {
     effect(() => {
       const tenant = this.tenantService.tenant();
       if (tenant) {
-        this.loadProducts();
+        this.recipeService.loadRecipes();
         this.taxService.loadTaxSettings();
       }
     });
   }
 
   loadProducts() {
-    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers: this.headers }).subscribe({
-      next: (recipes) => {
-        this.savedRecipes.set(recipes);
-        if (recipes.length === 0) {
-          this.toastService.warning('No products found. Add products in the Recipe Calculator first.');
-        }
-      },
-      error: (err) => {
-        console.error('Failed to load POS products:', err);
-        // Error interceptor will show toast
-      }
-    });
+    // Delegated to RecipeService
+    this.recipeService.loadRecipes();
   }
 
   addToCart(product: CalculatedRecipe) {

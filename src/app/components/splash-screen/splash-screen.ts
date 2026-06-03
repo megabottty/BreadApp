@@ -31,6 +31,13 @@ export class SplashScreenComponent implements OnInit {
   ];
 
   ngOnInit() {
+    const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
+    if (isE2E) {
+      this.isVisible.set(false);
+      this.isOverlayVisible.set(false);
+      return;
+    }
+
     let count = 0;
     const updateMessage = () => {
       if (count < this.messages.length) {

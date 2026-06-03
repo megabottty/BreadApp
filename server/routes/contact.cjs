@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
-const { sendEmail } = require('../utils/email');
+const { sendEmail } = require('../utils/email.cjs');
 
 // Initialize Supabase Client (same as orders.js)
 const supabaseUrl = process.env.SUPABASE_URL;

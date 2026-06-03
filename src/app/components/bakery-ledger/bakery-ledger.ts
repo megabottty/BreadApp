@@ -5,6 +5,7 @@ import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { Order, PromoCode, CalculatedRecipe, calculateBakersMath } from '../../logic/bakers-math';
+import { RecipeService } from '../../services/recipe.service';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
@@ -20,6 +21,7 @@ export class BakeryLedgerComponent implements OnInit {
   private http = inject(HttpClient);
   private modalService = inject(ModalService);
   private helpService = inject(HelpService);
+  private recipeService = inject(RecipeService);
 
   allOrders = signal<Order[]>([]);
   savedRecipes = signal<CalculatedRecipe[]>([]);
@@ -113,21 +115,14 @@ export class BakeryLedgerComponent implements OnInit {
         logger.info('[BakeryLedger] Tenant identified, loading orders and promos:', tenant.slug);
         this.loadOrders();
         this.loadPromos();
-        this.loadSavedRecipes();
+        this.recipeService.loadRecipes();
       }
     });
-  }
 
-  ngOnInit() {
-  }
-
-  loadSavedRecipes(): void {
-    const slug = this.tenantService.tenant()?.slug;
-    if (!slug) return;
-    const headers = new HttpHeaders().set('x-tenant-slug', slug);
-    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
-      next: (recipes) => {
-        // Ensure all recipes are fully calculated with costs
+    // When recipes are available, compute fully-calculated versions for ledger calculations
+    effect(() => {
+      const recipes = this.recipeService.savedRecipes();
+      if (recipes && recipes.length > 0) {
         const fullyCalculated = recipes.map(r => {
           try {
             return calculateBakersMath(r);
@@ -137,9 +132,16 @@ export class BakeryLedgerComponent implements OnInit {
           }
         });
         this.savedRecipes.set(fullyCalculated);
-      },
-      error: (err) => console.error('Error loading recipes for ledger', err)
+      }
     });
+  }
+
+  ngOnInit() {
+  }
+
+  loadSavedRecipes(): void {
+    // Delegate to RecipeService; we compute fully-calculated recipes from the service signal
+    this.recipeService.loadRecipes();
   }
 
   loadOrders() {

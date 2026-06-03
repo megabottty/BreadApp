@@ -1,0 +1,102 @@
+import { test, expect } from '@playwright/test';
+
+// Intercept API routes and stub responses so test runs without a running backend
+const sampleOrders = [
+  {
+    id: 'ORD-E2E-1',
+    customerName: 'Eve',
+    customerPhone: '555-0001',
+    status: 'PENDING',
+    pickupDate: new Date().toISOString(),
+    items: []
+  }
+];
+
+test('Cancel order from dashboard opens modal and cancels order', async ({ page }) => {
+  // Stub tenant info request so app identifies the tenant and proceeds
+  await page.route("**/api/orders/info", route => {
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "t1", name: "E2E Bakery", slug: "thedailydough", primary_color: "#7D8F69", secondary_color: "#E9B384" })
+    });
+  });
+
+  // Stub GET /api/orders to return a known order list
+  await page.route('**/api/orders', route => {
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sampleOrders) });
+  });
+
+  // Stub PATCH to accept cancellation
+  let patchCalled = false;
+  await page.route('**/api/orders/*/status', async route => {
+    patchCalled = true;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+  });
+
+  // Log browser diagnostics
+  page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
+  page.on('pageerror', err => console.log('BROWSER ERROR:', err.message));
+  page.on('requestfailed', request => {
+    console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText);
+  });
+
+  // Open the dashboard page (bypass guards with e2e=1)
+  await page.goto("/manage-orders?e2e=1");
+
+  // Log the page content and screenshot if we timeout
+  try {
+    await page.locator('h1', { hasText: "Order Management" }).first().waitFor({ timeout: 15000 });
+  } catch (e) {
+    console.log("Timeout waiting for 'Order Management' h1. Current URL:", page.url());
+    const content = await page.content();
+    console.log("Page Content snapshot:", content.substring(0, 1000));
+
+    // Check if app-root is empty
+    const appRoot = page.locator('app-root');
+    const appRootCount = await appRoot.count();
+    if (appRootCount > 0) {
+      const appRootContent = await appRoot.innerHTML();
+      console.log("app-root innerHTML:", appRootContent);
+    } else {
+      console.log("app-root NOT FOUND in DOM");
+    }
+
+    await page.screenshot({ path: 'test-results/error-screenshot.png', fullPage: true });
+    throw e;
+  }
+
+  // Wait for the order card to render and click it to open details
+  const orderCard = page.locator('.aggregation-item.order-card.clickable').first();
+  await expect(orderCard).toBeVisible({ timeout: 10000 });
+
+  await orderCard.click();
+
+  // In the order details modal, click the Cancel Order button
+  const cancelBtn = page.locator('.modal-content.card button.btn-danger', { hasText: 'Cancel Order' }).first();
+  await expect(cancelBtn).toBeVisible({ timeout: 2000 });
+  await cancelBtn.click();
+
+  // The confirm modal should appear; click the confirm labeled button
+  const confirmBtn = page.locator('app-notification-modal button.btn-primary', { hasText: 'Yes, cancel order' }).first();
+  await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+
+  // Debug: check if button is enabled and clickable
+  console.log('Confirm button visibility:', await confirmBtn.isVisible());
+  console.log('Confirm button enabled:', await confirmBtn.isEnabled());
+
+  await confirmBtn.click();
+
+  // After confirmation, expect the PATCH to have been called
+  try {
+    await expect.poll(() => patchCalled, { timeout: 5000 }).toBeTruthy();
+  } catch (e) {
+    console.log('patchCalled is still false after 5s');
+    // Take another screenshot
+    await page.screenshot({ path: 'test-results/patch-failed.png', fullPage: true });
+    throw e;
+  }
+
+  // The order status displayed in the details modal should update to CANCELLED
+  await expect(page.locator('.modal-content.card', { hasText: 'CANCELLED' })).toBeVisible({ timeout: 3000 });
+});

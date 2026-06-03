@@ -1,15 +1,15 @@
-import { Component, inject, signal, computed, effect } from '@angular/core';
+import { Component, inject, signal, computed, effect, Type } from '@angular/core';
 import { HelpService } from '../../services/help.service';
 import { CommonModule } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { OrdersManagerComponent } from '../orders-manager/orders-manager';
 import { BakeryLedgerComponent } from '../bakery-ledger/bakery-ledger';
 import { RecipeCalculatorComponent } from '../recipe-calculator/recipe-calculator';
-import { BusinessAnalyticsComponent } from '../business-analytics/business-analytics';
 import { PosTerminalComponent } from '../pos-terminal/pos-terminal';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
 import { InventoryService } from '../../services/inventory.service';
+import { RecipeService } from '../../services/recipe.service';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '../../logic/bakers-math';
@@ -23,7 +23,6 @@ import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '
     OrdersManagerComponent,
     BakeryLedgerComponent,
     RecipeCalculatorComponent,
-    BusinessAnalyticsComponent,
     PosTerminalComponent
   ],
   templateUrl: './baker-dashboard.html',
@@ -34,14 +33,16 @@ export class BakerDashboardComponent {
   protected modalService = inject(ModalService);
   private helpService = inject(HelpService);
   private inventoryService = inject(InventoryService);
+  private recipeService = inject(RecipeService);
   private http = inject(HttpClient);
 
   ovenCapacityValue = signal<number>(6);
 
   activeTab = signal<'orders' | 'pos' | 'ledger' | 'recipes' | 'settings' | 'inventory' | 'forecast' | 'billing'>('orders');
+  businessAnalyticsComponent = signal<Type<any> | null>(null);
   currentTenant = this.tenantService.tenant;
 
-  savedRecipes = signal<CalculatedRecipe[]>([]);
+  savedRecipes = this.recipeService.savedRecipes;
   allOrders = signal<Order[]>([]);
   inventory = this.inventoryService.inventory;
   targetDeliveryTime = signal<string>('08:00');
@@ -112,7 +113,7 @@ export class BakerDashboardComponent {
   }
 
   constructor() {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     if (params.get('payment_setup') === 'success') {
       const sessionId = params.get('session_id');
       if (sessionId) {
@@ -144,6 +145,13 @@ export class BakerDashboardComponent {
         this.loadBillingSummary();
       }
     });
+
+    // Lazy-load BusinessAnalyticsComponent when forecast tab is opened
+    effect(() => {
+      if (this.activeTab() === 'forecast' && !this.businessAnalyticsComponent()) {
+        this.loadBusinessAnalytics();
+      }
+    });
   }
 
   loadSupplyPlan() {
@@ -167,7 +175,7 @@ export class BakerDashboardComponent {
   loadData() {
     const headers = this.headers;
     if (headers.has('x-tenant-slug')) {
-      this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe(r => this.savedRecipes.set(r));
+      this.recipeService.loadRecipes();
       this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe(o => this.allOrders.set(o));
       this.inventoryService.loadInventory();
       const tenant = this.currentTenant();
@@ -439,6 +447,14 @@ export class BakerDashboardComponent {
         console.error('Failed to confirm setup session:', err);
         this.pendingSetupSessionId.set(null);
       }
+    });
+  }
+
+  private loadBusinessAnalytics() {
+    import('../business-analytics/business-analytics').then(module => {
+      this.businessAnalyticsComponent.set(module.BusinessAnalyticsComponent);
+    }).catch(err => {
+      console.error('Failed to load BusinessAnalyticsComponent:', err);
     });
   }
 

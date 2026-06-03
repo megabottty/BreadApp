@@ -257,7 +257,15 @@
     }
 
     @if (activeTab() === 'forecast') {
-      <app-business-analytics></app-business-analytics>
+      <div class="forecast-view">
+        @if (businessAnalyticsComponent()) {
+          <ng-container *ngComponentOutlet="businessAnalyticsComponent()"></ng-container>
+        } @else {
+          <div class="loading-placeholder" style="padding: 2rem; text-align: center; color: #666;">
+            <p>Loading insights...</p>
+          </div>
+        }
+      </div>
     }
 
     @if (activeTab() === 'billing') {

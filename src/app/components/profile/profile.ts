@@ -7,6 +7,7 @@ import { ReviewService } from '../../services/review.service';
 import { SubscriptionService } from '../../services/subscription.service';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
+import { RecipeService } from '../../services/recipe.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -47,6 +48,7 @@ export class ProfileComponent implements OnInit {
   route = inject(ActivatedRoute);
   private http = inject(HttpClient);
   private tenantService = inject(TenantService);
+  private recipeService = inject(RecipeService);
 
   pastOrders = signal<Order[]>([]);
 
@@ -190,10 +192,10 @@ export class ProfileComponent implements OnInit {
     const totalOrders = completedOrders.length;
     const qualifyingOrders = completedOrders.filter(o => (o.totalPrice || 0) >= 10).length;
 
-    const productsStr = localStorage.getItem('bakery_recipes');
-    const allProducts: StoredRecipe[] = productsStr ? JSON.parse(productsStr) : [];
-    const productById = new Map(allProducts.filter(p => p.id).map(p => [p.id!, p]));
-    const productByName = new Map(allProducts.map(p => [p.name, p]));
+    // Use shared RecipeService as source of truth for products
+    const allProductsCalc = this.recipeService.savedRecipes();
+    const productById = new Map(allProductsCalc.filter(p => p.id).map(p => [p.id!, p]));
+    const productByName = new Map(allProductsCalc.map(p => [p.name, p]));
 
     const totalLoavesPurchased = completedOrders.reduce((acc, order) => {
       const loafCount = order.items.reduce((sum, item) => {
@@ -215,13 +217,12 @@ export class ProfileComponent implements OnInit {
 
   reorder(order: Order) {
     // Get current products to ensure we have the latest prices/details
-    const productsStr = localStorage.getItem('bakery_recipes');
-    const allProducts: StoredRecipe[] = productsStr ? JSON.parse(productsStr) : [];
+    const allProductsCalc = this.recipeService.savedRecipes();
 
     order.items.forEach(item => {
-       const existingProduct = allProducts.find(p => p.id === item.recipeId || p.name === item.name);
+       const existingProduct = allProductsCalc.find(p => p.id === item.recipeId || p.name === item.name);
        const mockProduct: CalculatedRecipe = existingProduct
-         ? this.toCalculatedRecipe(existingProduct)
+         ? existingProduct
          : {
          id: item.recipeId,
          name: item.name,

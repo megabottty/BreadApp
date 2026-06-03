@@ -255,7 +255,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             || process.env.DEFAULT_CONTACT_EMAIL
             || 'meganmuirhead@gmail.com';
 
-        const { sendEmail } = require('../utils/email');
+        const { sendEmail } = require('../utils/email.cjs');
         const itemsHtml = (parsedItems || []).map(item => `
           <tr>
             <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>

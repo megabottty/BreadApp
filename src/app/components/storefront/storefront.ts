@@ -11,14 +11,17 @@ import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ReviewModalComponent } from '../review-modal/review-modal';
+import { SubscriptionModalComponent } from '../subscription-modal/subscription-modal';
+import { ProductDetailsModalComponent } from '../product-details-modal/product-details-modal';
 import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
+import { RecipeService } from '../../services/recipe.service';
 import { logger } from '../../utils/logger';
 
 @Component({
   selector: 'app-storefront',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, NgOptimizedImage, ReviewModalComponent],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, FormsModule, NgOptimizedImage, ReviewModalComponent, SubscriptionModalComponent, ProductDetailsModalComponent],
   templateUrl: './storefront.html',
   styleUrls: ['./storefront.css']
 })
@@ -31,8 +34,9 @@ export class StorefrontComponent implements OnInit {
   private http = inject(HttpClient);
   private helpService = inject(HelpService);
   private modalService = inject(ModalService);
+  private recipeService = inject(RecipeService);
 
-  products = signal<CalculatedRecipe[]>([]);
+  products = this.recipeService.savedRecipes;
   categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SPECIAL', 'OTHER']);
   selectedCategory = signal<RecipeCategory | 'ALL'>('ALL');
   selectedFlavor = signal<FlavorProfile | 'ALL'>('ALL');
@@ -132,7 +136,7 @@ export class StorefrontComponent implements OnInit {
       const tenant = this.tenantService.tenant();
       if (tenant) {
         logger.info('[Storefront] Tenant identified, loading recipes:', tenant.slug);
-        this.loadRecipes();
+        this.recipeService.loadRecipes();
       }
     });
   }
@@ -190,21 +194,6 @@ export class StorefrontComponent implements OnInit {
     });
   }
 
-  private scheduleOptimizedRecipeCache(recipes: CalculatedRecipe[]) {
-    const persist = () => {
-      try {
-        localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
-      } catch (e) {
-        console.warn('Failed to save recipes to localStorage (quota exceeded)', e);
-      }
-    };
-
-    if ('requestIdleCallback' in window) {
-      (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(persist);
-    } else {
-      setTimeout(persist, 0);
-    }
-  }
 
   isInlineImage(url?: string | null): boolean {
     if (!url) return false;
@@ -212,53 +201,15 @@ export class StorefrontComponent implements OnInit {
   }
 
   loadRecipes(): void {
+    // Delegate recipe loading to RecipeService which manages the savedRecipes signal and caching.
     const slug = this.tenantService.tenant()?.slug;
     if (!slug) {
       console.warn('[Storefront] Skipping loadRecipes: No tenant slug identified yet.');
       this.appLoadService.setStorefrontReady(true);
       return;
     }
-    const headers = new HttpHeaders().set('x-tenant-slug', slug);
-
-    // Local caching removed per user request
-    /*
-    const cached = localStorage.getItem('bakery_recipes');
-    if (cached) {
-      try {
-        const normalized = this.normalizeRecipeImages(JSON.parse(cached));
-        this.products.set(normalized);
-        this.scheduleOptimizedRecipeCache(normalized);
-        this.appLoadService.setStorefrontReady(true);
-      } catch (e) {
-        console.warn('Failed to load cached recipes from localStorage', e);
-        this.appLoadService.setStorefrontReady(true);
-      }
-    } else {
-      this.appLoadService.setStorefrontReady(true);
-    }
-    */
-
-    this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
-      next: (recipes: CalculatedRecipe[]) => {
-        const normalized = this.normalizeRecipeImages(recipes);
-        this.products.set(normalized);
-        // Sync local storage just in case other parts of the app still rely on it
-        this.scheduleOptimizedRecipeCache(normalized);
-
-        this.appLoadService.setStorefrontReady(true);
-      },
-      error: (err: any) => {
-        console.error('Failed to load recipes from database:', err);
-        // Fallback to local storage if DB fails
-        const saved = localStorage.getItem('bakery_recipes');
-        if (saved) {
-          const normalized = this.normalizeRecipeImages(JSON.parse(saved));
-          this.products.set(normalized);
-          this.scheduleOptimizedRecipeCache(normalized);
-        }
-        this.appLoadService.setStorefrontReady(true);
-      }
-    });
+    this.recipeService.loadRecipes();
+    this.appLoadService.setStorefrontReady(true);
   }
 
   deleteReview(reviewId: string): void {
@@ -399,20 +350,18 @@ export class StorefrontComponent implements OnInit {
     const product = this.productToDelete();
     if (!product || !product.id) return;
 
-    this.http.delete(`${environment.apiUrl}/orders/recipes/${product.id}`).subscribe({
+    this.recipeService.deleteRecipe(product.id).subscribe({
       next: () => {
-        logger.info('Product deleted from cloud:', product.id);
-        const updated = this.products().filter(p => p.id !== product.id);
-        this.products.set(updated);
-        this.scheduleOptimizedRecipeCache(updated);
+        logger.info('Product delete processed for:', product.id);
+        // RecipeService updates the products signal (savedRecipes) and persists cache.
         this.cancelDelete();
       },
       error: (err) => {
-        console.error('Failed to delete product from cloud:', err);
-        // Fallback to local delete
+        console.error('Failed to delete product (unexpected):', err);
+        // Ensure UI still reflects deletion as fallback
         const updated = this.products().filter(p => p.id !== product.id);
         this.products.set(updated);
-        this.scheduleOptimizedRecipeCache(updated);
+        this.recipeService.persistToLocalCache(updated);
         this.cancelDelete();
       }
     });

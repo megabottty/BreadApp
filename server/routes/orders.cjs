@@ -150,7 +150,7 @@ router.post('/', async (req, res) => {
           recipient
         });
 
-        const { sendEmail } = require('../utils/email');
+        const { sendEmail } = require('../utils/email.cjs');
         const itemsHtml = (orderData.items || []).map(item => `
           <tr>
             <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
@@ -1419,7 +1419,7 @@ router.post('/generate-po', async (req, res) => {
     const recipient = supplierEmail || tenant.email || process.env.DEFAULT_CONTACT_EMAIL;
 
     // 2. Send Email using central utility
-    const { sendEmail } = require('../utils/email');
+    const { sendEmail } = require('../utils/email.cjs');
     const itemsHtml = poItems.map(item => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}</td>
