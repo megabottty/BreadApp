@@ -7,12 +7,14 @@
   --text-primary: #1A1C1E;
   --text-secondary: #3D4148;
   --text-muted: #5D6168;
+  --text-accent-muted: #8C967D;
   --accent-sage: #7D8F69; /* Restoration of Sage Green */
   --accent-sage-dark: #5F6F52;
   --accent-terracotta: #D88569; /* Action Terracotta */
   --accent-terracotta-dark: #BC6C4D;
   --border-color: #DEE2E6;
   --input-bg: #FFFFFF;
+  --placeholder-color: #909094;
   --shadow-color: rgba(0, 0, 0, 0.05);
   --nav-bg: #FFFFFF;
   --btn-secondary: #F8F9FA;
@@ -74,6 +76,7 @@
   --text-primary: #8B4513; /* SaddleBrown */
   --text-secondary: #7A3E12; /* Deep Spice */
   --text-muted: #8F4F2A; /* Warm Clay */
+  --text-accent-muted: #8F4F2A;
   --accent-sage: #E9B384; /* Honey */
   --accent-sage-dark: #D4A373;
   --accent-terracotta: #D88569;
@@ -85,25 +88,28 @@
   --btn-secondary: #FFF0E0;
   --btn-secondary-border: #FAD4B2;
   --tag-bg: #FDF2E9;
+  --placeholder-color: #A37F61;
 }
 
 [data-theme="midnight"] {
-  --bg-color: #1A1C1E;
-  --card-bg: #2D3033;
+  --bg-color: #0F1113; /* Darker background */
+  --card-bg: #1A1C1E; /* Darker card background */
   --text-primary: #E2E2E6;
-  --text-secondary: #C4C6D0;
-  --text-muted: #909094;
+  --text-secondary: #B1B3BC;
+  --text-muted: #858589;
+  --text-accent-muted: #79836B;
   --accent-sage: #A9D39E; /* Brightened Sage */
   --accent-sage-dark: #8C967D;
   --accent-terracotta: #FFB4A2; /* Soft Terracotta */
   --accent-terracotta-dark: #D88569;
-  --border-color: #44474E;
-  --input-bg: #1A1C1E;
-  --shadow-color: rgba(0, 0, 0, 0.3);
-  --nav-bg: #1A1C1E;
-  --btn-secondary: #44474E;
-  --btn-secondary-border: #5F6F52;
-  --tag-bg: #3E4735;
+  --border-color: #33363B; /* Darker borders */
+  --input-bg: #1A1C1E; /* Use card bg for inputs */
+  --placeholder-color: #6B6B6B;
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  --nav-bg: #0F1113;
+  --btn-secondary: #2D3033;
+  --btn-secondary-border: #44474E;
+  --tag-bg: #2D3033;
 }
 
 body {
@@ -116,6 +122,16 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::placeholder {
+  color: var(--placeholder-color);
+  opacity: 1;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--placeholder-color);
+  opacity: 1;
 }
 
 /* Mobile-first responsive improvements */

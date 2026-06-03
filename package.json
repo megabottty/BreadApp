@@ -1,19 +1,28 @@
 {
   "name": "the-daily-dough",
   "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "vitest",
+<<<<<<< Updated upstream
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+=======
+    "test:ci": "vitest --run",
+>>>>>>> Stashed changes
     "lint": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,cjs}\"",
     "lint:fix": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,cjs}\" --fix",
     "lint:ci": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,cjs}\" --max-warnings 0",
     "server": "node server/index.cjs",
+<<<<<<< Updated upstream
     "dev": "concurrently \"npm run server\" \"npm start\"",
     "e2e": "playwright test"
+=======
+    "dev": "concurrently \"npm run server\" \"npm start\""
+>>>>>>> Stashed changes
   },
   "prettier": {
     "printWidth": 100,

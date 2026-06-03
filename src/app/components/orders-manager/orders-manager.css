@@ -57,7 +57,7 @@
 .date-picker label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   text-transform: uppercase;
 }
 
@@ -190,7 +190,7 @@
   border-radius: 4px;
   font-weight: 700;
   background: #F1F3EB;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   text-transform: uppercase;
 }
 
@@ -207,7 +207,7 @@
 
 .phone {
   font-size: 0.8rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
 }
 
 .order-weight-badge {
@@ -247,7 +247,7 @@
   flex-wrap: wrap;
   gap: 0.25rem 0.6rem;
   font-size: 0.75rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   margin-top: 0.15rem;
   padding-left: 0.5rem;
   border-left: 2px solid #F1F3EB;
@@ -337,7 +337,7 @@
 }
 
 .subtitle {
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-size: 0.9rem;
   margin-bottom: 1.5rem;
 }
@@ -397,7 +397,7 @@
 .stat-box .label {
   font-size: 0.65rem;
   text-transform: uppercase;
-  color: #8C967D;
+  color: var(--text-accent-muted);
 }
 
 .stat-box .value {
@@ -419,7 +419,7 @@
   padding: 0.4rem 1rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.2s;
@@ -469,14 +469,14 @@
   display: flex;
   gap: 1rem;
   font-size: 0.8rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   padding-top: 0.5rem;
   border-top: 1px dashed #DDE3D5;
 }
 
 .empty-msg {
   text-align: center;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-style: italic;
   padding: 2rem 0;
 }
@@ -639,7 +639,7 @@ textarea { width: 100%; border-radius: 8px; border: 1px solid #DDE3D5; padding: 
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   margin-bottom: 0.25rem;
   text-transform: uppercase;
 }

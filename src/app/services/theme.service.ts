@@ -1,4 +1,5 @@
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable, signal, effect, inject } from '@angular/core';
+import { AuthService } from './auth.service';
 
 export type Theme = 'natural' | 'sunset' | 'midnight';
 
@@ -6,6 +7,7 @@ export type Theme = 'natural' | 'sunset' | 'midnight';
   providedIn: 'root'
 })
 export class ThemeService {
+  private authService = inject(AuthService);
   private currentTheme = signal<Theme>(this.loadTheme());
 
   theme = this.currentTheme.asReadonly();
@@ -16,7 +18,20 @@ export class ThemeService {
       if (typeof document !== 'undefined') {
         document.body.setAttribute('data-theme', theme);
       }
+<<<<<<< Updated upstream
       // localStorage.setItem('bakery_theme', theme);
+=======
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bakery_theme', theme);
+      }
+
+      // Sync with profile if logged in
+      if (this.authService.isAuthenticated()) {
+        this.authService.updateUserMetadata({ theme: theme }).catch(err => {
+          console.error('Failed to save theme to profile', err);
+        });
+      }
+>>>>>>> Stashed changes
     });
   }
 
@@ -32,10 +47,12 @@ export class ThemeService {
   }
 
   private loadTheme(): Theme {
-    /*
-    const saved = localStorage.getItem('bakery_theme') as Theme;
-    return (['natural', 'sunset', 'midnight'].includes(saved)) ? saved : 'natural';
-    */
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('bakery_theme') as Theme;
+      if (['natural', 'sunset', 'midnight'].includes(saved)) {
+        return saved;
+      }
+    }
     return 'natural';
   }
 }

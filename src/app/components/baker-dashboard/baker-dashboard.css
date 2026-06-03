@@ -261,7 +261,7 @@ nav button.pos-nav-btn.active {
   height: 18px;
   border-radius: 50%;
   border: 1px solid #DDE3D5;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-size: 0.7rem;
   font-weight: 700;
   cursor: help;
@@ -286,7 +286,7 @@ nav button.pos-nav-btn.active {
 
 .setup-hint {
   font-size: 0.85rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   margin-top: 0.75rem;
   line-height: 1.4;
 }
@@ -409,7 +409,7 @@ nav button.pos-nav-btn.active {
 
 .stock-level span {
   font-size: 0.85rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-weight: 600;
 }
 
@@ -437,7 +437,7 @@ nav button.pos-nav-btn.active {
 /* Analytics Styles removed - now in business-analytics component */
 
 .channel-breakdown small {
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -451,14 +451,14 @@ nav button.pos-nav-btn.active {
 .empty-state {
   text-align: center;
   padding: 3rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
 }
 
 .form-hint {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.8rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
 }
 
 /* Plan Selection Modal */
@@ -495,7 +495,7 @@ nav button.pos-nav-btn.active {
   background: none;
   border: none;
   font-size: 2rem;
-  color: #8C967D;
+  color: var(--text-accent-muted);
   cursor: pointer;
   width: 40px;
   height: 40px;
@@ -570,7 +570,7 @@ nav button.pos-nav-btn.active {
 }
 
 .plan-price .period {
-  color: #8C967D;
+  color: var(--text-accent-muted);
   font-size: 0.9rem;
 }
 

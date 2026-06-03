@@ -44,6 +44,10 @@
   font-size: 0.95rem;
 }
 
+.title-search::placeholder {
+  color: var(--placeholder-color);
+}
+
 .title-search:focus {
   outline: none;
   border-color: var(--accent-sage);
@@ -159,9 +163,12 @@
   transition: background 0.2s;
   width: 100%;
   border: none;
+  border-bottom: 3px solid transparent;
   background: transparent;
   text-align: left;
   cursor: pointer;
+  box-sizing: border-box;
+  margin-bottom: 0;
 }
 
 .btn-theme-nav {
@@ -186,10 +193,14 @@
 }
 
 .nav-group a.active {
-  background: var(--btn-secondary);
+  background: color-mix(in srgb, var(--accent-sage) 10%, var(--btn-secondary));
   color: var(--accent-sage);
-  border-right: 4px solid var(--accent-sage);
-  padding-right: calc(1.25rem - 4px);
+  border-bottom: 4px solid var(--accent-sage);
+  padding-bottom: calc(0.75rem - 4px);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-bottom: -4px;
+  font-weight: 600;
 }
 
 .nav-group .icon {
@@ -414,9 +425,7 @@ textarea:focus-visible {
   }
 
   .nav-group a:not(.btn-auth-full), .btn-theme-nav {
-    border-bottom-width: 2px;
-    border-bottom-style: solid;
-    border-bottom-color: transparent;
+    border-bottom: 2px solid transparent;
   }
 
   .nav-group .icon {
@@ -424,10 +433,13 @@ textarea:focus-visible {
   }
 
   .nav-group a.active {
-    border-bottom-color: var(--accent-sage);
-    background-color: var(--btn-secondary);
-    border-left: none;
+    border-bottom: 4px solid var(--accent-sage);
+    background: color-mix(in srgb, var(--accent-sage) 10%, var(--btn-secondary));
     padding-left: 0.8rem;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-bottom: -4px;
+    font-weight: 600;
   }
 
   .btn-theme-nav {
@@ -589,6 +601,7 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   border-radius: 8px;
+  margin-bottom: 0;
 }
 
 @media (min-width: 1024px) {
@@ -609,9 +622,13 @@ textarea:focus-visible {
 }
 
 .nav-links a.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent-sage);
-  background-color: var(--btn-secondary);
+  color: var(--accent-sage);
+  border-bottom: 4px solid var(--accent-sage);
+  background: color-mix(in srgb, var(--accent-sage) 10%, var(--btn-secondary));
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-bottom: -4px;
+  font-weight: 600;
 }
 
 .cart-link {

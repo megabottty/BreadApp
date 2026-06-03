@@ -80,10 +80,10 @@ interface IngredientCost {
     }
     .section-header h2 {
       margin-bottom: 0.5rem;
-      color: var(--color-text-primary);
+      color: var(--text-primary);
     }
     .section-header p {
-      color: var(--color-text-secondary);
+      color: var(--text-secondary);
     }
     .actions-bar {
       margin-bottom: 1rem;
@@ -91,11 +91,12 @@ interface IngredientCost {
       justify-content: flex-end;
     }
     .table-container {
-      background: var(--color-bg-secondary, #fff);
+      background: var(--card-bg);
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px var(--shadow-color);
       overflow: hidden;
       margin-bottom: 2rem;
+      border: 1px solid var(--border-color);
     }
     .data-table {
       width: 100%;
@@ -104,19 +105,21 @@ interface IngredientCost {
     .data-table th, .data-table td {
       padding: 1rem;
       text-align: left;
-      border-bottom: 1px solid var(--color-border, #eee);
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
     }
     .data-table th {
-      background: var(--color-bg-tertiary, #f9f9f9);
+      background: var(--btn-secondary);
       font-weight: 600;
+      color: var(--text-secondary);
     }
     .data-table input {
       width: 100%;
       padding: 0.5rem;
-      border: 1px solid var(--color-border, #ccc);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
-      background: var(--color-bg-primary, #fff);
-      color: var(--color-text-primary);
+      background: var(--input-bg);
+      color: var(--text-primary);
     }
     .btn-icon.delete {
       background: none;

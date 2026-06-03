@@ -187,25 +187,25 @@ interface PrepScheduleItem {
     }
 
     .urgent-alerts {
-      background: #FFF3CD;
-      border: 2px solid #FFC107;
+      background: var(--btn-secondary);
+      border: 2px solid var(--accent-terracotta);
       border-radius: 12px;
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
 
     .urgent-alerts h2 {
-      color: #856404;
+      color: var(--accent-terracotta);
       margin-top: 0;
       margin-bottom: 1rem;
     }
 
     .urgent-card {
-      background: white;
+      background: var(--card-bg);
       border-radius: 8px;
       padding: 1.5rem;
       margin-bottom: 1rem;
-      border-left: 4px solid #DC3545;
+      border-left: 4px solid var(--accent-terracotta);
     }
 
     .urgent-card:last-child {
@@ -228,7 +228,7 @@ interface PrepScheduleItem {
     }
 
     .badge.urgent {
-      background: #DC3545;
+      background: var(--accent-terracotta);
       color: white;
     }
 
@@ -248,7 +248,7 @@ interface PrepScheduleItem {
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 0.75rem;
       padding: 1rem;
-      background: #F8F9FA;
+      background: var(--btn-secondary);
       border-radius: 8px;
     }
 
@@ -280,7 +280,7 @@ interface PrepScheduleItem {
     }
 
     .day-card {
-      background: white;
+      background: var(--card-bg);
       border: 1px solid var(--border-color);
       border-radius: 12px;
       padding: 1.5rem;
@@ -295,7 +295,7 @@ interface PrepScheduleItem {
     }
 
     .day-card.has-orders {
-      background: linear-gradient(to right, rgba(125, 143, 105, 0.05), white);
+      background: linear-gradient(to right, color-mix(in srgb, var(--accent-sage) 5%, transparent), var(--card-bg));
     }
 
     .day-header {
@@ -346,7 +346,7 @@ interface PrepScheduleItem {
     }
 
     .order-preview {
-      background: #F8F9FA;
+      background: var(--btn-secondary);
       border-radius: 8px;
       padding: 1rem;
     }
@@ -371,7 +371,7 @@ interface PrepScheduleItem {
     }
 
     .item-chip {
-      background: white;
+      background: var(--card-bg);
       padding: 0.25rem 0.75rem;
       border-radius: 16px;
       font-size: 0.875rem;
@@ -390,15 +390,15 @@ interface PrepScheduleItem {
     }
 
     .status-badge.prep {
-      background: #FFF3CD;
-      color: #856404;
-      border: 1px solid #FFE69C;
+      background: color-mix(in srgb, var(--accent-terracotta) 15%, transparent);
+      color: var(--accent-terracotta);
+      border: 1px solid var(--accent-terracotta);
     }
 
     .status-badge.ready {
-      background: #D4EDDA;
-      color: #155724;
-      border: 1px solid #C3E6CB;
+      background: color-mix(in srgb, var(--accent-sage) 15%, transparent);
+      color: var(--accent-sage);
+      border: 1px solid var(--accent-sage);
     }
 
     .day-starter-total {
@@ -441,7 +441,7 @@ interface PrepScheduleItem {
     }
 
     .totals-card {
-      background: white;
+      background: var(--card-bg);
       border: 1px solid var(--border-color);
       border-radius: 12px;
       padding: 1.5rem;
@@ -465,7 +465,7 @@ interface PrepScheduleItem {
       flex-direction: column;
       gap: 0.5rem;
       padding: 1rem;
-      background: #F8F9FA;
+      background: var(--btn-secondary);
       border-radius: 8px;
       text-align: center;
     }
