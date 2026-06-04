@@ -32,6 +32,12 @@ app.use((req, res, next) => {
 app.use(cors());
 app.options(/.*/, cors()); // Enable pre-flight across-the-board
 app.use(compression());
+
+// Specifically mount the webhook route BEFORE global body parser
+// This is critical for Stripe signature verification
+const paymentRoutes = require('./routes/payments.cjs');
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentRoutes);
+
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
@@ -42,7 +48,6 @@ app.get('/api/ping', (req, res) => {
 
 // API Routes (all under /api prefix)
 const orderRoutes = require('./routes/orders.cjs');
-const paymentRoutes = require('./routes/payments.cjs');
 const notificationRoutes = require('./routes/notifications.cjs');
 const contactRoutes = require('./routes/contact.cjs');
 const taxRoutes = require('./routes/tax.cjs');

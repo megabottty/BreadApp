@@ -222,13 +222,9 @@ export class CartService {
     return this.http.post(this.apiUrl, order, { headers: this.headers });
   }
 
-  createCheckoutSession(items: CartItem[], customerEmail: string, orderId?: string, metadata?: any) {
+  createCheckoutSession(items: any[], customerEmail: string, orderId?: string, metadata?: any) {
     const payload = {
-      items: items.map(item => ({
-        name: this.getItemDisplayName(item),
-        quantity: item.quantity,
-        product: { price: this.getItemUnitPrice(item) + this.getItemOptionsPrice(item) }
-      })),
+      items,
       customerEmail,
       orderId,
       metadata
@@ -263,7 +259,7 @@ export class CartService {
     this.totalOrders.set(data.totalOrders);
     this.qualifyingOrders.set(data.qualifyingOrders);
     if (typeof localStorage !== 'undefined') {
-      // localStorage.setItem('bakery_loyalty', JSON.stringify(data));
+      localStorage.setItem('bakery_loyalty', JSON.stringify(data));
     }
   }
 
@@ -287,7 +283,6 @@ export class CartService {
   }
 
   private saveCart() {
-    if (this.isInitialLoad) return;
     if (typeof localStorage === 'undefined') return;
     const _data = {
       items: this.cartItems().map(item => this.toPersistedItem(item)),
@@ -295,13 +290,11 @@ export class CartService {
       zipCode: this.zipCode(),
       notes: this.notes()
     };
-    /*
     try {
       localStorage.setItem('bakery_cart', JSON.stringify(_data));
     } catch (e) {
       console.warn('Failed to save cart to localStorage (quota exceeded)', e);
     }
-    */
   }
 
   addToCart(product: CalculatedRecipe, quantity: number = 1, notes?: string, selectedOptions?: { name: string; price: number }[], packOption?: PackOption) {

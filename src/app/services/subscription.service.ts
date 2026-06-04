@@ -72,13 +72,11 @@ export class SubscriptionService {
           status: s.status
         }));
         this.subscriptions.set(mapped);
-        /*
         try {
           localStorage.setItem('bakery_subscriptions', JSON.stringify(mapped));
         } catch (e) {
           console.warn('Failed to save subscriptions to localStorage (quota exceeded)', e);
         }
-        */
       },
       error: (err) => console.error('Error fetching subscriptions', err)
     });
@@ -89,13 +87,11 @@ export class SubscriptionService {
   }
 
   private saveSubscriptions() {
-    /*
     try {
       localStorage.setItem('bakery_subscriptions', JSON.stringify(this.subscriptions()));
     } catch (e) {
       console.warn('Failed to save subscriptions to localStorage (quota exceeded)', e);
     }
-    */
   }
 
   createSubscription(customerId: string, product: SubscriptionProduct, quantity: number) {

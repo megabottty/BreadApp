@@ -328,7 +328,15 @@ export class CartComponent implements OnInit {
       orderItems: JSON.stringify(orderItems)
     };
 
-    this.cartService.createCheckoutSession(this.items(), email, orderId, orderMetadata).subscribe({
+    // Prepare items for Stripe, marking subscriptions
+    const stripeItems = this.items().map(item => ({
+      name: this.itemDisplayName(item),
+      price: this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item),
+      quantity: item.quantity,
+      isSubscription: !!item.isSubscription
+    }));
+
+    this.cartService.createCheckoutSession(stripeItems, email, orderId, orderMetadata).subscribe({
       next: (session) => {
         logger.info('Stripe session created:', session);
         if (session.url) {

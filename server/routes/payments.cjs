@@ -88,15 +88,39 @@ router.post('/create-checkout-session', async (req, res) => {
       ? `${frontendUrl}/order-success/${orderId}`
       : `${frontendUrl}/order-success/pending`;
 
-    const session = await stripe.checkout.sessions.create({
+    // Determine if we need to use 'subscription' mode
+    const hasSubscription = items.some(item => item.isSubscription);
+    const mode = hasSubscription ? 'subscription' : 'payment';
+
+    const sessionOptions = {
       payment_method_types: ['card'],
-      line_items: lineItems,
-      mode: 'payment',
+      line_items: lineItems.map((li, index) => {
+        const item = items[index];
+        if (item.isSubscription) {
+          return {
+            ...li,
+            price_data: {
+              ...li.price_data,
+              recurring: { interval: 'week' }
+            }
+          };
+        }
+        return li;
+      }),
+      mode: mode,
       success_url: successUrl,
       cancel_url: `${frontendUrl}/cart?canceled=true`,
       customer_email: customerEmail,
-      metadata: sessionMetadata
-    });
+      metadata: sessionMetadata,
+      payment_intent_data: mode === 'payment' ? {
+        metadata: sessionMetadata
+      } : undefined,
+      subscription_data: mode === 'subscription' ? {
+        metadata: sessionMetadata
+      } : undefined
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionOptions);
 
     console.log(`[Stripe Debug] Session created: ${session.id} with metadata:`, sessionMetadata);
     res.json({ id: session.id, url: session.url });
@@ -107,7 +131,7 @@ router.post('/create-checkout-session', async (req, res) => {
 });
 
 // POST: Stripe Webhook Handler
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -200,6 +224,44 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
     console.log(`[Stripe Webhook] Order created:`, newOrder);
     if (supabase && tenantId) {
+      // Create Subscription if it was a subscription mode session
+      if (session.mode === 'subscription' && session.subscription) {
+        try {
+          // If multiple items, we create subscription for the whole "package"
+          // In this simple app, we usually have one subscription item or aggregate
+          const { data: sub, error: subErr } = await supabase
+            .from('bakery_subscriptions')
+            .insert({
+              tenant_id: tenantId,
+              customer_id: newOrder.customerId,
+              recipe_name: 'Weekly Subscription Pack', // Generic or from first item
+              quantity: 1,
+              frequency: 'WEEKLY',
+              price: newOrder.totalPrice,
+              start_date: new Date().toISOString().split('T')[0],
+              next_bake_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              status: 'ACTIVE'
+            })
+            .select()
+            .single();
+
+        if (subErr) console.error('[Stripe Webhook] Failed to create subscription record:', subErr);
+        else {
+          console.log('[Stripe Webhook] Subscription record created:', sub.id);
+          // Send notification for new subscription
+          if (twilioClient && newOrder.customerPhone && newOrder.notificationPreference !== 'EMAIL') {
+            twilioClient.messages.create({
+              body: `Hi ${newOrder.customerName}, your subscription for ${newOrder.items[0]?.name || 'Artisan Bread'} is confirmed! First bake starts ${newOrder.pickupDate || 'next week'}.`,
+              from: twilioPhoneNumber,
+              to: newOrder.customerPhone
+            }).catch(e => console.error('[Twilio Subscription Error]', e.message));
+          }
+        }
+        } catch (subCatch) {
+          console.error('[Stripe Webhook] Subscription creation catch:', subCatch);
+        }
+      }
+
       const buildOrderInsert = (includeNotificationFields = true) => ({
         tenant_id: tenantId,
         order_id: newOrder.id,
@@ -242,6 +304,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         console.error('[Stripe Webhook] Failed to save order to database:', error.message, error.details);
       } else {
         console.log('[Stripe Webhook] Order saved successfully:', data?.[0]?.id);
+
+        // Send customer notification via Twilio if phone is present
+        if (twilioClient && newOrder.customerPhone && newOrder.notificationPreference !== 'EMAIL') {
+          twilioClient.messages.create({
+            body: `Hi ${newOrder.customerName}, thanks for your order #${newOrder.id}! We'll notify you when it's ready.`,
+            from: twilioPhoneNumber,
+            to: newOrder.customerPhone
+          }).then(message => console.log(`[Twilio] SMS sent: ${message.sid}`))
+            .catch(e => console.error('[Twilio Error]', e.message));
+        }
 
         try {
           const { data: tenant } = await supabase
