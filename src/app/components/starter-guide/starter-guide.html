@@ -1,0 +1,74 @@
+<div class="starter-guide-container">
+  <header class="guide-header">
+    <h1>Your New {{starterAge}}-Year-Old Sourdough Starter</h1>
+    <p class="subtitle">A piece of history in your kitchen</p>
+  </header>
+
+  <section class="intro-section">
+    <div class="card">
+      <h2>Welcome to the Sourdough Family!</h2>
+      <p>
+        You are now the caretaker of a <strong>{{starterAge}}-year-old sourdough starter</strong>.
+        This starter has been nurtured for over three decades, developing a complex flavor profile and
+        robust rising power that only comes with time.
+      </p>
+    </div>
+  </section>
+
+  <section class="guide-grid">
+    <div class="card">
+      <h3><span class="icon">🥣</span> Feeding Instructions</h3>
+      <p>To keep your starter healthy and active, follow this standard feeding ratio:</p>
+      <ul>
+        <li><strong>1 part</strong> Starter (by weight)</li>
+        <li><strong>1 part</strong> Flour (unbleached all-purpose or bread flour)</li>
+        <li><strong>1 part</strong> Water (room temperature, filtered if possible)</li>
+      </ul>
+      <p class="tip">Example: 50g starter + 50g flour + 50g water.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="icon">🏠</span> Storage Options</h3>
+      <div class="option">
+        <h4>On the Counter (Baking Daily)</h4>
+        <p>Feed every 12-24 hours. Keep at room temperature. Do not let it get above 85°F.</p>
+      </div>
+      <div class="option">
+        <h4>In the Fridge (Baking Weekly)</h4>
+        <p>Feed once a week. Take it out 4-8 hours before you plan to bake to "wake it up" with a feeding.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span class="icon">⚠️</span> Important Tips</h3>
+      <ul>
+        <li><strong>Never use all of it!</strong> Always save at least a small amount (even just a tablespoon) to feed and regrow.</li>
+        <li><strong>Avoid metal:</strong> Glass or plastic containers are best for long-term storage.</li>
+        <li><strong>Hooches happen:</strong> If a dark liquid forms on top, don't worry! It's just alcohol/acid telling you it's hungry. Either pour it off or stir it back in and feed immediately.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3><span class="icon">🍞</span> When is it ready to bake?</h3>
+      <p>
+        A healthy starter should <strong>double in size</strong> within 4-8 hours after feeding.
+        You can also try the "Float Test": drop a small spoonful of active starter into water.
+        If it floats, it's ready to bake!
+      </p>
+    </div>
+
+    <div class="card contact-card">
+      <h3><span class="icon">📞</span> Contact Info</h3>
+      <p>Have questions about your starter or want to share your baking success?</p>
+      <div class="contact-info-list">
+        <p><strong>📍 Location:</strong> {{tenantService.tenant()?.address || 'SLC, UT'}}</p>
+        <p><strong>📞 Phone:</strong> {{tenantService.tenant()?.phone || '(801) 471-8218'}}</p>
+        <p><strong>✉️ Email:</strong> {{tenantService.tenant()?.email || 'megan@thedailydough.com'}}</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="guide-footer">
+    <p>Happy Baking! If you have any questions, come find us at the farmers market or contact us through the website.</p>
+  </footer>
+</div>

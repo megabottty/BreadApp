@@ -23,6 +23,10 @@ export const routes: Routes = [
     loadComponent: () => import('./components/about/about').then(m => m.AboutComponent)
   },
   {
+    path: 'starter-guide',
+    loadComponent: () => import('./components/starter-guide/starter-guide').then(m => m.StarterGuideComponent)
+  },
+  {
     path: 'dashboard',
     loadComponent: () => import('./components/baker-dashboard/baker-dashboard').then(m => m.BakerDashboardComponent),
     canActivate: [bakerGuard]

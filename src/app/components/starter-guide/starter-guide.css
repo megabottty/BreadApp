@@ -1,0 +1,89 @@
+.starter-guide-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  color: var(--text-color, #2d3748);
+}
+
+.guide-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.guide-header h1 {
+  font-size: 2.5rem;
+  color: var(--primary-color, #8b4513);
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.card {
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.card h2, .card h3 {
+  color: var(--secondary-color, #5a67d8);
+  margin-top: 0;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.icon {
+  margin-right: 0.5rem;
+}
+
+.tip {
+  background: var(--highlight-bg, #fffaf0);
+  padding: 0.75rem;
+  border-left: 4px solid var(--highlight-color, #ed8936);
+  font-size: 0.9rem;
+}
+
+.option {
+  margin-bottom: 1rem;
+}
+
+.option h4 {
+  margin-bottom: 0.25rem;
+  color: var(--accent-color, #38a169);
+}
+
+.contact-info-list {
+  margin-top: 1rem;
+}
+
+.contact-info-list p {
+  margin: 0.5rem 0;
+}
+
+.contact-card {
+  border: 2px solid var(--secondary-color, #5a67d8);
+}
+
+.guide-footer {
+  margin-top: 4rem;
+  text-align: center;
+  padding: 2rem;
+  background: var(--footer-bg, #f7fafc);
+  border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+  .guide-header h1 {
+    font-size: 2rem;
+  }
+}
