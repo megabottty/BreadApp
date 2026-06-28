@@ -8,9 +8,21 @@
       </div>
       <h1>The Daily Dough</h1>
       <p class="message">{{message()}}</p>
-      <div class="progress-bar">
-        <div class="progress-fill"></div>
-      </div>
+
+      @if (isMaintenanceMode() && animationDone()) {
+        <div class="maintenance-notice">
+          <p>We're currently updating our kitchen to serve you better.</p>
+          <p>Please check back soon!</p>
+          <div class="contact-info">
+            <p>Need something urgently?</p>
+            <a href="tel:801-471-8218" class="btn-contact">Call Megan</a>
+          </div>
+        </div>
+      } @else {
+        <div class="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+      }
     </div>
   </div>
 }

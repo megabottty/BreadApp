@@ -17,7 +17,8 @@ export class SplashScreenComponent implements OnInit {
   message = signal('Preheating the oven...');
   animationDone = signal(false);
   isStorefrontRoute = signal(true);
-  private maxVisibleMs = 8000; // Increased to 8s for reliability
+  isMaintenanceMode = signal(true); // Control flag for persistent splash
+  private maxVisibleMs = 8000;
 
   private router = inject(Router);
   private appLoadService = inject(AppLoadService);
@@ -32,7 +33,9 @@ export class SplashScreenComponent implements OnInit {
 
   ngOnInit() {
     const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
-    if (isE2E) {
+    const isDebug = typeof window !== 'undefined' && window.location.search.includes('debug=1');
+
+    if (isE2E || isDebug) {
       this.isVisible.set(false);
       this.isOverlayVisible.set(false);
       return;
@@ -46,6 +49,9 @@ export class SplashScreenComponent implements OnInit {
         setTimeout(updateMessage, 600);
       } else {
         this.animationDone.set(true);
+        if (this.isMaintenanceMode()) {
+          this.message.set('Putting the finishing touches on...');
+        }
       }
     };
 
@@ -59,7 +65,7 @@ export class SplashScreenComponent implements OnInit {
       this.router.url.startsWith('/b/')
     );
 
-    if (this.isStorefrontRoute()) {
+    if (this.isStorefrontRoute() && !this.isMaintenanceMode()) {
       setTimeout(() => {
         if (this.isVisible()) {
           console.warn('[SplashScreen] Max visible time reached, forcing hide.');
@@ -69,7 +75,7 @@ export class SplashScreenComponent implements OnInit {
     }
 
     effect(() => {
-      if (!this.isVisible()) return;
+      if (!this.isVisible() || this.isMaintenanceMode()) return;
 
       const isReady = this.appLoadService.storefrontReady();
       if (this.animationDone() && (isReady || !this.isStorefrontRoute())) {
