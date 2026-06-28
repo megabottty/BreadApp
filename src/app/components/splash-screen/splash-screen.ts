@@ -53,7 +53,10 @@ export class SplashScreenComponent implements OnInit {
     setTimeout(updateMessage, 100);
 
     this.isStorefrontRoute.set(
-      this.router.url === '/' || this.router.url.startsWith('/front') || this.router.url.startsWith('/b/')
+      this.router.url === '/' ||
+      this.router.url.startsWith('/front') ||
+      this.router.url.startsWith('/under-construction') ||
+      this.router.url.startsWith('/b/')
     );
 
     if (this.isStorefrontRoute()) {

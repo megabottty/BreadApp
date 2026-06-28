@@ -2,7 +2,11 @@ import { Routes } from '@angular/router';
 import { authGuard, bakerGuard, guestGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'front', pathMatch: 'full' },
+  {
+    path: 'under-construction',
+    loadComponent: () => import('./components/under-construction/under-construction').then(m => m.UnderConstructionComponent)
+  },
+  { path: '', redirectTo: 'under-construction', pathMatch: 'full' },
   {
     path: 'login',
     loadComponent: () => import('./components/login/login').then(m => m.LoginComponent),
@@ -68,15 +72,15 @@ export const routes: Routes = [
   },
   {
     path: 'front',
-    loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent)
+    redirectTo: 'under-construction'
   },
   {
     path: 'cart',
-    loadComponent: () => import('./components/cart/cart').then(m => m.CartComponent)
+    redirectTo: 'under-construction'
   },
   {
     path: 'order-success/:orderId',
-    loadComponent: () => import('./components/order-confirmation/order-confirmation').then(m => m.OrderConfirmationComponent)
+    redirectTo: 'under-construction'
   },
   {
     path: 'profile',
