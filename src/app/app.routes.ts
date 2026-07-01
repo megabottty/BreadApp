@@ -4,7 +4,7 @@ import { authGuard, bakerGuard, guestGuard } from './guards/auth.guard';
 export const routes: Routes = [
   {
     path: 'under-construction',
-    loadComponent: () => import('./components/under-construction/under-construction.component').then(m => m.UnderConstructionComponent)
+    loadComponent: () => import('./components/under-construction/under-construction').then(m => m.UnderConstructionComponent)
   },
   { path: '', redirectTo: 'under-construction', pathMatch: 'full' },
   {
