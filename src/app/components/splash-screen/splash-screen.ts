@@ -17,7 +17,7 @@ export class SplashScreenComponent implements OnInit {
   message = signal('Preheating the oven...');
   animationDone = signal(false);
   isStorefrontRoute = signal(true);
-  isMaintenanceMode = signal(true); // Control flag for persistent splash
+  isMaintenanceMode = signal(false); // Control flag for persistent splash
   private maxVisibleMs = 8000;
 
   private router = inject(Router);
