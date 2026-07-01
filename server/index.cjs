@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -14,6 +15,7 @@ if (process.env.NODE_ENV === 'production') {
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
     console.error('[ENV ERROR] Missing required environment variables in production:', missing.join(', '));
+    console.error('TIP: Check for typos. You might have SUPABASE_KEY instead of SUPABASE_SERVICE_KEY.');
     console.error('TIP: If you are deploying to Render, ensure these variables are added in the Dashboard > Environment section.');
     console.error('Current environment variables:', Object.keys(process.env).filter(k => !k.includes('KEY') && !k.includes('SECRET') && !k.includes('TOKEN')).join(', '));
     // Exit so deployments clearly fail rather than run insecurely
@@ -65,7 +67,33 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 
 // Serve Angular static files from the dist directory
-app.use(express.static(path.join(__dirname, '../dist/BreadApp/browser'), {
+const distPath = path.join(__dirname, '../dist/BreadApp/browser');
+
+// Middleware to rewrite build-time placeholders (like masked supabaseKey) with runtime env values
+app.use((req, res, next) => {
+  if (req.method === 'GET' && req.path.endsWith('.js')) {
+    const filePath = path.join(distPath, req.path);
+    // Prevent directory traversal
+    if (!filePath.startsWith(distPath)) return next();
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) return next();
+      const placeholder = '"supabaseKey":"******"';
+      if (data.includes(placeholder)) {
+        const realKey = process.env.SUPABASE_KEY || '';
+        const replaced = data.replace(placeholder, `"supabaseKey":"${realKey}"`);
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.send(replaced);
+      }
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return res.send(data);
+    });
+    return;
+  }
+  next();
+});
+
+app.use(express.static(distPath, {
   maxAge: 0,
   etag: true, // Let browser use ETag for simple validation, but check every time
   setHeaders: (res, _filePath) => {
