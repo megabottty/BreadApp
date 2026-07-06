@@ -77,10 +77,11 @@ app.use((req, res, next) => {
     if (!filePath.startsWith(distPath)) return next();
     fs.readFile(filePath, 'utf8', (err, data) => {
       if (err) return next();
-      const placeholder = '"supabaseKey":"******"';
-      if (data.includes(placeholder)) {
-        const realKey = process.env.SUPABASE_KEY || '';
-        const replaced = data.replace(placeholder, `"supabaseKey":"${realKey}"`);
+      const realKey = process.env.SUPABASE_KEY || '';
+      // Replace both variants: "supabaseKey":"******" and supabaseKey:"******"
+      let replaced = data.replace(/"supabaseKey"\s*:\s*"\*+"/g, `"supabaseKey":"${realKey}"`);
+      replaced = replaced.replace(/supabaseKey\s*:\s*"\*+"/g, `supabaseKey:"${realKey}"`);
+      if (replaced !== data) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         return res.send(replaced);
