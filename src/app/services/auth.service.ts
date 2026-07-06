@@ -121,9 +121,17 @@ export class AuthService {
       const path = window.location.pathname;
       const isE2E = window.location.search.includes('e2e=1');
 
-      if (!isE2E && role === 'BAKER' && !onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
-        logger.info('[Auth Debug] Redirecting BAKER to Setup Wizard');
-        this.router.navigate(['/setup-wizard']);
+      if (!isE2E && role === 'BAKER') {
+        if (!onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
+          logger.info('[Auth Debug] Redirecting incomplete BAKER to Setup Wizard');
+          this.router.navigate(['/setup-wizard']);
+        } else if (onboardingCompleted && (path.includes('/login') || path.includes('/register') || path === '/')) {
+          logger.info('[Auth Debug] Redirecting completed BAKER to Dashboard');
+          this.router.navigate(['/dashboard']);
+        }
+      } else if (role === 'CUSTOMER' && (path.includes('/login') || path.includes('/register') || path === '/')) {
+        logger.info('[Auth Debug] Redirecting CUSTOMER to Front');
+        this.router.navigate(['/front']);
       }
     } else {
       this.currentUser.set(null);
