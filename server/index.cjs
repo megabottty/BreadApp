@@ -70,6 +70,7 @@ app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 const distPath = path.join(__dirname, '../dist/BreadApp/browser');
 
 // Middleware to rewrite build-time placeholders (like masked supabaseKey) with runtime env values
+// This runs BEFORE express.static to intercept and modify files
 app.use((req, res, next) => {
   if (req.method === 'GET' && req.path.endsWith('.js')) {
     const filePath = path.join(distPath, req.path);
@@ -102,19 +103,23 @@ app.use((req, res, next) => {
 
 app.use(express.static(distPath, {
   maxAge: 0,
-  etag: true, // Let browser use ETag for simple validation, but check every time
+  etag: true,
   setHeaders: (res, _filePath) => {
-    // Force browser to check with server every time
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
 }));
 
-// The "Catch-all" route for Angular routing
-// Exclude files with extensions (css, js, png, svg, etc.) and /api routes
-app.get(/^\/(?!api|.*\.).*$/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/BreadApp/browser/index.html'));
+// The "Catch-all" route for Angular routing — MUST be after express.static
+// This regex matches paths that don't start with /api and don't have file extensions
+app.use((req, res, next) => {
+  // If it's not an API route and doesn't have a file extension, it's an Angular route
+  if (!req.path.startsWith('/api') && !req.path.match(/\.[a-zA-Z0-9]+$/)) {
+    res.sendFile(path.join(distPath, 'index.html'));
+  } else {
+    next();
+  }
 });
 
 app.listen(PORT, () => {
