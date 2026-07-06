@@ -76,16 +76,22 @@ app.use((req, res, next) => {
     // Prevent directory traversal
     if (!filePath.startsWith(distPath)) return next();
     fs.readFile(filePath, 'utf8', (err, data) => {
-      if (err) return next();
+      if (err) {
+        console.debug(`[JS Rewrite] Failed to read ${req.path}:`, err.message);
+        return next();
+      }
       const realKey = process.env.SUPABASE_KEY || '';
+      console.debug(`[JS Rewrite] Processing ${req.path}, SUPABASE_KEY env length: ${realKey.length}`);
       // Replace both variants: "supabaseKey":"******" and supabaseKey:"******"
       let replaced = data.replace(/"supabaseKey"\s*:\s*"\*+"/g, `"supabaseKey":"${realKey}"`);
       replaced = replaced.replace(/supabaseKey\s*:\s*"\*+"/g, `supabaseKey:"${realKey}"`);
       if (replaced !== data) {
+        console.log(`[JS Rewrite] ✅ Injected real SUPABASE_KEY into ${req.path}`);
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         return res.send(replaced);
       }
+      console.debug(`[JS Rewrite] No placeholder found in ${req.path}`);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(data);
     });
