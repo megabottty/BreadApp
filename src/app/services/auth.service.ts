@@ -100,16 +100,11 @@ export class AuthService {
       // If we have a bakery slug in metadata, ensure TenantService loads it
       if (bakerySlug) {
         logger.debug('[Auth Debug] Found bakery slug in metadata, loading tenant:', bakerySlug);
-        // localStorage.setItem('bakery_slug', bakerySlug);
-        // Force reload info to ensure signal is updated
         this.tenantService.loadTenantInfo(bakerySlug);
       }
 
       // If we have a theme in metadata, apply it
       if (theme) {
-        // We'll need a way to apply this theme, possibly via ThemeService
-        // For now, handleAuthChange is called when ThemeService might not be ready or might cause circular deps
-        // if we inject it here. Let's use a simpler way or ensure ThemeService reacts to this.
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bakery_theme', theme);
         }
@@ -121,17 +116,9 @@ export class AuthService {
       const path = window.location.pathname;
       const isE2E = window.location.search.includes('e2e=1');
 
-      if (!isE2E && role === 'BAKER') {
-        if (!onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
-          logger.info('[Auth Debug] Redirecting incomplete BAKER to Setup Wizard');
-          this.router.navigate(['/setup-wizard']);
-        } else if (onboardingCompleted && (path.includes('/login') || path.includes('/register') || path === '/')) {
-          logger.info('[Auth Debug] Redirecting completed BAKER to Dashboard');
-          this.router.navigate(['/dashboard']);
-        }
-      } else if (role === 'CUSTOMER' && (path.includes('/login') || path.includes('/register') || path === '/')) {
-        logger.info('[Auth Debug] Redirecting CUSTOMER to Front');
-        this.router.navigate(['/front']);
+      if (!isE2E && role === 'BAKER' && !onboardingCompleted && !path.includes('/setup-wizard') && !path.includes('/register')) {
+        logger.info('[Auth Debug] Redirecting BAKER to Setup Wizard');
+        this.router.navigate(['/setup-wizard']);
       }
     } else {
       this.currentUser.set(null);
