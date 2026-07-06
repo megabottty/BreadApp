@@ -112,7 +112,8 @@ app.use(express.static(distPath, {
 }));
 
 // The "Catch-all" route for Angular routing
-app.get(/^\/(?!api).*/, (req, res) => {
+// Exclude files with extensions (css, js, png, svg, etc.) and /api routes
+app.get(/^\/(?!api|.*\.).*$/, (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/BreadApp/browser/index.html'));
 });
 
