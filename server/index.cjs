@@ -50,6 +50,18 @@ app.get('/api/ping', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Version / deployment info endpoint
+app.get('/api/version', (req, res) => {
+  const pkg = require('../package.json');
+  res.status(200).json({
+    version: pkg.version,
+    name: pkg.name,
+    deployedAt: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV || 'development',
+    stripeMode: (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_live') ? 'live' : 'test',
+  });
+});
+
 // API Routes (all under /api prefix)
 const orderRoutes = require('./routes/orders.cjs');
 const notificationRoutes = require('./routes/notifications.cjs');
