@@ -17,9 +17,7 @@ const deployCommit =
   || process.env.SOURCE_VERSION
   || process.env.GITHUB_SHA
   || '';
-const deployVersion = deployCommit
-  ? `${pkg.version}+${deployCommit.slice(0, 12)}`
-  : `${pkg.version}+${Math.floor(serverStartedAt.getTime() / 1000)}`;
+const deployVersion = `${pkg.version}+${Math.floor(serverStartedAt.getTime() / 1000)}`;
 
 // Environment validation (fail fast in production for critical secrets)
 if (process.env.NODE_ENV === 'production') {
