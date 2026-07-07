@@ -75,6 +75,10 @@ export const routes: Routes = [
     redirectTo: 'under-construction'
   },
   {
+    path: 'b/:slug',
+    redirectTo: 'under-construction'
+  },
+  {
     path: 'cart',
     redirectTo: 'under-construction'
   },
@@ -91,5 +95,9 @@ export const routes: Routes = [
     path: 'subscriptions',
     loadComponent: () => import('./components/subscription-manager/subscription-manager').then(m => m.SubscriptionManagerComponent),
     canActivate: [authGuard]
+  },
+  {
+    path: '**',
+    redirectTo: 'under-construction'
   }
 ];

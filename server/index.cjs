@@ -8,6 +8,18 @@ const compression = require('compression');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const pkg = require('../package.json');
+const serverStartedAt = new Date();
+const deployCommit =
+  process.env.RENDER_GIT_COMMIT
+  || process.env.VERCEL_GIT_COMMIT_SHA
+  || process.env.RAILWAY_GIT_COMMIT_SHA
+  || process.env.SOURCE_VERSION
+  || process.env.GITHUB_SHA
+  || '';
+const deployVersion = deployCommit
+  ? `${pkg.version}+${deployCommit.slice(0, 12)}`
+  : `${pkg.version}+${Math.floor(serverStartedAt.getTime() / 1000)}`;
 
 // Environment validation (fail fast in production for critical secrets)
 if (process.env.NODE_ENV === 'production') {
@@ -52,11 +64,12 @@ app.get('/api/ping', (req, res) => {
 
 // Version / deployment info endpoint
 app.get('/api/version', (req, res) => {
-  const pkg = require('../package.json');
   res.status(200).json({
-    version: pkg.version,
+    version: deployVersion,
+    appVersion: pkg.version,
     name: pkg.name,
-    deployedAt: new Date().toISOString(),
+    deployedAt: serverStartedAt.toISOString(),
+    commit: deployCommit || null,
     nodeEnv: process.env.NODE_ENV || 'development',
     stripeMode: (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_live') ? 'live' : 'test',
   });
