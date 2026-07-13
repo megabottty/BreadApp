@@ -109,14 +109,13 @@ app.use((req, res, next) => {
       // Replace both variants: "supabaseKey":"******" and supabaseKey:"******"
       let replaced = data.replace(/"supabaseKey"\s*:\s*"\*+"/g, `"supabaseKey":"${realKey}"`);
       replaced = replaced.replace(/supabaseKey\s*:\s*"\*+"/g, `supabaseKey:"${realKey}"`);
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       if (replaced !== data) {
         console.log(`[JS Rewrite] ✅ Injected real SUPABASE_KEY into ${req.path}`);
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         return res.send(replaced);
       }
       console.debug(`[JS Rewrite] No placeholder found in ${req.path}`);
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(data);
     });
     return;
