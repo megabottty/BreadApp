@@ -31,6 +31,17 @@ export class SplashScreenComponent implements OnInit {
     'Scoring the loaves...'
   ];
 
+  constructor() {
+    effect(() => {
+      if (!this.isVisible() || this.isMaintenanceMode()) return;
+
+      const isReady = this.appLoadService.storefrontReady();
+      if (this.animationDone() && (isReady || !this.isStorefrontRoute())) {
+        this.hide();
+      }
+    });
+  }
+
   ngOnInit() {
     const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
     const isDebug = typeof window !== 'undefined' && window.location.search.includes('debug=1');
@@ -73,15 +84,6 @@ export class SplashScreenComponent implements OnInit {
         }
       }, this.maxVisibleMs);
     }
-
-    effect(() => {
-      if (!this.isVisible() || this.isMaintenanceMode()) return;
-
-      const isReady = this.appLoadService.storefrontReady();
-      if (this.animationDone() && (isReady || !this.isStorefrontRoute())) {
-        this.hide();
-      }
-    });
   }
 
   private hide() {
