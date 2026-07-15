@@ -38,8 +38,29 @@
     <app-subscription-modal (close)="showSubscriptionInfo.set(false)"></app-subscription-modal>
   }
 
-  <h2 class="sr-only" id="product-list-heading">Available Products</h2>
-  <div class="product-grid" aria-labelledby="product-list-heading">
+  @if (isLoading()) {
+    <div class="product-grid skeleton-grid" aria-label="Loading products">
+      @for (_ of [1,2,3,4,5,6]; track $index) {
+        <div class="product-card card-container placeholder-card skeleton-card" aria-hidden="true">
+          <div class="skeleton-image"></div>
+          <div class="product-info">
+            <div class="skeleton-line skeleton-title"></div>
+            <div class="skeleton-line skeleton-meta"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-footer">
+              <div class="skeleton-pill"></div>
+              <div class="skeleton-button"></div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (!isLoading()) {
+    <h2 class="sr-only" id="product-list-heading">Available Products</h2>
+    <div class="product-grid" aria-labelledby="product-list-heading">
     @for (product of filteredProducts(); track product.id; let productIndex = $index) {
       @if (productIndex < 6) {
         <div
@@ -67,7 +88,8 @@
                       height="250">
                   } @else {
                     <img
-                      [ngSrc]="img"
+                      [ngSrc]="getImageUrl(img, 800, 'jpg')"
+                      [attr.srcset]="getImageSrcSet(img) || null"
                       [alt]="product.name"
                       class="main-image"
                       [priority]="productIndex === 0 && imgIndex === 0"
@@ -79,7 +101,7 @@
                       sizes="(max-width: 768px) 90vw, 400px">
                   }
                 }
-              </div>
+                </div>
             } @else if (product.imageUrl) {
               @if (isInlineImage(product.imageUrl)) {
                 <img
@@ -93,7 +115,8 @@
                   height="250">
               } @else {
                 <img
-                  [ngSrc]="product.imageUrl"
+                  [ngSrc]="getImageUrl(product.imageUrl, 800, 'jpg')"
+                  [attr.srcset]="getImageSrcSet(product.imageUrl) || null"
                   [alt]="product.name"
                   class="main-image"
                   [priority]="productIndex === 0"
@@ -264,7 +287,8 @@
                         height="250">
                     } @else {
                       <img
-                        [ngSrc]="img"
+                        [ngSrc]="getImageUrl(img, 800, 'jpg')"
+                        [attr.srcset]="getImageSrcSet(img) || null"
                         [alt]="product.name"
                         class="main-image"
                         [priority]="productIndex === 0 && imgIndex === 0"
@@ -290,7 +314,8 @@
                     height="250">
                 } @else {
                   <img
-                    [ngSrc]="product.imageUrl"
+                    [ngSrc]="getImageUrl(product.imageUrl, 800, 'jpg')"
+                    [attr.srcset]="getImageSrcSet(product.imageUrl) || null"
                     [alt]="product.name"
                     class="main-image"
                     [priority]="productIndex === 0"
@@ -444,6 +469,7 @@
       </div>
     }
   </div>
+  }
 
   @if (selectedProductDetails(); as product) {
     <app-product-details-modal

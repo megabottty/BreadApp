@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { RuntimeConfigService } from '../services/runtime-config.service';
 
 export const authGuard: CanActivateFn = (route, state) => {
   // Bypass guards when running E2E tests via query param
@@ -55,7 +56,12 @@ export const storefrontAdminGuard: CanActivateFn = (_route, _state) => {
   if (typeof window !== 'undefined' && window.location.search.includes('e2e=1')) return true;
 
   const authService = inject(AuthService);
+  const runtimeConfig = inject(RuntimeConfigService);
   const router = inject(Router);
+
+  if (runtimeConfig.isPublicMode()) {
+    return true;
+  }
 
   if (authService.isAuthenticated() && authService.isBaker()) {
     return true;

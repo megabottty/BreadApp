@@ -5,9 +5,10 @@ import { FormsModule } from '@angular/forms';
 import { TenantService } from '../../services/tenant.service';
 import { Router } from '@angular/router';
 import { ModalService } from '../../services/modal.service';
-import { environment } from '../../../environments/environment';
 import { StripeLoaderService } from '../../services/stripe-loader.service';
 import { logger } from '../../utils/logger';
+import { RuntimeConfigService } from '../../services/runtime-config.service';
+import { environment } from '../../../environments/environment';
 
 import { firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
@@ -34,6 +35,7 @@ export class SetupWizardComponent implements AfterViewInit {
   private helpService = inject(HelpService);
   private http = inject(HttpClient);
   private stripeLoader = inject(StripeLoaderService);
+  private runtimeConfig = inject(RuntimeConfigService);
 
   currentStep = signal(1);
   totalSteps = 5;
@@ -56,7 +58,10 @@ export class SetupWizardComponent implements AfterViewInit {
   // Step 4: Plan Selection
   selectedPlan = signal<'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'>('STARTER');
   isProcessingPayment = signal(false);
-  isTestMode = computed(() => environment.stripePublicKey.startsWith('pk_test'));
+  isTestMode = computed(() => {
+    const key = this.runtimeConfig.config().stripePublicKey || environment.stripePublicKey;
+    return key.startsWith('pk_test');
+  });
 
   // Stripe Elements
   private stripe: any;
@@ -146,7 +151,7 @@ export class SetupWizardComponent implements AfterViewInit {
     if (this.stripe) return; // Already init
 
     try {
-      const key = environment.stripePublicKey;
+      const key = this.runtimeConfig.config().stripePublicKey || environment.stripePublicKey;
 
       // DEEP DEBUG LOG FOR USER
       logger.debug('%c [Stripe Key Audit] ', 'background: #222; color: #bada55; font-size: 14px');
@@ -259,7 +264,8 @@ export class SetupWizardComponent implements AfterViewInit {
       logger.info('[SetupWizard] Stripe PaymentMethod created:', paymentMethod.id);
 
       // 2. Call Backend to create subscription
-      const response = await firstValueFrom(this.http.post<{subscriptionId: string, customerId: string}>(`${environment.apiUrl}/payments/create-subscription`, {
+      const apiUrl = this.runtimeConfig.config().apiUrl || environment.apiUrl;
+      const response = await firstValueFrom(this.http.post<{subscriptionId: string, customerId: string}>(`${apiUrl}/payments/create-subscription`, {
         paymentMethodId: paymentMethod.id,
         planId: this.selectedPlan(),
         email: this.email() || tenant.email,
@@ -286,7 +292,11 @@ export class SetupWizardComponent implements AfterViewInit {
 
       // Update Supabase user metadata
       const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
+      const supabaseConfig = this.runtimeConfig.config();
+      const supabase = createClient(
+        supabaseConfig.supabaseUrl || environment.supabaseUrl,
+        supabaseConfig.supabaseKey || environment.supabaseKey
+      );
       await supabase.auth.updateUser({
         data: { onboarding_completed: true }
       });

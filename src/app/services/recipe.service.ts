@@ -12,6 +12,7 @@ export class RecipeService {
   private tenantService = inject(TenantService);
 
   savedRecipes = signal<CalculatedRecipe[]>([]);
+  isLoading = signal(false);
 
   private get headers() {
     const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
@@ -49,7 +50,7 @@ export class RecipeService {
       if (typeof localStorage === 'undefined') return;
       try {
         localStorage.setItem('bakery_recipes', JSON.stringify(this.getOptimizedRecipesForStorage(recipes)));
-      } catch (e) {
+      } catch {
         // ignore quota errors
       }
     };
@@ -75,24 +76,28 @@ export class RecipeService {
     if (!slug) return;
 
     const headers = this.headers;
+    this.isLoading.set(true);
     this.http.get<CalculatedRecipe[]>(`${environment.apiUrl}/orders/recipes`, { headers }).subscribe({
       next: (recipes) => {
         const normalized = this.normalizeRecipeImages(recipes);
         this.savedRecipes.set(normalized);
         this.scheduleOptimizedRecipeCache(normalized);
+        this.isLoading.set(false);
       },
       error: (err) => {
         console.error('[RecipeService] Failed to load recipes:', err);
-        if (typeof localStorage === 'undefined') return;
-        const saved = localStorage.getItem('bakery_recipes');
-        if (saved) {
-          try {
-            const normalized = this.normalizeRecipeImages(JSON.parse(saved));
-            this.savedRecipes.set(normalized);
-          } catch (e) {
-            // ignore parse errors
+        if (typeof localStorage !== 'undefined') {
+          const saved = localStorage.getItem('bakery_recipes');
+          if (saved) {
+            try {
+              const normalized = this.normalizeRecipeImages(JSON.parse(saved));
+              this.savedRecipes.set(normalized);
+            } catch {
+              // ignore parse errors
+            }
           }
         }
+        this.isLoading.set(false);
       }
     });
   }
@@ -168,7 +173,7 @@ export class RecipeService {
       if (typeof localStorage === 'undefined') return;
       try {
         localStorage.setItem('recipe_calculator_draft', JSON.stringify(draft));
-      } catch (e) {
+      } catch {
         // ignore quota errors
       }
     };
@@ -185,7 +190,7 @@ export class RecipeService {
     if (!saved) return null;
     try {
       return JSON.parse(saved);
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -194,7 +199,7 @@ export class RecipeService {
     if (typeof localStorage === 'undefined') return;
     try {
       localStorage.removeItem('recipe_calculator_draft');
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

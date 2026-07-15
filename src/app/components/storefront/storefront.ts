@@ -2,7 +2,6 @@ import { Component, OnInit, signal, inject, computed, effect } from '@angular/co
 import { HelpService } from '../../services/help.service';
 import { ModalService } from '../../services/modal.service';
 import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, NgOptimizedImage } from '@angular/common';
-import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review, calculateBakersMath } from '../../logic/bakers-math';
@@ -37,6 +36,7 @@ export class StorefrontComponent implements OnInit {
   private recipeService = inject(RecipeService);
 
   products = this.recipeService.savedRecipes;
+  isLoading = this.recipeService.isLoading;
   categories = signal<RecipeCategory[]>(['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SPECIAL', 'OTHER']);
   selectedCategory = signal<RecipeCategory | 'ALL'>('ALL');
   selectedFlavor = signal<FlavorProfile | 'ALL'>('ALL');
@@ -62,13 +62,7 @@ export class StorefrontComponent implements OnInit {
     const search = this.searchTerm().toLowerCase();
     const isBaker = this.authService.isBaker();
 
-    return this.products().map(p => {
-      let imageUrl = p.imageUrl;
-      if (imageUrl && imageUrl.includes('unsplash.com')) {
-        imageUrl += imageUrl.includes('?') ? '&fm=webp&w=800&q=75' : '?fm=webp&w=800&q=75';
-      }
-      return { ...p, imageUrl };
-    }).filter(p => {
+    return this.products().filter(p => {
       // If baker, show everything. If customer, only show if not hidden.
       if (!isBaker && p.isHidden) return false;
 
@@ -198,6 +192,28 @@ export class StorefrontComponent implements OnInit {
   isInlineImage(url?: string | null): boolean {
     if (!url) return false;
     return url.startsWith('data:') || url.startsWith('blob:');
+  }
+
+  isUnsplashImage(url?: string | null): boolean {
+    return !!url && url.includes('unsplash.com');
+  }
+
+  getImageUrl(url?: string | null, width = 800, format: 'webp' | 'jpg' = 'webp'): string {
+    if (!url) return '';
+    if (!this.isUnsplashImage(url)) return url;
+
+    const separator = url.includes('?') ? '&' : '?';
+    const unsplashFormat = format === 'webp' ? 'webp' : 'jpg';
+    return `${url}${separator}fm=${unsplashFormat}&w=${width}&q=75`;
+  }
+
+  getImageSrcSet(url?: string | null): string {
+    if (!url || !this.isUnsplashImage(url)) return '';
+    return [
+      `${this.getImageUrl(url, 400)} 400w`,
+      `${this.getImageUrl(url, 800)} 800w`,
+      `${this.getImageUrl(url, 1200)} 1200w`
+    ].join(', ');
   }
 
   loadRecipes(): void {

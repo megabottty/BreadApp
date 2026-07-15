@@ -6,7 +6,7 @@ export const routes: Routes = [
     path: 'under-construction',
     loadComponent: () => import('./components/under-construction/under-construction').then(m => m.UnderConstructionComponent)
   },
-  { path: '', redirectTo: 'under-construction', pathMatch: 'full' },
+  { path: '', redirectTo: 'front', pathMatch: 'full' },
   {
     path: 'login',
     loadComponent: () => import('./components/login/login').then(m => m.LoginComponent),
@@ -73,22 +73,26 @@ export const routes: Routes = [
   {
     path: 'front',
     loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent),
-    canActivate: [storefrontAdminGuard]
+    canActivate: [storefrontAdminGuard],
+    data: { preload: true }
   },
   {
     path: 'b/:slug',
     loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent),
-    canActivate: [storefrontAdminGuard]
+    canActivate: [storefrontAdminGuard],
+    data: { preload: true }
   },
   {
     path: 'cart',
     loadComponent: () => import('./components/cart/cart').then(m => m.CartComponent),
-    canActivate: [storefrontAdminGuard]
+    canActivate: [storefrontAdminGuard],
+    data: { preload: true }
   },
   {
     path: 'order-success/:orderId',
     loadComponent: () => import('./components/order-confirmation/order-confirmation').then(m => m.OrderConfirmationComponent),
-    canActivate: [storefrontAdminGuard]
+    canActivate: [storefrontAdminGuard],
+    data: { preload: true }
   },
   {
     path: 'profile',

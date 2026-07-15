@@ -4,6 +4,7 @@ import { environment } from '../../environments/environment';
 import type { SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
 import { TenantService } from './tenant.service';
 import { logger } from '../utils/logger';
+import { RuntimeConfigService } from './runtime-config.service';
 
 export type UserRole = 'BAKER' | 'CUSTOMER' | null;
 
@@ -21,11 +22,16 @@ export interface User {
 export class AuthService {
   private router = inject(Router);
   private tenantService = inject(TenantService);
+  private runtimeConfig = inject(RuntimeConfigService);
   private supabase: SupabaseClient | null = null;
   private async ensureSupabase() {
     if (this.supabase) return this.supabase;
+    await this.runtimeConfig.load();
     const { createClient } = await import('@supabase/supabase-js');
-    this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
+    const config = this.runtimeConfig.config();
+    const supabaseUrl = config.supabaseUrl || environment.supabaseUrl;
+    const supabaseKey = config.supabaseKey || environment.supabaseKey;
+    this.supabase = createClient(supabaseUrl, supabaseKey);
     return this.supabase;
   }
   private currentUser = signal<User | null>(null);
@@ -36,8 +42,7 @@ export class AuthService {
   isAuthenticated = computed(() => this.currentUser() !== null);
 
   constructor() {
-    const supabaseUrl = environment.supabaseUrl;
-    const supabaseKey = environment.supabaseKey;
+    const supabaseUrl = this.runtimeConfig.config().supabaseUrl || environment.supabaseUrl;
 
     if (supabaseUrl === 'https://your-project.supabase.co') {
       logger.warn('Supabase URL is still using the placeholder in environment.ts. Please update it!');
@@ -191,7 +196,8 @@ export class AuthService {
         // In production, /api works because they are on the same domain
         const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
         const baseUrl = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !isE2E) ? 'http://localhost:3000' : '';
-        const apiUrl = `${baseUrl}${environment.apiUrl}/orders/register-bakery`;
+        const apiBase = this.runtimeConfig.config().apiUrl || environment.apiUrl;
+        const apiUrl = `${baseUrl}${apiBase}/orders/register-bakery`;
 
         logger.debug('[Auth Debug] Calling API:', apiUrl, 'with body:', { name: bakeryName, slug: bakerySlug });
 

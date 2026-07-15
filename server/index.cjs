@@ -1,10 +1,11 @@
 const path = require('path');
-const fs = require('fs');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const compression = require('compression');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,8 +19,20 @@ const deployCommit =
   || process.env.GITHUB_SHA
   || '';
 const deployVersion = `${pkg.version}+${Math.floor(serverStartedAt.getTime() / 1000)}`;
-const SUPABASE_PLACEHOLDER_REGEX = /"supabaseKey"\s*:\s*"\*+"|supabaseKey\s*:\s*"\*+"/;
-const placeholderJsFiles = new Set();
+const siteMode = (process.env.SITE_MODE || 'admin-preview').toLowerCase() === 'public' ? 'public' : 'admin-preview';
+const frontendUrl = process.env.FRONTEND_URL || 'https://thedailydough.store';
+
+const defaultAllowedOrigins = [
+  'https://thedailydough.store',
+  'https://www.thedailydough.store',
+  'http://localhost:4200',
+  'http://localhost:4300'
+];
+const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...configuredCorsOrigins]);
 
 // Environment validation (fail fast in production for critical secrets)
 if (process.env.NODE_ENV === 'production') {
@@ -47,9 +60,43 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_REQUEST_LOGS ===
   });
 }
 
-app.use(cors());
-app.options(/.*/, cors()); // Enable pre-flight across-the-board
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow same-origin/non-browser requests (no Origin header)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.has(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(compression());
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const sensitiveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api', apiLimiter);
+app.use('/api/contact-us', sensitiveLimiter);
+app.use('/api/orders/register-bakery', sensitiveLimiter);
+app.use('/api/payments/create-checkout-session', sensitiveLimiter);
+app.use('/api/payments/create-setup-session', sensitiveLimiter);
 
 // Specifically mount the webhook route BEFORE global body parser
 // This is critical for Stripe signature verification
@@ -77,6 +124,18 @@ app.get('/api/version', (req, res) => {
   });
 });
 
+app.get('/api/config', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(200).json({
+    siteMode,
+    apiUrl: '/api',
+    frontendUrl,
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseKey: process.env.SUPABASE_KEY || '',
+    stripePublicKey: process.env.STRIPE_PUBLIC_KEY || ''
+  });
+});
+
 // API Routes (all under /api prefix)
 const orderRoutes = require('./routes/orders.cjs');
 const notificationRoutes = require('./routes/notifications.cjs');
@@ -96,62 +155,6 @@ app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 // Serve Angular static files from the dist directory
 const distPath = path.join(__dirname, '../dist/BreadApp/browser');
 const HASHED_ASSET_REGEX = /-[A-Za-z0-9]{8,}\.(?:js|css|mjs)$/;
-
-// Detect which JS bundles actually contain the masked supabase placeholder so we only rewrite those files.
-(() => {
-  try {
-    if (!fs.existsSync(distPath)) return;
-    const entries = fs.readdirSync(distPath, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
-      const absolutePath = path.join(distPath, entry.name);
-      const data = fs.readFileSync(absolutePath, 'utf8');
-      if (SUPABASE_PLACEHOLDER_REGEX.test(data)) {
-        placeholderJsFiles.add(entry.name);
-      }
-    }
-    if (placeholderJsFiles.size > 0) {
-      console.log(`[JS Rewrite] Placeholder detected in: ${Array.from(placeholderJsFiles).join(', ')}`);
-    }
-  } catch (error) {
-    console.warn('[JS Rewrite] Failed to pre-scan JS bundles:', error.message);
-  }
-})();
-
-// Middleware to rewrite build-time placeholders (like masked supabaseKey) with runtime env values
-// This runs BEFORE express.static to intercept and modify files
-app.use((req, res, next) => {
-  if (req.method === 'GET' && req.path.endsWith('.js')) {
-    const requestedFile = req.path.replace(/^\//, '');
-    if (!placeholderJsFiles.has(requestedFile)) return next();
-
-    const filePath = path.join(distPath, requestedFile);
-    // Prevent directory traversal
-    if (!filePath.startsWith(distPath)) return next();
-    fs.readFile(filePath, 'utf8', (err, data) => {
-      if (err) {
-        console.debug(`[JS Rewrite] Failed to read ${req.path}:`, err.message);
-        return next();
-      }
-      const realKey = process.env.SUPABASE_KEY || '';
-      console.debug(`[JS Rewrite] Processing ${req.path}, SUPABASE_KEY env length: ${realKey.length}`);
-      // Replace both variants: "supabaseKey":"******" and supabaseKey:"******"
-      let replaced = data.replace(/"supabaseKey"\s*:\s*"\*+"/g, `"supabaseKey":"${realKey}"`);
-      replaced = replaced.replace(/supabaseKey\s*:\s*"\*+"/g, `supabaseKey:"${realKey}"`);
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      // Patched JS depends on runtime env values, so keep this short-lived.
-      res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
-      if (replaced !== data) {
-        console.log(`[JS Rewrite] ✅ Injected real SUPABASE_KEY into ${req.path}`);
-        return res.send(replaced);
-      }
-      console.debug(`[JS Rewrite] No placeholder found in ${req.path}`);
-      return res.send(data);
-    });
-    return;
-  }
-  next();
-});
 
 app.use(express.static(distPath, {
   maxAge: '1y',
