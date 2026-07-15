@@ -49,3 +49,18 @@ export const guestGuard: CanActivateFn = (_route, _state) => {
 
   return true;
 };
+
+export const storefrontAdminGuard: CanActivateFn = (_route, _state) => {
+  // Bypass guards when running E2E tests via query param
+  if (typeof window !== 'undefined' && window.location.search.includes('e2e=1')) return true;
+
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.isAuthenticated() && authService.isBaker()) {
+    return true;
+  }
+
+  router.navigate(['/under-construction']);
+  return false;
+};

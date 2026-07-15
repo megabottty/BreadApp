@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, bakerGuard, guestGuard } from './guards/auth.guard';
+import { authGuard, bakerGuard, guestGuard, storefrontAdminGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -72,19 +72,23 @@ export const routes: Routes = [
   },
   {
     path: 'front',
-    redirectTo: 'under-construction'
+    loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent),
+    canActivate: [storefrontAdminGuard]
   },
   {
     path: 'b/:slug',
-    redirectTo: 'under-construction'
+    loadComponent: () => import('./components/storefront/storefront').then(m => m.StorefrontComponent),
+    canActivate: [storefrontAdminGuard]
   },
   {
     path: 'cart',
-    redirectTo: 'under-construction'
+    loadComponent: () => import('./components/cart/cart').then(m => m.CartComponent),
+    canActivate: [storefrontAdminGuard]
   },
   {
     path: 'order-success/:orderId',
-    redirectTo: 'under-construction'
+    loadComponent: () => import('./components/order-confirmation/order-confirmation').then(m => m.OrderConfirmationComponent),
+    canActivate: [storefrontAdminGuard]
   },
   {
     path: 'profile',
