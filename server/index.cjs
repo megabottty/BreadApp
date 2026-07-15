@@ -61,7 +61,34 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_REQUEST_LOGS ===
 }
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'self'"],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'", 'https://js.stripe.com', 'https://maps.googleapis.com'],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+      fontSrc: ["'self'", 'https:', 'data:'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      connectSrc: [
+        "'self'",
+        'https://*.supabase.co',
+        'https://api.stripe.com',
+        'https://maps.googleapis.com',
+        'https://maps.gstatic.com'
+      ],
+      frameSrc: [
+        "'self'",
+        'https://js.stripe.com',
+        'https://hooks.stripe.com',
+        'https://maps.google.com',
+        'https://www.google.com'
+      ]
+    }
+  }
 }));
 
 const corsOptions = {
