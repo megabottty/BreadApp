@@ -35,11 +35,17 @@ export class AuthService {
     return this.supabase;
   }
   private currentUser = signal<User | null>(null);
+  private authReadyState = signal(false);
+  private authReadyResolve: (() => void) | null = null;
+  private authReadyPromise = new Promise<void>((resolve) => {
+    this.authReadyResolve = resolve;
+  });
 
   user = computed(() => this.currentUser());
   isBaker = computed(() => this.currentUser()?.role === 'BAKER');
   isCustomer = computed(() => this.currentUser()?.role === 'CUSTOMER');
   isAuthenticated = computed(() => this.currentUser() !== null);
+  authReady = computed(() => this.authReadyState());
 
   constructor() {
     const supabaseUrl = this.runtimeConfig.config().supabaseUrl || environment.supabaseUrl;
@@ -54,32 +60,51 @@ export class AuthService {
 
   private async initSession() {
     try {
-      const supabase = await this.ensureSupabase();
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        logger.warn('[Auth] Session initialization error:', error.message);
-        // If there's an error getting the session (like invalid refresh token),
-        // Supabase might still have local data that needs clearing
-        if (error.status === 400 || error.message.includes('Refresh Token')) {
-          this.logout();
+      try {
+        const supabase = await this.ensureSupabase();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          logger.warn('[Auth] Session initialization error:', error.message);
+          // If there's an error getting the session (like invalid refresh token),
+          // Supabase might still have local data that needs clearing
+          if (error.status === 400 || error.message.includes('Refresh Token')) {
+            this.logout();
+          }
         }
+
+        if (session) {
+          logger.info('Session found on init:', session.user.email);
+          this.handleAuthChange(session.user);
+        } else {
+          logger.debug('No session found on init');
+        }
+      } catch (e) {
+        logger.error('[Auth] Unexpected error during session init:', e);
       }
 
-      if (session) {
-        logger.info('Session found on init:', session.user.email);
-        this.handleAuthChange(session.user);
-      } else {
-        logger.debug('No session found on init');
+      try {
+        const supabase = await this.ensureSupabase();
+        supabase.auth.onAuthStateChange((event, session) => {
+          logger.debug('Auth state changed:', event, session?.user?.email);
+          this.handleAuthChange(session?.user ?? null);
+        });
+      } catch (e) {
+        logger.error('[Auth] Failed to bind auth state listener:', e);
       }
-    } catch (e) {
-      logger.error('[Auth] Unexpected error during session init:', e);
+    } finally {
+      if (!this.authReadyState()) {
+        this.authReadyState.set(true);
+        this.authReadyResolve?.();
+        this.authReadyResolve = null;
+      }
     }
+  }
 
-    const supabase = await this.ensureSupabase();
-    supabase.auth.onAuthStateChange((event, session) => {
-      logger.debug('Auth state changed:', event, session?.user?.email);
-      this.handleAuthChange(session?.user ?? null);
-    });
+  waitForAuthReady() {
+    if (this.authReadyState()) {
+      return Promise.resolve();
+    }
+    return this.authReadyPromise;
   }
 
   private handleAuthChange(supabaseUser: SupabaseUser | null) {
