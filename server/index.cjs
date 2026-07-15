@@ -18,6 +18,8 @@ const deployCommit =
   || process.env.GITHUB_SHA
   || '';
 const deployVersion = `${pkg.version}+${Math.floor(serverStartedAt.getTime() / 1000)}`;
+const SUPABASE_PLACEHOLDER_REGEX = /"supabaseKey"\s*:\s*"\*+"|supabaseKey\s*:\s*"\*+"/;
+const placeholderJsFiles = new Set();
 
 // Environment validation (fail fast in production for critical secrets)
 if (process.env.NODE_ENV === 'production') {
@@ -37,11 +39,13 @@ if (process.env.NODE_ENV === 'production') {
   if (!process.env.STRIPE_SECRET_KEY) console.warn('[ENV WARNING] STRIPE_SECRET_KEY not set');
 }
 
-// Global Request Logger (to see exactly what hits the server)
-app.use((req, res, next) => {
-  console.log(`[DEBUG LOG] ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`);
-  next();
-});
+// Request logging can significantly slow production traffic; keep it opt-in there.
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_REQUEST_LOGS === 'true') {
+  app.use((req, res, next) => {
+    console.log(`[DEBUG LOG] ${new Date().toLocaleTimeString()} - ${req.method} ${req.url}`);
+    next();
+  });
+}
 
 app.use(cors());
 app.options(/.*/, cors()); // Enable pre-flight across-the-board
@@ -91,12 +95,37 @@ app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 
 // Serve Angular static files from the dist directory
 const distPath = path.join(__dirname, '../dist/BreadApp/browser');
+const HASHED_ASSET_REGEX = /-[A-Za-z0-9]{8,}\.(?:js|css|mjs)$/;
+
+// Detect which JS bundles actually contain the masked supabase placeholder so we only rewrite those files.
+(() => {
+  try {
+    if (!fs.existsSync(distPath)) return;
+    const entries = fs.readdirSync(distPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
+      const absolutePath = path.join(distPath, entry.name);
+      const data = fs.readFileSync(absolutePath, 'utf8');
+      if (SUPABASE_PLACEHOLDER_REGEX.test(data)) {
+        placeholderJsFiles.add(entry.name);
+      }
+    }
+    if (placeholderJsFiles.size > 0) {
+      console.log(`[JS Rewrite] Placeholder detected in: ${Array.from(placeholderJsFiles).join(', ')}`);
+    }
+  } catch (error) {
+    console.warn('[JS Rewrite] Failed to pre-scan JS bundles:', error.message);
+  }
+})();
 
 // Middleware to rewrite build-time placeholders (like masked supabaseKey) with runtime env values
 // This runs BEFORE express.static to intercept and modify files
 app.use((req, res, next) => {
   if (req.method === 'GET' && req.path.endsWith('.js')) {
-    const filePath = path.join(distPath, req.path);
+    const requestedFile = req.path.replace(/^\//, '');
+    if (!placeholderJsFiles.has(requestedFile)) return next();
+
+    const filePath = path.join(distPath, requestedFile);
     // Prevent directory traversal
     if (!filePath.startsWith(distPath)) return next();
     fs.readFile(filePath, 'utf8', (err, data) => {
@@ -110,7 +139,8 @@ app.use((req, res, next) => {
       let replaced = data.replace(/"supabaseKey"\s*:\s*"\*+"/g, `"supabaseKey":"${realKey}"`);
       replaced = replaced.replace(/supabaseKey\s*:\s*"\*+"/g, `supabaseKey:"${realKey}"`);
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      // Patched JS depends on runtime env values, so keep this short-lived.
+      res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
       if (replaced !== data) {
         console.log(`[JS Rewrite] ✅ Injected real SUPABASE_KEY into ${req.path}`);
         return res.send(replaced);
@@ -124,12 +154,24 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(distPath, {
-  maxAge: 0,
+  maxAge: '1y',
   etag: true,
-  setHeaders: (res, _filePath) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+  setHeaders: (res, filePath) => {
+    const filename = path.basename(filePath);
+    if (filename === 'index.html') {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      return;
+    }
+
+    if (HASHED_ASSET_REGEX.test(filename)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return;
+    }
+
+    // Manifest/favicon and other non-hashed assets get modest caching.
+    res.setHeader('Cache-Control', 'public, max-age=3600');
   }
 }));
 
@@ -138,6 +180,9 @@ app.use(express.static(distPath, {
 app.use((req, res, next) => {
   // If it's not an API route and doesn't have a file extension, it's an Angular route
   if (!req.path.startsWith('/api') && !req.path.match(/\.[a-zA-Z0-9]+$/)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(path.join(distPath, 'index.html'));
   } else {
     next();
