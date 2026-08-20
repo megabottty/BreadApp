@@ -65,6 +65,11 @@
 
     <div class="footer-bottom">
       <p>&copy; 2026 {{tenantService.tenant()?.name || 'BreadApp Business'}}. Powered by 📈 BreadApp Tech.</p>
+      <nav class="legal-links" aria-label="Legal">
+        <a routerLink="/terms">Terms of Service</a>
+        <span aria-hidden="true">•</span>
+        <a routerLink="/privacy">Privacy Policy</a>
+      </nav>
     </div>
   </div>
 </footer>

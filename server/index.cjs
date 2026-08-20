@@ -128,10 +128,19 @@ app.use('/api/payments/create-setup-session', sensitiveLimiter);
 // Specifically mount the webhook route BEFORE global body parser
 // This is critical for Stripe signature verification
 const paymentRoutes = require('./routes/payments.cjs');
-app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentRoutes);
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+const jsonParser = bodyParser.json({ limit: '50mb' });
+app.use((req, res, next) => {
+  if (req.path === '/api/payments/webhook') return next();
+  return jsonParser(req, res, next);
+});
+
+const urlencodedParser = bodyParser.urlencoded({ limit: '50mb', extended: true });
+app.use((req, res, next) => {
+  if (req.path === '/api/payments/webhook') return next();
+  return urlencodedParser(req, res, next);
+});
 
 // Health Check Endpoint (publicly accessible)
 app.get('/api/ping', (req, res) => {
@@ -140,6 +149,7 @@ app.get('/api/ping', (req, res) => {
 
 // Version / deployment info endpoint
 app.get('/api/version', (req, res) => {
+  const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
   res.status(200).json({
     version: deployVersion,
     appVersion: pkg.version,
@@ -147,18 +157,35 @@ app.get('/api/version', (req, res) => {
     deployedAt: serverStartedAt.toISOString(),
     commit: deployCommit || null,
     nodeEnv: process.env.NODE_ENV || 'development',
-    stripeMode: (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_live') ? 'live' : 'test',
+    stripeMode: stripeSecret.startsWith('sk_live') ? 'live' : 'test',
+    integrations: {
+      stripeConfigured: Boolean(stripeSecret),
+      stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      stripePublicKeyConfigured: Boolean(process.env.STRIPE_PUBLIC_KEY),
+      twilioConfigured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
+      smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
+    }
   });
 });
 
 app.get('/api/config', (_req, res) => {
+  const configuredSupabasePublicKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '';
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY || '';
+  const safeSupabaseKey = configuredSupabasePublicKey && configuredSupabasePublicKey === serviceKey
+    ? ''
+    : configuredSupabasePublicKey;
+
+  if (configuredSupabasePublicKey && configuredSupabasePublicKey === serviceKey) {
+    console.error('[ENV ERROR] SUPABASE public key is misconfigured and matches SUPABASE_SERVICE_KEY. Refusing to expose it via /api/config.');
+  }
+
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).json({
     siteMode,
     apiUrl: '/api',
     frontendUrl,
     supabaseUrl: process.env.SUPABASE_URL || '',
-    supabaseKey: process.env.SUPABASE_KEY || '',
+    supabaseKey: safeSupabaseKey,
     stripePublicKey: process.env.STRIPE_PUBLIC_KEY || ''
   });
 });

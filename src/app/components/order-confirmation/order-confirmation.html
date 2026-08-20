@@ -4,6 +4,7 @@
       <div class="loader-icon">⌛</div>
       <h2>Confirming your order...</h2>
       <p>Give us just a moment to pull up your fresh receipt.</p>
+      <p class="retry-hint">Processing payment confirmation — this can take up to 20 seconds.</p>
     </div>
   } @else if (error()) {
     <div class="status-card card error">
@@ -50,7 +51,12 @@
       </div>
 
       <footer>
-        <p>A confirmation SMS has been sent to {{ o.customerPhone || 'your phone' }}.</p>
+        @if (o.notificationPreference === 'SMS' || o.notificationPreference === 'BOTH') {
+          <p>📱 A confirmation SMS has been sent to {{ o.customerPhone }}.</p>
+        }
+        @if (o.notificationPreference === 'EMAIL' || o.notificationPreference === 'BOTH') {
+          <p>📧 A confirmation email has been sent to {{ o.customerEmail }}.</p>
+        }
         <p class="hint">We'll notify you when your bread is ready for {{ (o.type === 'PICKUP' || !o.type) ? 'pickup' : 'delivery' }}!</p>
         <button class="btn-primary" routerLink="/front">Continue Shopping</button>
       </footer>

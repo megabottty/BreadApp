@@ -33,20 +33,20 @@ See [FEATURES.md](./FEATURES.md) for a full list of capabilities and [TESTING_GU
 
 ### 3. Environment Configuration
 
-Create a `.env` file in the root directory and add your credentials:
+Create a `.env` file in the root directory from `.env.example` and add your credentials:
 
 ```env
-# Supabase Configuration
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_anon_key
-
-# Optional: Payment & Communication
-STRIPE_SECRET_KEY=your_stripe_key
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
+# copy from .env.example first
+cp .env.example .env
 ```
 
-*Note: Also update `src/environments/environment.ts` with your Supabase URL and Key for the frontend.*
+For production, make sure these are set in your host environment:
+- `STRIPE_SECRET_KEY`, `STRIPE_PUBLIC_KEY`, `STRIPE_WEBHOOK_SECRET`
+- `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (if SMS is enabled)
+- `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (if email is enabled)
+
+*Note: Frontend runtime config is served by `/api/config`, so production Stripe/public keys should be set on the server environment.*
 
 ### 4. Installation
 
@@ -102,6 +102,17 @@ npm test
 npm run build
 ```
 This will compile the project and store the build artifacts in the `dist/` directory.
+
+### Soft Launch (Stripe Test Mode)
+
+1. Set `STRIPE_SECRET_KEY=sk_test_...`, `STRIPE_PUBLIC_KEY=pk_test_...`, and `STRIPE_WEBHOOK_SECRET=whsec_...`.
+2. Start server and frontend (`npm run dev`).
+3. Confirm config/status:
+   - `GET /api/version` (includes Stripe mode + integration readiness flags).
+   - `npm run launch:check:test` (fails fast if launch-critical env vars are missing/mismatched).
+4. Test checkout with Stripe test cards:
+   - Success: `4242 4242 4242 4242`
+   - Decline: `4000 0000 0000 0002`
 
 ### PWA Support
 The app is configured as a Progressive Web App. After building for production and serving via HTTPS, users will be prompted to "Install" the app on their devices.

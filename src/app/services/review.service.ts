@@ -16,7 +16,7 @@ export class ReviewService {
   private allReviews = signal<Review[]>([]);
 
   private get headers() {
-    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    const slug = this.tenantService.tenant()?.slug || 'thedailydough';
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
 

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const twilio = require('twilio');
 const { sendEmail } = require('../utils/email.cjs');
+const { normalizePhone } = require('../utils/phone.cjs');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -14,24 +15,29 @@ if (accountSid && authToken) {
 
 router.post('/send-sms', async (req, res) => {
   const { to, message } = req.body;
+  const normalizedTo = normalizePhone(to);
 
   if (!client || !twilioPhoneNumber) {
-    console.log(`[Twilio Mock - Missing Credentials] To: ${to}, Msg: ${message}`);
+    console.log(`[Twilio Mock - Missing Credentials] To: ${normalizedTo || to}, Msg: ${message}`);
     return res.status(200).json({ success: true, mocked: true });
+  }
+
+  if (!normalizedTo) {
+    console.warn(`[Twilio] Invalid/missing phone number: "${to}"`);
+    return res.status(200).json({ success: true, mocked: true, warning: 'Invalid phone number' });
   }
 
   try {
     const response = await client.messages.create({
       body: message,
       from: twilioPhoneNumber,
-      to: to
+      to: normalizedTo
     });
-
+    console.log(`[Twilio] SMS sent to ${normalizedTo}: ${response.sid}`);
     res.json({ success: true, sid: response.sid });
   } catch (error) {
-    // Gracefully handle invalid phone numbers (often from test/mock data)
     if (error.code === 21211 || error.status === 400) {
-      console.warn(`[Twilio Warning] Suppressing error for invalid/mock phone number: ${to}`);
+      console.warn(`[Twilio Warning] Suppressing error for invalid/mock phone number: ${normalizedTo}`);
       return res.status(200).json({ success: true, mocked: true, warning: 'Invalid phone number' });
     }
 

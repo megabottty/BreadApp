@@ -45,19 +45,28 @@ export class OrderConfirmationComponent implements OnInit {
     }
   }
 
+  private retryCount = 0;
+  private readonly maxRetries = 6;
+  private readonly retryDelayMs = 3000;
+
   fetchOrder(id: string) {
     this.cartService.getOrderById(id).subscribe({
       next: (data) => {
         logger.debug('[Confirmation Debug] Received Order Data:', data);
         this.order.set(data);
         this.loading.set(false);
-        // Clear cart now that we've confirmed the order
         this.cartService.clearCart();
       },
       error: (err) => {
-        console.error('Error fetching order:', err);
-        this.loading.set(false);
-        this.error.set('We couldn\'t find your order details, but don\'t worry—if you saw the Stripe success page, your order is being processed!');
+        logger.warn(`[Confirmation] Order fetch attempt ${this.retryCount + 1} failed:`, err?.status);
+        if (this.retryCount < this.maxRetries) {
+          this.retryCount++;
+          setTimeout(() => this.fetchOrder(id), this.retryDelayMs);
+        } else {
+          console.error('Error fetching order after retries:', err);
+          this.loading.set(false);
+          this.error.set('We couldn\'t find your order details, but don\'t worry—if you saw the Stripe success page, your order is being processed!');
+        }
       }
     });
   }

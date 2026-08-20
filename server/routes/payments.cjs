@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
+const { normalizePhone } = require('../utils/phone.cjs');
 
 // Initialize Supabase Client (for webhook order creation)
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -144,6 +145,9 @@ router.post('/webhook', async (req, res) => {
   try {
     // Verify webhook signature
     if (webhookSecret) {
+      if (!sig) {
+        return res.status(400).send('Missing Stripe signature header');
+      }
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } else if (process.env.NODE_ENV === 'production') {
       // In production, reject unverified webhooks to avoid forgery
@@ -152,7 +156,10 @@ router.post('/webhook', async (req, res) => {
     } else {
       // For development without webhook secret (NOT RECOMMENDED in production)
       console.warn('[Stripe Webhook] No webhook secret configured - accepting unverified webhook (development only)');
-      event = JSON.parse(req.body);
+      const payload = Buffer.isBuffer(req.body)
+        ? req.body.toString('utf8')
+        : JSON.stringify(req.body || {});
+      event = JSON.parse(payload);
     }
   } catch (err) {
     console.error(`[Stripe Webhook Error] ${err.message}`);
@@ -305,12 +312,15 @@ router.post('/webhook', async (req, res) => {
       } else {
         console.log('[Stripe Webhook] Order saved successfully:', data?.[0]?.id);
 
-        // Send customer notification via Twilio if phone is present
-        if (twilioClient && newOrder.customerPhone && newOrder.notificationPreference !== 'EMAIL') {
+        // Send customer confirmation SMS
+        const shouldSendSms = (newOrder.notificationPreference === 'SMS' || newOrder.notificationPreference === 'BOTH');
+        const normalizedPhone = normalizePhone(newOrder.customerPhone);
+        if (twilioClient && shouldSendSms && normalizedPhone) {
+          console.log(`[Twilio] Sending SMS to normalized number: ${normalizedPhone}`);
           twilioClient.messages.create({
             body: `Hi ${newOrder.customerName}, thanks for your order #${newOrder.id}! We'll notify you when it's ready.`,
             from: twilioPhoneNumber,
-            to: newOrder.customerPhone
+            to: normalizedPhone
           }).then(message => console.log(`[Twilio] SMS sent: ${message.sid}`))
             .catch(e => console.error('[Twilio Error]', e.message));
         }

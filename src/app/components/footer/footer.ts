@@ -5,11 +5,12 @@ import { TenantService } from '../../services/tenant.service';
 import { DomSanitizer } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-footer',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './footer.html',
   styleUrls: ['./footer.css'],
   changeDetection: ChangeDetectionStrategy.OnPush

@@ -14,7 +14,9 @@
     "lint:ci": "eslint \"src/**/*.{ts,js}\" \"server/**/*.{ts,cjs}\"",
     "server": "node server/index.cjs",
     "dev": "concurrently \"npm run server\" \"npm start\"",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "launch:check:test": "node server/scripts/launch-readiness.cjs --mode=test",
+    "launch:check:live": "node server/scripts/launch-readiness.cjs --mode=live"
   },
   "prettier": {
     "printWidth": 100,
