@@ -28,6 +28,11 @@ export class ProductCustomizationModalComponent {
 
     const productName = (product.name || '').toLowerCase();
     const isMonkeyBread = productName.includes('monkey');
+    // Match "roll"/"rolls" as a whole word only, so bread names like
+    // "Rolled in Oats Sourdough Bread" (which contain "roll" as a substring
+    // of "Rolled") don't get misidentified as cinnamon rolls.
+    const isRollProduct = /\brolls?\b/.test(productName);
+    const isBreadProduct = product.category === 'BREAD' || productName.includes('bread') || productName.includes('loaf');
 
     let addons: any[] = [];
 
@@ -38,17 +43,19 @@ export class ProductCustomizationModalComponent {
         selected: false
       }));
     }
-    // 2. Otherwise use fallback logic based on category/name
+    // 2. Otherwise use fallback logic based on category/name.
+    // Check bread first since it's the more specific/reliable signal (category-backed);
+    // this also prevents "Rolled in ... Bread" from matching the roll branch below.
     else {
-      if (productName.includes('roll')) {
-        addons = [
-          { name: 'Extra Frosting', price: 1.50, selected: false },
-          { name: 'Warm it up', price: 0, selected: false }
-        ];
-      } else if (product.category === 'BREAD' || productName.includes('bread') || productName.includes('loaf')) {
+      if (isBreadProduct && !isRollProduct) {
         addons = [
           { name: 'Sliced', price: 2.00, selected: false },
           { name: 'Double Baked (Extra Crusty)', price: 1.00, selected: false }
+        ];
+      } else if (isRollProduct) {
+        addons = [
+          { name: 'Extra Frosting', price: 1.50, selected: false },
+          { name: 'Warm it up', price: 0, selected: false }
         ];
       }
     }

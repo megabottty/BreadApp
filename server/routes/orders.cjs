@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
+const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 
 // Initialize Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -463,8 +464,12 @@ router.post('/recipes', async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
-  const recipe = req.body;
+  let recipe = req.body;
   try {
+    // Convert any base64 inline photos to hosted Supabase Storage URLs before
+    // saving, so the DB/API never has to carry raw image bytes as text.
+    recipe = await externalizeRecipeImages(supabase, recipe, { tenantId: req.tenantId || 'shared' });
+
     console.log('[Supabase Debug] Attempting to save recipe:', recipe.name, 'for tenant:', req.tenantId);
     const { data, error } = await supabase
       .from('bakery_recipes')
