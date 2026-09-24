@@ -3,7 +3,7 @@
     <div class="footer-grid">
       <!-- About / Contact Info -->
       <div class="footer-section info">
-        <h3>{{tenantService.tenant()?.name || 'BreadApp Business'}}</h3>
+        <h2>{{tenantService.tenant()?.name || 'BreadApp Business'}}</h2>
         <p class="bakery-desc">
           {{tenantService.tenant()?.description || 'Professional consulting and management solutions for small businesses.'}}
         </p>
@@ -20,7 +20,7 @@
 
       <!-- Contact Form -->
       <div class="footer-section contact-form">
-        <h3>Contact Us</h3>
+        <h2>Contact Us</h2>
         @if (submitSuccess()) {
           <div class="success-message" role="status">
             <p>🥖 Message received! We'll get back to you soon.</p>
@@ -48,7 +48,7 @@
 
       <!-- Map -->
       <div class="footer-section map">
-        <h3>Our Location</h3>
+        <h2>Our Location</h2>
         <div class="map-container">
           <iframe
             [src]="displayMapUrl()"

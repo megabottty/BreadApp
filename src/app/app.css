@@ -351,7 +351,7 @@
   top: -40px;
   left: 0;
   background: var(--accent-primary, #d4a373);
-  color: white;
+  color: #1a1208;
   padding: 8px;
   z-index: 2000;
   transition: top 0.3s;

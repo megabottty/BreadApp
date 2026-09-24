@@ -216,9 +216,11 @@ app.use(express.static(distPath, {
   setHeaders: (res, filePath) => {
     const filename = path.basename(filePath);
     if (filename === 'index.html') {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      // "no-cache" forces revalidation on every load (so deploys are picked up immediately)
+      // without the "no-store" directive, which would otherwise disable the
+      // browser's back/forward cache for every page on the site.
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
       return;
     }
 
@@ -237,9 +239,9 @@ app.use(express.static(distPath, {
 app.use((req, res, next) => {
   // If it's not an API route and doesn't have a file extension, it's an Angular route
   if (!req.path.startsWith('/api') && !req.path.match(/\.[a-zA-Z0-9]+$/)) {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    // See comment above: "no-store" would disable back/forward cache site-wide.
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
     res.sendFile(path.join(distPath, 'index.html'));
   } else {
     next();

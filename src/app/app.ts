@@ -10,7 +10,6 @@ import { ProductCustomizationModalComponent } from './components/product-customi
 import { FooterComponent } from './components/footer/footer';
 import { InstallPromptComponent } from './components/install-prompt/install-prompt';
 import { PwaService } from './services/pwa.service';
-import { SplashScreenComponent } from './components/splash-screen/splash-screen';
 import { ToastContainerComponent } from './components/toast-container/toast-container';
 import { FormsModule } from '@angular/forms';
 
@@ -26,7 +25,6 @@ import { FormsModule } from '@angular/forms';
     ProductCustomizationModalComponent,
     FooterComponent,
     InstallPromptComponent,
-    SplashScreenComponent,
     ToastContainerComponent,
     FormsModule
   ],
