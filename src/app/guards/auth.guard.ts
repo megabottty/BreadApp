@@ -65,11 +65,16 @@ export const storefrontAdminGuard: CanActivateFn = async (_route, _state) => {
   const authService = inject(AuthService);
   const runtimeConfig = inject(RuntimeConfigService);
   const router = inject(Router);
-  await authService.waitForAuthReady();
 
+  // Check public mode first: it's already resolved synchronously via the
+  // APP_INITIALIZER (see app.config.ts) and lets public storefront visitors
+  // render immediately without waiting on the (much slower) Supabase auth
+  // session check below, which only matters for admin-preview mode.
   if (runtimeConfig.isPublicMode()) {
     return true;
   }
+
+  await authService.waitForAuthReady();
 
   if (authService.isAuthenticated() && authService.isBaker()) {
     return true;
