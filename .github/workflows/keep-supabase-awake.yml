@@ -2,7 +2,7 @@ name: Keep App and Supabase Awake
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Runs every 6 hours
+    - cron: '*/10 * * * *' # Every 10 minutes, to stay under Render's free-tier ~15 min idle sleep
   workflow_dispatch: # Allows manual triggering for testing
 
 jobs:
