@@ -504,7 +504,9 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
             const canvas = document.createElement('canvas');
             let width = img.width;
             let height = img.height;
-            const max_size = 1200;
+            // Storefront cards display images at ~400px wide; 800px covers
+            // retina (2x) displays without shipping oversized files.
+            const max_size = 800;
 
             if (width > height) {
               if (width > max_size) {
