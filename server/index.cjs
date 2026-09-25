@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -209,6 +210,11 @@ app.use('/api/notifications-scheduler', notificationSchedulerRoutes);
 
 // Serve Angular static files from the dist directory
 const distPath = path.join(__dirname, '../dist/BreadApp/browser');
+// With Angular's server output mode the client-rendered shell is emitted as
+// index.csr.html (index.html only exists in browser-only builds).
+const spaIndexPath = ['index.csr.html', 'index.html']
+  .map((name) => path.join(distPath, name))
+  .find((candidate) => fs.existsSync(candidate)) || path.join(distPath, 'index.html');
 const HASHED_ASSET_REGEX = /-[A-Za-z0-9]{8,}\.(?:js|css|mjs)$/;
 
 app.use(express.static(distPath, {
@@ -216,7 +222,7 @@ app.use(express.static(distPath, {
   etag: true,
   setHeaders: (res, filePath) => {
     const filename = path.basename(filePath);
-    if (filename === 'index.html') {
+    if (filename === 'index.html' || filename === 'index.csr.html') {
       // "no-cache" forces revalidation on every load (so deploys are picked up immediately)
       // without the "no-store" directive, which would otherwise disable the
       // browser's back/forward cache for every page on the site.
@@ -282,7 +288,7 @@ app.use((req, res, next) => {
     // See comment above: "no-store" would disable back/forward cache site-wide.
     res.setHeader('Cache-Control', 'no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
-    res.sendFile(path.join(distPath, 'index.html'));
+    res.sendFile(spaIndexPath);
   } else {
     next();
   }
