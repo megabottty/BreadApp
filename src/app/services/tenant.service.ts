@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, REQUEST } from '@angular/core';
 import { HttpClient, HttpContext, HttpContextToken } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { logger } from '../utils/logger';
@@ -42,12 +42,37 @@ export class TenantService {
     this.identifyTenant();
   }
 
+  /**
+   * Host + path of the current page: from `window` in the browser, or from the
+   * incoming request during server-side rendering (so SSR can load the tenant
+   * and products instead of leaving the storefront empty until the client boots).
+   */
+  private resolveLocation(): { host: string; path: string } | null {
+    if (typeof window !== 'undefined') {
+      return { host: window.location.hostname, path: window.location.pathname };
+    }
+    const request = inject(REQUEST, { optional: true });
+    if (!request) return null;
+    try {
+      const url = new URL(request.url);
+      return { host: url.hostname, path: url.pathname };
+    } catch {
+      return null;
+    }
+  }
+
+  private isAngularDevServer(): boolean {
+    if (typeof window === 'undefined') return false;
+    const { hostname, port, search } = window.location;
+    return hostname === 'localhost' && port === '4200' && !search.includes('e2e=1');
+  }
+
   private identifyTenant() {
-    if (typeof window === 'undefined') return;
+    const location = this.resolveLocation();
+    if (!location) return;
 
     // Logic to identify tenant from URL
-    const host = window.location.hostname;
-    const path = window.location.pathname;
+    const { host, path } = location;
 
     let slug = 'thedailydough'; // Updated default to match registered slug
 
@@ -117,8 +142,10 @@ export class TenantService {
     logger.info(`[TenantService] Loading info for slug: ${slug}`);
 
     // Use absolute URL if on localhost to ensure we hit the backend
-    const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
-    const url = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !isE2E)
+    // Only the `ng serve` dev server (port 4200) needs the absolute backend
+    // URL; when Express serves the app itself, the relative URL works — and
+    // matches the SSR transfer-cache key so hydration reuses the SSR data.
+    const url = this.isAngularDevServer()
       ? `http://localhost:3000/api/orders/info`
       : `${this.apiUrl}/orders/info`;
 
@@ -169,8 +196,10 @@ export class TenantService {
   }
 
   updateTenant(id: string, updates: Partial<Tenant>) {
-    const isE2E = typeof window !== 'undefined' && window.location.search.includes('e2e=1');
-    const url = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !isE2E)
+    // Only the `ng serve` dev server (port 4200) needs the absolute backend
+    // URL; when Express serves the app itself, the relative URL works — and
+    // matches the SSR transfer-cache key so hydration reuses the SSR data.
+    const url = this.isAngularDevServer()
       ? `http://localhost:3000/api/orders/info`
       : `${this.apiUrl}/orders/info`;
 

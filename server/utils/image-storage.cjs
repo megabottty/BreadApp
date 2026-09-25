@@ -3,6 +3,38 @@ const crypto = require('crypto');
 const BUCKET = 'recipe-images';
 const DATA_URL_REGEX = /^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/;
 
+// Product photos render in a ~400x250 card (up to ~800px on high-DPI phones),
+// so anything larger is wasted bytes. WebP at this quality is typically a
+// third the size of the JPEGs the app used to store.
+const MAX_IMAGE_WIDTH = 800;
+const WEBP_QUALITY = 75;
+
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('[Image Storage] sharp unavailable, images will be stored unoptimized:', e.message);
+}
+
+/**
+ * Resize to at most MAX_IMAGE_WIDTH wide and convert to WebP. Returns the
+ * original buffer/extension if sharp is missing or the image can't be decoded.
+ */
+async function optimizeImageBuffer(buffer, extension) {
+  if (!sharp) return { buffer, extension, contentType: `image/${extension}` };
+  try {
+    const optimized = await sharp(buffer)
+      .rotate() // honor EXIF orientation from phone cameras
+      .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer();
+    return { buffer: optimized, extension: 'webp', contentType: 'image/webp' };
+  } catch (e) {
+    console.warn('[Image Storage] Optimization failed, storing original:', e.message);
+    return { buffer, extension, contentType: `image/${extension}` };
+  }
+}
+
 /**
  * Uploads a base64 data: URL image to Supabase Storage and returns its public URL.
  * Non-data-URL strings (already-hosted URLs) are returned unchanged.
@@ -14,14 +46,14 @@ async function uploadInlineImage(supabase, dataUrl, { tenantId = 'shared' } = {}
   if (!match) return dataUrl; // Not a base64 image (already a hosted URL) - leave as-is.
 
   const [, ext, base64Payload] = match;
-  const buffer = Buffer.from(base64Payload, 'base64');
-  const extension = ext === 'jpg' ? 'jpeg' : ext;
+  const original = Buffer.from(base64Payload, 'base64');
+  const { buffer, extension, contentType } = await optimizeImageBuffer(original, ext === 'jpg' ? 'jpeg' : ext);
   const filename = `${tenantId}/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${extension}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(filename, buffer, {
-      contentType: `image/${extension}`,
+      contentType,
       cacheControl: '31536000',
       upsert: false
     });
@@ -55,4 +87,4 @@ async function externalizeRecipeImages(supabase, recipe, { tenantId } = {}) {
   return result;
 }
 
-module.exports = { uploadInlineImage, externalizeRecipeImages, BUCKET };
+module.exports = { uploadInlineImage, externalizeRecipeImages, optimizeImageBuffer, BUCKET };

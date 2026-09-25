@@ -48,6 +48,7 @@ export class RecipeService {
   }
 
   private scheduleOptimizedRecipeCache(recipes: CalculatedRecipe[]) {
+    if (typeof window === 'undefined') return; // no cache during SSR
     const persist = () => {
       if (typeof localStorage === 'undefined') return;
       try {
@@ -57,6 +58,8 @@ export class RecipeService {
       }
     };
 
+    if (typeof window === 'undefined') return; // no cache during SSR
+    if (typeof window === 'undefined') return;
     if ('requestIdleCallback' in window) {
       (window as any).requestIdleCallback(persist);
     } else {
@@ -179,6 +182,7 @@ export class RecipeService {
         // ignore quota errors
       }
     };
+    if (typeof window === 'undefined') return;
     if ('requestIdleCallback' in window) {
       (window as any).requestIdleCallback(persist);
     } else {
