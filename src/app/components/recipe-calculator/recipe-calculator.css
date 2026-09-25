@@ -1,5 +1,12 @@
 :host {
   display: block;
+  /* One source of truth for the ingredient table: the visual column header
+   * and every row must use the same template or they drift out of line.
+   * How Much = 98px amount + 6px gap + 72px unit select; Cost fits
+   * "+ Add price" / "$12.34 (i)"; Actions matches the global 44px button
+   * min-width (the old 40px column overflowed). */
+  --ingredient-cols: minmax(0, 2fr) 176px 128px minmax(112px, 1fr) 44px;
+  --ingredient-gap: 0.75rem;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #4A4A4A;
   background-color: #FAF9F6; /* Off-white cream */
@@ -35,6 +42,13 @@ h1 {
   display: grid;
   grid-template-columns: 1fr;
   gap: 2.5rem;
+}
+
+/* Grid items default to min-width:auto, so the results table used to force
+ * both columns (and the whole page) wider than a phone screen. */
+.grid > .card,
+.grid > .results-column {
+  min-width: 0;
 }
 
 @media (min-width: 992px) {
@@ -282,45 +296,70 @@ textarea:focus {
   font-style: italic;
 }
 
+/* --- Ingredient rows ------------------------------------------------------
+ * Mobile: each row is a card with visible tiny labels.
+ * Desktop (>=768px): a table-like grid under .ingredient-row-header. */
 .ingredient-row {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
   padding: 1rem;
-  background: #fdfdfb;
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   position: relative;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px var(--shadow-color);
 }
 
-@media (min-width: 768px) {
+/* Larger phones: name on its own line, amount and cost side by side,
+ * type on its own line. */
+@media (min-width: 480px) and (max-width: 767.98px) {
   .ingredient-row {
-    gap: 1.25rem;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ingredient-row .search-container,
+  .ingredient-row .input-with-label:last-of-type {
+    grid-column: 1 / -1;
   }
 }
 
-.ingredient-row .search-container input,
-.ingredient-row > input[type="number"],
-.ingredient-row select,
-.ingredient-row .input-with-label input {
+.ingredient-row input[type="text"],
+.ingredient-row input[type="number"],
+.ingredient-row select {
   width: 100%;
   height: 48px;
-  border-radius: 8px;
+  min-width: 0;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  padding: 0 1rem;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  padding: 0 0.75rem;
+}
+
+/* Global styles strip the native arrow (appearance: none), so draw one --
+ * same two-triangle pattern as cart.css, in the theme's sage. */
+.ingredient-row select {
+  cursor: pointer;
+  padding-right: 1.75rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--accent-sage) 50%),
+    linear-gradient(135deg, var(--accent-sage) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 10px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
 }
 
 .ingredient-row-header {
   display: grid;
-  grid-template-columns: 2fr 100px 140px 1fr 40px;
-  gap: 1rem;
+  grid-template-columns: var(--ingredient-cols);
+  gap: var(--ingredient-gap);
   padding: 0 0 0.5rem;
   border-bottom: 2px solid var(--accent-sage);
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   font-weight: 700;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -333,38 +372,72 @@ textarea:focus {
   display: none;
 }
 
-@media (min-width: 768px) {
+/* Table layout (column header + grid rows) needs ~650px. That's true on a
+ * single-column tablet (768-991px) and on wide desktops (>= 1376px); in
+ * between, the page's two-column layout leaves the form panel only
+ * ~500-600px wide, so those widths use the compact card below instead. */
+@media (min-width: 768px) and (max-width: 991.98px), (min-width: 1376px) {
   .desktop-only {
     display: grid;
   }
+}
+
+/* Compact card for the two-column desktop layout: name on its own line,
+ * then amount | cost | type side by side, remove badge on the corner. */
+@media (min-width: 992px) and (max-width: 1375.98px) {
+  .ingredient-row {
+    grid-template-columns: minmax(176px, 1.2fr) minmax(112px, 1fr) minmax(112px, 1fr);
+  }
+
+  .ingredient-row .search-container {
+    grid-column: 1 / -1;
+  }
+}
+
+.search-container {
+  position: relative; /* anchors the search dropdown to the name input, not the whole row */
+  min-width: 0;
 }
 
 .input-with-label {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .amount-unit-group {
   display: flex;
   gap: 6px;
+  align-items: stretch;
 }
 
 .amount-unit-group input {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  padding: 0 0.5rem;
+}
+
+/* The spinner steals ~16px from an already narrow field. */
+.amount-unit-group input::-webkit-outer-spin-button,
+.amount-unit-group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .amount-unit-group select {
-  width: 62px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  padding: 0 0.25rem;
+  flex: 0 0 72px;
+  width: 72px;
+  padding: 0 1.5rem 0 0.5rem;
+  background-position:
+    calc(100% - 14px) calc(50% - 2px),
+    calc(100% - 8px) calc(50% - 2px);
 }
 
 .grams-hint {
+  display: block;
   font-size: 0.75rem;
+  line-height: 1.3;
   color: var(--text-secondary, #4A4A4A);
 }
 
@@ -375,7 +448,7 @@ textarea:focus {
 .density-prompt {
   background: #fff7e6;
   border: 1px solid #ffd591;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -385,13 +458,18 @@ textarea:focus {
 .density-prompt label {
   font-size: 0.7rem;
   font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 0;
   color: #874d00;
 }
 
 .density-prompt input {
   height: 36px;
+  min-height: 36px;
   border-radius: 6px;
   border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-primary);
   padding: 0 0.5rem;
 }
 
@@ -405,37 +483,54 @@ textarea:focus {
 
 .tiny-label-mobile {
   display: block;
+  margin-bottom: 0; /* the component-wide label rule adds .5rem; keep label->control at the 6px flex gap */
 }
 
+/* Remove button. Mobile: a small badge on the card's corner. The explicit
+ * min-width/min-height override the global 44px touch-target rule, which
+ * otherwise makes this "28px" circle render 44px wide. */
 .ingredient-row button.btn-delete-product {
   position: absolute;
   top: -10px;
   right: -10px;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ff4d4f;
-  color: white;
+  background: var(--accent-terracotta);
+  color: #fff;
+  border: 2px solid var(--card-bg);
   border-radius: 50%;
   font-size: 16px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  line-height: 1;
+  box-shadow: 0 2px 6px var(--shadow-color);
   z-index: 2;
-  border: 2px solid white;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
 }
 
-@media (min-width: 768px) {
+.ingredient-row button.btn-delete-product:hover {
+  background: var(--accent-terracotta-dark);
+}
+
+@media (min-width: 768px) and (max-width: 991.98px), (min-width: 1376px) {
   .ingredient-row {
-    grid-template-columns: 2fr 100px 140px 1fr 40px;
-    padding: 0.5rem 0;
+    grid-template-columns: var(--ingredient-cols);
+    gap: var(--ingredient-gap);
+    padding: 0.5rem 0 0.75rem;
+    margin-bottom: 0.5rem;
     background: transparent;
     border: none;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0;
     box-shadow: none;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-    align-items: flex-end;
+    /* start, not end: the grams hint / density prompt grow *below* the
+     * amount field instead of pushing every other cell out of line. */
+    align-items: start;
   }
 
   /* The column header row already shows these labels visually, but the
@@ -456,18 +551,22 @@ textarea:focus {
 
   .ingredient-row button.btn-delete-product {
     position: static;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    margin-top: 2px;
     background: transparent;
     color: var(--text-secondary);
-    box-shadow: none;
-    width: 32px;
-    height: 32px;
     border: none;
-    margin-bottom: 6px;
+    border-radius: var(--radius-md);
+    box-shadow: none;
+    font-size: 1.2rem;
   }
 
   .ingredient-row button.btn-delete-product:hover {
-    color: #ff4d4f;
-    background: #fff1f0;
+    color: var(--accent-terracotta);
+    background: var(--btn-secondary);
   }
 }
 
@@ -476,6 +575,7 @@ textarea:focus {
   top: 100%;
   left: 0;
   right: 0;
+  min-width: 280px; /* may extend past a narrow name column */
   z-index: 10003;
   margin-top: 4px;
   animation: dropdownFadeIn 0.2s ease-out;
@@ -550,9 +650,9 @@ textarea:focus {
   color: var(--text-secondary);
 }
 
-.ingredient-row button.btn-delete-product {
-  box-shadow: none;
-  flex-shrink: 0;
+.search-item-meta-priced {
+  color: var(--accent-sage);
+  font-weight: 600;
 }
 
 
@@ -571,28 +671,6 @@ textarea:focus {
 
 .btn-primary:hover {
   background: var(--accent-sage-dark);
-}
-
-.btn-delete-product {
-  background: #FDF9F7;
-  color: #A65D45;
-  border: 1px solid #F5EAE6;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.btn-delete-product:hover {
-  background: #D88569;
-  color: white;
-  border-color: #D88569;
-  transform: scale(1.05);
 }
 
 .flavor-badge-preview {

@@ -216,8 +216,17 @@ export class TenantService {
 
   private applyBranding(tenant: Tenant) {
     if (typeof document === 'undefined') return;
-    document.documentElement.style.setProperty('--accent-sage', tenant.primary_color);
-    document.documentElement.style.setProperty('--accent-terracotta', tenant.secondary_color);
+    // Only override the theme tokens with a real colour. setProperty with an
+    // undefined/empty value writes the literal string "undefined", which makes
+    // every var(--accent-sage) in the app resolve to nothing (transparent
+    // buttons, missing chevrons) instead of falling back to styles.css.
+    const root = document.documentElement.style;
+    const brand = (token: string, colour: string | null | undefined): void => {
+      if (typeof colour === 'string' && colour.trim()) root.setProperty(token, colour.trim());
+      else root.removeProperty(token);
+    };
+    brand('--accent-sage', tenant.primary_color);
+    brand('--accent-terracotta', tenant.secondary_color);
     // You could also update the favicon or site title here
     document.title = tenant.name + ' | Powered by The Daily Dough';
   }

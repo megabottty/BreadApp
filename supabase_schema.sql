@@ -198,6 +198,23 @@ UPDATE bakery_ingredient_costs
    SET pack_size = bulk_weight, pack_unit = 'g'
  WHERE pack_size IS NULL AND bulk_weight IS NOT NULL;
 
+-- Rows priced before the pantry existed have no normalized_name; the pantry
+-- lookup (server/utils/pantry.cjs savePantryItem) keys on it, so without
+-- this an old ingredient is never found, gets re-INSERTed, and trips
+-- UNIQUE(tenant_id, name). lower(trim(name)) matches normalizeName there
+-- and normalizeIngredientName in src/app/logic/units.ts.
+UPDATE bakery_ingredient_costs
+   SET normalized_name = lower(trim(name))
+ WHERE normalized_name IS NULL;
+
+UPDATE bakery_ingredient_costs
+   SET display_name = name
+ WHERE display_name IS NULL;
+
+-- PostgREST caches the table shape; without this the API keeps reporting
+-- "Could not find the 'display_name' column" until its next restart.
+NOTIFY pgrst, 'reload schema';
+
 -- 8. Forecasts Table
 CREATE TABLE IF NOT EXISTS bakery_forecasts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
