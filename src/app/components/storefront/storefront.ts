@@ -230,12 +230,22 @@ export class StorefrontComponent implements OnInit {
   }
 
   getImageSrcSet(url?: string | null): string {
-    if (!url || !this.isUnsplashImage(url)) return '';
+    if (!url) return '';
+    // Photos uploaded to our storage are stored at 800px with a 400px sibling
+    // named "<name>-400.webp" (see server/utils/image-storage.cjs).
+    if (this.isStoredWebp(url)) {
+      return `${url.replace(/\.webp$/i, '-400.webp')} 400w, ${url} 800w`;
+    }
+    if (!this.isUnsplashImage(url)) return '';
     return [
       `${this.getImageUrl(url, 400)} 400w`,
       `${this.getImageUrl(url, 800)} 800w`,
       `${this.getImageUrl(url, 1200)} 1200w`
     ].join(', ');
+  }
+
+  private isStoredWebp(url: string): boolean {
+    return url.includes('/recipe-images/') && /\.webp$/i.test(url);
   }
 
   loadRecipes(): void {
