@@ -60,10 +60,12 @@ describe('Bakers Math Logic', () => {
     expect(result.nutritionPerItem).toBeUndefined();
   });
 
-  it('computes per-item nutrition when itemWeightGrams is set', () => {
-    const result = calculateBakersMath({ ...sampleRecipe, itemWeightGrams: 430 });
-    expect(result.nutritionPerItem).toBeDefined();
-    expect(result.nutritionPerItem!.calories).toBeCloseTo(result.nutritionPerGram.calories * 430, 6);
-    expect(result.nutritionPerItem!.protein).toBeCloseTo(result.nutritionPerGram.protein * 430, 6);
+  it('treats the batch as one finished item when itemWeightGrams is set', () => {
+    const result = calculateBakersMath({ ...sampleRecipe, itemWeightGrams: 710 });
+    // Whole-item nutrition is the batch total; per baked gram divides by the finished weight
+    expect(result.nutritionPerItem).toEqual(result.totalNutrition);
+    expect(result.nutritionPerBakedGram!.calories).toBeCloseTo(result.totalNutrition.calories / 710, 6);
+    // Baked grams are denser than dough grams, since water bakes off
+    expect(result.nutritionPerBakedGram!.calories).toBeGreaterThan(result.nutritionPerGram.calories);
   });
 });

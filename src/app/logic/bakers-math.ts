@@ -56,7 +56,8 @@ export interface Recipe {
   barcode?: string;
   productType?: 'PHYSICAL' | 'SERVICE' | 'DIGITAL';
   servingSizeGrams?: number;
-  /** Finished (baked) weight of one item — one loaf, one bagel, one cookie. */
+  /** Finished (baked) weight of the one item this recipe makes — one loaf,
+   * one monkey bread, one pack of rolls. The recipe as entered is one item. */
   itemWeightGrams?: number;
   /** Per-product pack pricing. Empty/undefined = sold singly at `price`. */
   packOptions?: PackOption[];
@@ -99,8 +100,18 @@ export interface CalculatedRecipe extends Recipe {
     carbs: number;
     fat: number;
   };
-  /** Nutrition for one whole item, when `itemWeightGrams` is known. */
+  /** Nutrition for the one whole item this recipe makes (= the batch totals),
+   * present when `itemWeightGrams` is known. */
   nutritionPerItem?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  /** Nutrition per gram of the *baked* item (batch totals ÷ finished weight).
+   * More accurate than `nutritionPerGram` for "grams eaten", since dough
+   * loses water in the oven. */
+  nutritionPerBakedGram?: {
     calories: number;
     protein: number;
     carbs: number;
@@ -229,8 +240,18 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     ? scaleNutrition(recipe.servingSizeGrams)
     : undefined;
 
-  const nutritionPerItem = (recipe.itemWeightGrams && recipe.itemWeightGrams > 0 && totalWeight > 0)
-    ? scaleNutrition(recipe.itemWeightGrams)
+  // The recipe as entered makes exactly one finished item, so the whole
+  // batch's nutrition is that item's nutrition; per baked gram divides it by
+  // the finished weight (dough loses ~10-25% as water while baking).
+  const hasItemWeight = !!recipe.itemWeightGrams && recipe.itemWeightGrams > 0 && totalWeight > 0;
+  const nutritionPerItem = hasItemWeight ? { ...totalNutrition } : undefined;
+  const nutritionPerBakedGram = hasItemWeight
+    ? {
+      calories: totalNutrition.calories / recipe.itemWeightGrams!,
+      protein: totalNutrition.protein / recipe.itemWeightGrams!,
+      carbs: totalNutrition.carbs / recipe.itemWeightGrams!,
+      fat: totalNutrition.fat / recipe.itemWeightGrams!,
+    }
     : undefined;
 
   return {
@@ -245,6 +266,7 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     nutritionPerGram,
     nutritionPerServing,
     nutritionPerItem,
+    nutritionPerBakedGram,
     totalCost,
     profitMargin
   };

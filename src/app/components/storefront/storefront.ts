@@ -333,7 +333,9 @@ export class StorefrontComponent implements OnInit {
 
     const servingSizeGrams = fallback.servingSizeGrams || product.servingSizeGrams || 50;
     const itemWeightGrams = fallback.itemWeightGrams || product.itemWeightGrams || undefined;
-    const perGram = fallback.nutritionPerGram || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    // Prefer per-baked-gram (batch ÷ finished weight) so the grams-eaten
+    // calculator reflects what's on the plate, not raw dough.
+    const perGram = fallback.nutritionPerBakedGram || fallback.nutritionPerGram || { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
     if (!perGram.calories) {
       return {
