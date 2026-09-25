@@ -18,7 +18,7 @@ A unified dashboard for managing everything:
 - **POS Terminal**: A touch-optimized Point of Sale interface for in-person sales with instant checkout.
 
 ### 3. Industry-Specific Tools
-- **Bakery Mode**: Professional baker's math calculator, hydration tracking, and oven-optimized "Smart Batching".
+- **Bakery Mode**: Professional baker's math calculator, hydration tracking, oven-optimized "Smart Batching", and a **Pantry** of reusable ingredient prices/units/nutrition shared across every recipe (with per-ingredient cost, missing-price and typo warnings shown right in the calculator).
 - **Retail Mode**: (In Development) Advanced SKU tracking and inventory life-cycle management.
 - **Restaurant Mode**: (In Development) Table management and seating capacity optimization.
 
@@ -74,7 +74,7 @@ Legend: ✅ Implemented · ⚠️ Partial · ❌ Missing/Planned
 | Capacity planning / bottlenecks | ⚠️ Partial | Oven capacity setting + Smart Batching foundations. | No capacity/bottleneck visualization or staffing plan. |
 | Production planning / scheduling | ⚠️ Partial | Orders + prep timeline + recipe prep/bake time. | No schedule builder tied to forecast & constraints. |
 | Financial planning / profit | ⚠️ Partial | Ledger, COGS, profit, margins. | No scenario planning or forward modeling. |
-| Cost reviews | ✅ Implemented | Ledger + recipe costs. | — |
+| Cost reviews | ✅ Implemented | Ledger + per-recipe and per-ingredient costs, driven by a shared **Pantry** of ingredient prices; flags unpriced ingredients and implausible per-gram costs instead of silently reading as $0. | No labor/overhead factored into recipe cost. |
 | Future/Expansion planning | ❌ Missing | — | Requires forecasting + financial modeling + goals. |
 | Market trends | ❌ Missing | — | Needs external data integration. |
 | Sales vs cost trend modeling | ⚠️ Partial | Historic metrics in analytics. | No forward‑looking trend modeling. |
