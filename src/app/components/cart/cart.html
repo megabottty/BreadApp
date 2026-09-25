@@ -155,7 +155,7 @@
 
         <div class="card">
           <h2>Cart Items</h2>
-          @for (item of items(); track item.product.id) {
+          @for (item of items(); track item.lineId) {
             <div class="cart-item">
               <div class="item-info">
                 <h3>{{itemDisplayName(item)}}</h3>
@@ -163,9 +163,9 @@
 
                 @if (getPackOptions(item).length > 0) {
                   <div class="form-group pack-option-group">
-                    <label for="pack-{{item.product.id}}">Pack Option</label>
+                    <label for="pack-{{item.lineId}}">Pack Option</label>
                     <select
-                      id="pack-{{item.product.id}}"
+                      id="pack-{{item.lineId}}"
                       [ngModel]="item.packOption?.id || getPackOptions(item)[0]?.id"
                       (ngModelChange)="onPackChange(item, $event)"
                     >
@@ -188,8 +188,8 @@
                   <p class="item-note"><em>Note: {{item.notes}}</em></p>
                 }
 
-                <label for="subscription-{{item.product.id}}" class="subscription-toggle">
-                  <input type="checkbox" id="subscription-{{item.product.id}}" [checked]="item.isSubscription" (change)="toggleSubscription(item)" [attr.aria-label]="'Enable weekly subscription for ' + item.product.name">
+                <label for="subscription-{{item.lineId}}" class="subscription-toggle">
+                  <input type="checkbox" id="subscription-{{item.lineId}}" [checked]="item.isSubscription" (change)="toggleSubscription(item)" [attr.aria-label]="'Enable weekly subscription for ' + item.product.name">
                   Weekly Subscription
                 </label>
               </div>

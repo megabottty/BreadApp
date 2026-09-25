@@ -242,7 +242,7 @@
             <p class="description">{{product.description || (product.category === 'SPECIAL' ? 'A new creation we are testing in the kitchen. Limited quantities available!' : 'A handcrafted artisanal creation featuring organic ingredients and long fermentation.')}}</p>
 
             <div class="product-footer card-footer">
-              <span class="price">{{ (product.price || 12) | currency }}</span>
+              <span class="price">@if (priceLabel(product).isFrom) {<span class="price-from">from </span>}{{ priceLabel(product).price | currency }}</span>
               <div class="btn-group button-group">
                 @if (authService.isBaker()) {
                   <button type="button" class="btn-edit"
@@ -441,7 +441,7 @@
               <p class="description">{{product.description || (product.category === 'SPECIAL' ? 'A new creation we are testing in the kitchen. Limited quantities available!' : 'A handcrafted artisanal creation featuring organic ingredients and long fermentation.')}}</p>
 
               <div class="product-footer card-footer">
-                <span class="price">{{ (product.price || 12) | currency }}</span>
+                <span class="price">@if (priceLabel(product).isFrom) {<span class="price-from">from </span>}{{ priceLabel(product).price | currency }}</span>
                 <div class="btn-group button-group">
                   @if (authService.isBaker()) {
                     <button type="button" class="btn-edit"
@@ -474,7 +474,7 @@
   @if (selectedProductDetails(); as product) {
     <app-product-details-modal
       [product]="product"
-      [nutrition]="getNutritionDisplay(product)"
+      [nutrition]="selectedProductNutrition()"
       (close)="closeProductDetails()"
       (addToBag)="addToCart($event)">
     </app-product-details-modal>

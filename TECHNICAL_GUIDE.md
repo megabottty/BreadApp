@@ -26,7 +26,9 @@ The core logic resides in `src/app/logic/bakers-math.ts`.
 
 - **Hydration Calculation**: Automatically calculates the "True Hydration" of a recipe based on flour and water weights (including the contribution from the starter).
 - **Ingredient Aggregation**: The `OrdersManager` takes multiple orders for a specific date and runs them through an aggregation algorithm to produce a "Daily Grams Breakdown" for the baker.
-- **Nutrition & Search**: Integrated with the **USDA FoodData Central API** via the `IngredientService`. It provides real-time nutritional data (calories, protein, carbs, fats) for thousands of ingredients during recipe creation.
+- **Nutrition & Search**: The `IngredientService` searches the **USDA FoodData Central API** through the backend proxy `GET /api/orders/ingredients/search?q=` (`server/utils/usda.cjs`, in-memory cache, `USDA_API_KEY`). The browser never calls USDA directly, so CSP/CORS/rate-limit failures don't surface as "unable to connect" errors. Nutrition is stored per ingredient inside `bakery_recipes.ingredients` and survives re-saves.
+- **Customer Nutrition Display**: Nutrition is computed per gram of batch weight (`nutritionPerGram`). When a recipe has `item_weight_grams` (finished weight of one loaf/bagel/cookie), the storefront shows whole-item figures and lets the customer enter how many grams they'll eat.
+- **Pack Options**: Products can carry `pack_options` (`[{id,label,size,price}]`, price is for the whole pack) edited in the recipe calculator. `src/app/logic/pack-options.ts` resolves them, falling back to standard pricing (cookies 1/$3, 6/$10, 12/$20; bagels 4/$12, 8/$20, blueberry +$2) when none are saved.
 
 ### 4. Communication & Notifications
 Powered by **Twilio** with a built-in mock fallback for development.
@@ -61,7 +63,7 @@ When you build the app (`npm run build`), this file is copied to the root of you
 Key tables in the Supabase database:
 
 - `bakery_tenants`: Master list of bakeries. Stores branding (colors, logo), settings (`oven_capacity`, `default_bake_temp`, `default_bake_time`), and subscription status.
-- `bakery_recipes`: Product definitions, ingredients (JSONB), prices, and production metadata (`prep_time_minutes`, `bake_time_minutes`).
+- `bakery_recipes`: Product definitions, ingredients (JSONB, each with optional `nutrition`), prices, `pack_options` (JSONB), `serving_size_grams`, `item_weight_grams`, and production metadata (`prep_time_minutes`, `bake_time_minutes`).
 - `bakery_orders`: Transactional records. Includes `fulfillment_type` (Pickup/Shipping), `order_source` (Online/Phone/Walk-in), and `promo_code`.
 - `bakery_reviews`: Customer feedback and star ratings with baker reply support.
 - `bakery_subscriptions`: Recurring weekly order schedules for customers.
@@ -77,6 +79,7 @@ The Node.js server (`server/index.js`) exposes several key routes under the `/ap
 
 - **Orders & Tenants**: `GET /api/orders` (all orders for tenant), `POST /api/orders` (place order), `GET /api/orders/info` (tenant branding/settings).
 - **Recipes**: `GET /api/orders/recipes` (catalog), `POST /api/orders/recipes` (save recipe).
+- **Ingredients**: `GET /api/orders/ingredients/search?q=` (USDA nutrition lookup proxy), `GET/POST /api/orders/ingredients/costs`.
 - **Promos**: `GET /api/orders/promos/all`, `POST /api/orders/promos`, `DELETE /api/orders/promos/:id`.
 - **Notifications**: `POST /api/notifications/send-sms`.
 - **Onboarding**: `POST /api/orders/register-bakery`.
@@ -91,7 +94,10 @@ To enable full functionality, ensure your `.env` file includes the following:
 - `SUPABASE_URL`: Your project URL.
 - `SUPABASE_KEY`: Your service_role or anon key.
 
-### 2. Notifications (Twilio)
+### 2. Ingredient Search (USDA)
+- `USDA_API_KEY`: FoodData Central key (free at https://fdc.nal.usda.gov/api-key-signup). Falls back to `DEMO_KEY`, which is limited to ~30 requests/hour.
+
+### 3. Notifications (Twilio)
 - `TWILIO_ACCOUNT_SID`: Your account SID.
 - `TWILIO_AUTH_TOKEN`: Your auth token.
 - `TWILIO_PHONE_NUMBER`: Your Twilio number.

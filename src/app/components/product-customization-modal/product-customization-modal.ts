@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
@@ -20,6 +20,13 @@ export class ProductCustomizationModalComponent {
   quantity = signal<number>(1);
   packOptions = signal<PackOption[]>([]);
   selectedPackId = signal<string>('');
+
+  /** Price shown in the header: the selected pack's price, or the base price when there are no packs. */
+  displayPrice = computed(() => {
+    const pack = this.packOptions().find(option => option.id === this.selectedPackId());
+    if (pack) return pack.price;
+    return this.modalService.activeModal()?.product?.price || 0;
+  });
 
   // Fetch add-ons from product data
   getAddOns() {

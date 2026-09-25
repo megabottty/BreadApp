@@ -51,4 +51,19 @@ describe('Bakers Math Logic', () => {
     expect(flourIng?.weight).toBe(900);
     expect(waterIng?.weight).toBe(600);
   });
+
+  it('computes nutrition per gram from batch totals', () => {
+    const result = calculateBakersMath(sampleRecipe);
+    // Batch weight = 450 + 300 + 100 + 10 = 860g
+    expect(result.totalWeightGrams).toBe(860);
+    expect(result.nutritionPerGram.calories).toBeCloseTo(result.totalNutrition.calories / 860, 6);
+    expect(result.nutritionPerItem).toBeUndefined();
+  });
+
+  it('computes per-item nutrition when itemWeightGrams is set', () => {
+    const result = calculateBakersMath({ ...sampleRecipe, itemWeightGrams: 430 });
+    expect(result.nutritionPerItem).toBeDefined();
+    expect(result.nutritionPerItem!.calories).toBeCloseTo(result.nutritionPerGram.calories * 430, 6);
+    expect(result.nutritionPerItem!.protein).toBeCloseTo(result.nutritionPerGram.protein * 430, 6);
+  });
 });

@@ -5,6 +5,7 @@ import { CommonModule, CurrencyPipe, TitleCasePipe, DatePipe, PercentPipe, NgOpt
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { CalculatedRecipe, RecipeCategory, FlavorProfile, Review, calculateBakersMath } from '../../logic/bakers-math';
+import { getStartingPrice } from '../../logic/pack-options';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewService } from '../../services/review.service';
@@ -16,6 +17,18 @@ import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
 import { RecipeService } from '../../services/recipe.service';
 import { logger } from '../../utils/logger';
+
+export interface ProductNutritionDisplay {
+  hasData: boolean;
+  label: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  perGram: { calories: number; protein: number; carbs: number; fat: number };
+  servingSizeGrams: number;
+  itemWeightGrams?: number;
+}
 
 @Component({
   selector: 'app-storefront',
@@ -43,6 +56,12 @@ export class StorefrontComponent implements OnInit {
 
   selectedProductForReview = signal<CalculatedRecipe | null>(null);
   selectedProductDetails = signal<CalculatedRecipe | null>(null);
+  // Computed once per selected product (not once per change-detection pass),
+  // so the details modal's grams input isn't reset on every re-render.
+  selectedProductNutrition = computed(() => {
+    const product = this.selectedProductDetails();
+    return product ? this.getNutritionDisplay(product) : null;
+  });
   showReviewsForProduct = signal<string | null>(null);
   showSubscriptionInfo = signal(false);
   searchTerm = signal('');
@@ -163,10 +182,13 @@ export class StorefrontComponent implements OnInit {
       averageRating: r.averageRating,
       isHidden: r.isHidden,
       servingSizeGrams: r.servingSizeGrams,
+      itemWeightGrams: r.itemWeightGrams,
+      packOptions: r.packOptions,
       ingredients: r.ingredients?.map(ing => ({
         name: ing.name,
         weight: ing.weight,
-        type: ing.type
+        type: ing.type,
+        nutrition: ing.nutrition
       }))
     }));
   }
@@ -292,19 +314,16 @@ export class StorefrontComponent implements OnInit {
     this.selectedProductDetails.set(null);
   }
 
-  getNutritionDisplay(product: CalculatedRecipe): {
-    hasData: boolean;
-    label: string;
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  } {
-    const isCinnamonRoll = (product.name || '').toLowerCase().includes('cinnamon roll');
-    const nutritionDivisor = isCinnamonRoll ? 12 : 1;
-    const nutritionLabel = isCinnamonRoll ? 'Per cinnamon roll (1 of 12)' : null;
+  /** "From $X" when the product has multiple pack sizes, otherwise its price. */
+  priceLabel(product: CalculatedRecipe): { price: number; isFrom: boolean } {
+    return getStartingPrice(product);
+  }
 
+  getNutritionDisplay(product: CalculatedRecipe): ProductNutritionDisplay {
     const hasIngredients = Array.isArray(product.ingredients) && product.ingredients.length > 0;
+    // Recalculate from ingredients if the DB-provided recipe has no nutrition
+    // totals attached (e.g. legacy cached data) — this also gives us the
+    // per-gram basis needed for the "how many grams did you eat?" calculator.
     const fallback = (!product.totalNutrition || product.totalNutrition.calories === 0) && hasIngredients
       ? calculateBakersMath({
         ...product,
@@ -312,45 +331,45 @@ export class StorefrontComponent implements OnInit {
       })
       : product;
 
-    const totalNutrition = fallback.totalNutrition;
-    const perServing = fallback.nutritionPerServing;
+    const servingSizeGrams = fallback.servingSizeGrams || product.servingSizeGrams || 50;
+    const itemWeightGrams = fallback.itemWeightGrams || product.itemWeightGrams || undefined;
+    const perGram = fallback.nutritionPerGram || { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
-    if (perServing && perServing.calories > 0) {
+    if (!perGram.calories) {
       return {
-        hasData: true,
-        label: nutritionLabel || `Per serving (${fallback.servingSizeGrams || product.servingSizeGrams || 50}g)`,
-        calories: perServing.calories / nutritionDivisor,
-        protein: perServing.protein / nutritionDivisor,
-        carbs: perServing.carbs / nutritionDivisor,
-        fat: perServing.fat / nutritionDivisor
+        hasData: false,
+        label: 'Nutrition data unavailable',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        perGram,
+        servingSizeGrams,
+        itemWeightGrams
       };
     }
 
-    if (totalNutrition && totalNutrition.calories > 0) {
-      return {
-        hasData: true,
-        label: nutritionLabel || 'Per whole item',
-        calories: totalNutrition.calories / nutritionDivisor,
-        protein: totalNutrition.protein / nutritionDivisor,
-        carbs: totalNutrition.carbs / nutritionDivisor,
-        fat: totalNutrition.fat / nutritionDivisor
-      };
-    }
-
+    // Headline figures are for one whole item when we know its weight,
+    // otherwise for a standard serving.
+    const headlineGrams = itemWeightGrams || servingSizeGrams;
     return {
-      hasData: false,
-      label: 'Nutrition data unavailable',
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0
+      hasData: true,
+      label: itemWeightGrams ? `Per item (~${itemWeightGrams}g)` : `Per serving (${servingSizeGrams}g)`,
+      calories: perGram.calories * headlineGrams,
+      protein: perGram.protein * headlineGrams,
+      carbs: perGram.carbs * headlineGrams,
+      fat: perGram.fat * headlineGrams,
+      perGram,
+      servingSizeGrams,
+      itemWeightGrams
     };
   }
 
   subscribe(product: CalculatedRecipe): void {
     // Add to cart with subscription pre-toggled
     this.cartService.addToCart(product);
-    this.cartService.toggleSubscription(product.id || '');
+    const line = this.cartService.items().find(item => item.product.id === product.id);
+    if (line) this.cartService.toggleSubscription(line.lineId);
     this.router.navigate(['/cart']);
   }
 

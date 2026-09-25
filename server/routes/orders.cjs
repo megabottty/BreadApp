@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
+const { searchFoods } = require('../utils/usda.cjs');
 
 // Initialize Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -18,6 +19,54 @@ const supabase = (supabaseUrl && supabaseKey)
   : null;
 
 const toDateString = (date) => date.toISOString().split('T')[0];
+
+// Map a bakery_recipes row (snake_case) to the frontend Recipe shape (camelCase).
+// Used by both GET and POST so a freshly saved recipe looks identical to a loaded one.
+const formatRecipeRow = (recipe) => ({
+  id: recipe.id,
+  name: recipe.name,
+  category: recipe.category,
+  price: recipe.price,
+  description: recipe.description,
+  trueHydration: recipe.true_hydration,
+  flavorProfile: recipe.flavor_profile,
+  isHidden: recipe.is_hidden,
+  ingredients: recipe.ingredients,
+  images: recipe.images,
+  available_addons: recipe.available_addons,
+  sku: recipe.sku,
+  barcode: recipe.barcode,
+  product_type: recipe.product_type,
+  prepTimeMinutes: recipe.prep_time_minutes,
+  bakeTimeMinutes: recipe.bake_time_minutes,
+  servingSizeGrams: recipe.serving_size_grams,
+  itemWeightGrams: recipe.item_weight_grams,
+  packOptions: Array.isArray(recipe.pack_options) ? recipe.pack_options : [],
+  createdAt: recipe.created_at
+});
+
+// Normalize admin-entered pack options ({label,size,price}) into the stored shape.
+// Drops invalid rows and de-duplicates by size so the cart never sees two "6-pack"s.
+const sanitizePackOptions = (input) => {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const raw of input) {
+    const size = Number(raw?.size);
+    const price = Number(raw?.price);
+    if (!(size > 0) || !(price >= 0)) continue;
+    const id = size === 1 ? 'single' : `${size}-pack`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push({
+      id,
+      label: String(raw.label || '').trim() || (size === 1 ? 'Single' : `${size} Pack`),
+      size,
+      price
+    });
+  }
+  return result;
+};
 
 const sumQuantities = (items = []) => items.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
@@ -237,30 +286,33 @@ router.get('/recipes', async (req, res) => {
       throw error;
     }
 
-    // Map database snake_case to frontend camelCase
-    const formattedRecipes = data.map(recipe => ({
-      id: recipe.id,
-      name: recipe.name,
-      category: recipe.category,
-      price: recipe.price,
-      description: recipe.description,
-      trueHydration: recipe.true_hydration,
-      flavorProfile: recipe.flavor_profile,
-      isHidden: recipe.is_hidden,
-      ingredients: recipe.ingredients,
-      images: recipe.images,
-      available_addons: recipe.available_addons,
-      sku: recipe.sku,
-      barcode: recipe.barcode,
-      product_type: recipe.product_type,
-      prepTimeMinutes: recipe.prep_time_minutes,
-      bakeTimeMinutes: recipe.bake_time_minutes,
-      createdAt: recipe.created_at
-    }));
+    const formattedRecipes = data.map(formatRecipeRow);
 
     res.json(formattedRecipes);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch recipes' });
+  }
+});
+
+// GET: Ingredient nutrition search (proxies USDA FoodData Central so the
+// browser never calls it directly — avoids CSP/CORS failures and keeps the key
+// server-side). No tenant required; results are the same for everyone.
+router.get('/ingredients/search', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2 || q.length > 80) {
+    return res.status(400).json({ error: 'Search term must be between 2 and 80 characters' });
+  }
+
+  try {
+    const foods = await searchFoods(q, { pageSize: 10 });
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json(foods.map(({ name, nutrition }) => ({ name, nutrition })));
+  } catch (error) {
+    if (error.status === 429) {
+      return res.status(429).json({ error: 'Ingredient search is rate limited right now. Please try again in a minute.' });
+    }
+    console.error('[USDA] Ingredient search failed:', error.message);
+    res.status(502).json({ error: 'Ingredient lookup is temporarily unavailable' });
   }
 });
 
@@ -490,7 +542,10 @@ router.post('/recipes', async (req, res) => {
         barcode: recipe.barcode,
         product_type: recipe.productType || 'PHYSICAL',
         prep_time_minutes: recipe.prepTimeMinutes,
-        bake_time_minutes: recipe.bakeTimeMinutes
+        bake_time_minutes: recipe.bakeTimeMinutes,
+        serving_size_grams: recipe.servingSizeGrams || 50,
+        item_weight_grams: Number(recipe.itemWeightGrams) > 0 ? Math.round(Number(recipe.itemWeightGrams)) : null,
+        pack_options: sanitizePackOptions(recipe.packOptions)
       })
       .select();
 
@@ -499,7 +554,7 @@ router.post('/recipes', async (req, res) => {
       return res.status(500).json({ error: 'Failed to save recipe', details: error.message, code: error.code });
     }
     console.log('[Supabase Debug] Recipe saved successfully:', data[0].id);
-    res.json(data[0]);
+    res.json(formatRecipeRow(data[0]));
   } catch (error) {
     console.error('Error saving recipe:', error);
     res.status(500).json({ error: 'Failed to save recipe', details: error.message, stack: error.stack });

@@ -107,6 +107,82 @@
   font-size: 0.9rem;
 }
 
+.grams-calculator {
+  margin-top: 0.85rem;
+}
+
+.grams-calculator-toggle {
+  width: 100%;
+  background: var(--accent-sage-light, #eef1e8);
+  border: 1px dashed var(--accent-sage-dark);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-sage-dark);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.grams-calculator-toggle:hover {
+  background: var(--accent-sage-light-hover, #e2e7d9);
+}
+
+.grams-calculator-body {
+  margin-top: 0.7rem;
+  padding: 0.8rem;
+  border-radius: 12px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  animation: grams-calc-in 0.15s ease-out;
+}
+
+@keyframes grams-calc-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.grams-calculator-body label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.grams-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.grams-input-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent-sage-dark);
+}
+
+.grams-input-row .grams-number {
+  width: 4.5rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.grams-hint {
+  margin: 0.5rem 0 0.7rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.grams-result div {
+  background: white;
+  border-color: var(--accent-sage-dark);
+}
+
 .details-list {
   list-style: none;
   padding: 0;
@@ -182,4 +258,10 @@
   .details-image {
     height: 380px;
   }
+}
+
+.item-weight-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--color-text-muted, #5f5a54);
 }

@@ -1,13 +1,27 @@
-import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
+import { HttpInterceptorFn, HttpErrorResponse, HttpContextToken } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../services/toast.service';
+import { environment } from '../../environments/environment';
+
+/** Set on a request's HttpContext to suppress the error toast (the caller handles fallback itself). */
+export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
+
+const isAppApiRequest = (url: string): boolean =>
+  url.startsWith(environment.apiUrl) || url.startsWith('/api');
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const toastService = inject(ToastService);
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
+      // Only surface failures from our own backend. Third-party calls (Supabase,
+      // Stripe, etc.) failing must not read as "unable to connect to server".
+      if (!isAppApiRequest(req.url) || req.context.get(SKIP_ERROR_TOAST)) {
+        console.warn('HTTP Error (silent):', req.url, error.status);
+        return throwError(() => error);
+      }
+
       let errorMessage = 'An unexpected error occurred';
 
       if (error.error instanceof ErrorEvent) {

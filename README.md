@@ -28,7 +28,7 @@ See [FEATURES.md](./FEATURES.md) for a full list of capabilities and [TESTING_GU
 
 1. Create a new project in **Supabase**.
 2. Go to the **SQL Editor** in your Supabase dashboard.
-3. Copy the contents of `supabase_schema.sql` from this project and run it to create the necessary tables.
+3. Copy the contents of `supabase_schema.sql` from this project and run it to create the necessary tables. The script is idempotent — re-run it on an existing database to pick up new columns (e.g. `bakery_recipes.serving_size_grams`, `item_weight_grams`, `pack_options`).
 4. Enable **Supabase Auth** and ensure the `role` and `full_name` metadata fields are allowed (standard in Supabase).
 
 ### 3. Environment Configuration

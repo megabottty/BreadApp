@@ -41,7 +41,9 @@ export class RecipeService {
       averageRating: r.averageRating,
       isHidden: r.isHidden,
       servingSizeGrams: r.servingSizeGrams,
-      ingredients: r.ingredients?.map(ing => ({ name: ing.name, weight: ing.weight, type: ing.type }))
+      itemWeightGrams: r.itemWeightGrams,
+      packOptions: r.packOptions,
+      ingredients: r.ingredients?.map(ing => ({ name: ing.name, weight: ing.weight, type: ing.type, nutrition: ing.nutrition }))
     }));
   }
 

@@ -1,8 +1,9 @@
 import { Injectable, signal, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { NutritionData, MOCK_INGREDIENTS_DB } from '../logic/bakers-math';
 import { map, Observable, of, catchError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { SKIP_ERROR_TOAST } from '../interceptors/error.interceptor';
 
 export interface FoodSearchItem {
   name: string;
@@ -42,8 +43,9 @@ export class IngredientService {
     'Baking Soda': { caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 },
   });
 
-  // Use a public API (USDA FoodData Central)
-  // For demo, we search both our local DB and the API.
+  // Searches our local ingredient list plus USDA FoodData Central, which is
+  // proxied through the backend (/api/orders/ingredients/search) so the
+  // browser never calls USDA directly.
   search(term: string): Observable<FoodSearchItem[]> {
     if (!term || term.trim().length < 2) return of([]);
 
@@ -60,34 +62,15 @@ export class IngredientService {
       this.isRateLimited = false;
     }
 
-    // USDA FoodData Central Search API
-    const apiKey = environment.usdaApiKey || 'DEMO_KEY';
-    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(normalizedTerm)}&pageSize=10&api_key=${apiKey}`;
+    const url = `${environment.apiUrl}/orders/ingredients/search?q=${encodeURIComponent(normalizedTerm)}`;
+    // A failed lookup quietly falls back to local results — no error toast.
+    const context = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
-    return this.http.get<any>(url).pipe(
-      map(response => {
-        const apiResults = (response.foods || []).map((food: any) => {
-          // Map USDA nutrients to our NutritionData format
-          const getNutrient = (id: number) => {
-            const n = food.foodNutrients.find((nut: any) => nut.nutrientId === id);
-            return n ? n.value : 0;
-          };
-
-          return {
-            name: food.description,
-            nutrition: {
-              caloriesPer100g: getNutrient(1008), // Energy
-              proteinPer100g: getNutrient(1003),  // Protein
-              carbsPer100g: getNutrient(1005),    // Carbohydrate
-              fatPer100g: getNutrient(1004)       // Total lipid (fat)
-            }
-          };
-        });
-
+    return this.http.get<FoodSearchItem[]>(url, { context }).pipe(
+      map(apiResults => {
         // Combine and de-duplicate (prefer local for common items)
         const combined = [...localResults];
-        apiResults.forEach((apiItem: any) => {
-          // Avoid adding items that are already in local results or duplicates from API
+        (apiResults || []).forEach(apiItem => {
           const isDuplicate = combined.some(c => c.name.toLowerCase() === apiItem.name.toLowerCase());
           if (!isDuplicate) {
             combined.push(apiItem);

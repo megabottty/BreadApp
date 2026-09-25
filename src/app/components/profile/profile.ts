@@ -232,7 +232,9 @@ export class ProfileComponent implements OnInit {
          totalFlour: 500,
          totalWater: 350,
          trueHydration: 0.7,
+         totalWeightGrams: 0,
          totalNutrition: { calories: 1500, protein: 50, carbs: 300, fat: 10 },
+         nutritionPerGram: { calories: 0, protein: 0, carbs: 0, fat: 0 },
          totalCost: 0,
          profitMargin: 0
        };
@@ -260,7 +262,9 @@ export class ProfileComponent implements OnInit {
       totalFlour: 0,
       totalWater: 0,
       trueHydration: product.trueHydration ?? 0,
+      totalWeightGrams: 0,
       totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      nutritionPerGram: { calories: 0, protein: 0, carbs: 0, fat: 0 },
       totalCost: 0,
       profitMargin: 0,
       ratings: product.ratings,

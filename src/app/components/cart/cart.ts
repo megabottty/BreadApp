@@ -116,9 +116,7 @@ export class CartComponent implements OnInit {
   };
 
   updateQuantity(item: CartItem, change: number) {
-    if (item.product.id) {
-      this.cartService.updateQuantity(item.product.id, item.quantity + change);
-    }
+    this.cartService.updateQuantity(item.lineId, item.quantity + change);
   }
 
   getPackOptions(item: CartItem): PackOption[] {
@@ -165,15 +163,11 @@ export class CartComponent implements OnInit {
   }
 
   removeItem(item: CartItem) {
-    if (item.product.id) {
-      this.cartService.removeFromCart(item.product.id);
-    }
+    this.cartService.removeFromCart(item.lineId);
   }
 
   toggleSubscription(item: CartItem) {
-    if (item.product.id) {
-      this.cartService.toggleSubscription(item.product.id);
-    }
+    this.cartService.toggleSubscription(item.lineId);
   }
 
   applyPromo() {
@@ -333,7 +327,9 @@ export class CartComponent implements OnInit {
       name: this.itemDisplayName(item),
       price: this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item),
       quantity: item.quantity,
-      isSubscription: !!item.isSubscription
+      isSubscription: !!item.isSubscription,
+      recipeId: item.product.id,
+      packOptionId: item.packOption?.id
     }));
 
     this.cartService.createCheckoutSession(stripeItems, email, orderId, orderMetadata).subscribe({

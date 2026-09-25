@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { CalculatedRecipe, Order, PromoCode } from '../logic/bakers-math';
+import { CalculatedRecipe, Order, PromoCode, PackOption } from '../logic/bakers-math';
+import { resolvePackOptions } from '../logic/pack-options';
 import { SubscriptionService } from './subscription.service';
 import { AuthService } from './auth.service';
 import { ModalService } from './modal.service';
@@ -10,6 +11,8 @@ import { environment } from '../../environments/environment';
 
 export type FulfillmentType = 'PICKUP' | 'SHIPPING';
 
+export type { PackOption };
+
 export interface CartProduct {
   id?: string;
   name: string;
@@ -17,9 +20,13 @@ export interface CartProduct {
   price?: number;
   trueHydration?: number;
   ingredients?: CalculatedRecipe['ingredients'];
+  packOptions?: PackOption[];
+  itemWeightGrams?: number;
 }
 
 export interface CartItem {
+  /** Unique per cart line, so two packs of the same product can be edited independently. */
+  lineId: string;
   product: CartProduct;
   quantity: number;
   unitWeightGrams?: number;
@@ -27,13 +34,6 @@ export interface CartItem {
   notes?: string;
   selectedOptions?: { name: string; price: number }[];
   packOption?: PackOption;
-}
-
-export interface PackOption {
-  id: string;
-  label: string;
-  size: number;
-  price: number;
 }
 
 @Injectable({
@@ -323,62 +323,40 @@ export class CartService {
           name: product.name,
           category: product.category,
           price: product.price,
-          trueHydration: product.trueHydration
+          trueHydration: product.trueHydration,
+          packOptions: product.packOptions,
+          itemWeightGrams: product.itemWeightGrams
         };
-        updated = [...prev, { product: productSnapshot, quantity, unitWeightGrams, notes, selectedOptions, packOption: resolvedPackOption }];
+        updated = [...prev, { lineId: this.newLineId(), product: productSnapshot, quantity, unitWeightGrams, notes, selectedOptions, packOption: resolvedPackOption }];
       }
       return updated;
     });
   }
 
-  removeFromCart(productId: string) {
-    this.cartItems.update(prev => prev.filter(item => item.product.id !== productId));
+  removeFromCart(lineId: string) {
+    this.cartItems.update(prev => prev.filter(item => item.lineId !== lineId));
   }
 
-  updateQuantity(productId: string, quantity: number) {
+  updateQuantity(lineId: string, quantity: number) {
     if (quantity <= 0) {
-      this.removeFromCart(productId);
+      this.removeFromCart(lineId);
       return;
     }
     this.cartItems.update(prev =>
       prev.map(item =>
-        item.product.id === productId ? { ...item, quantity } : item
+        item.lineId === lineId ? { ...item, quantity } : item
       )
     );
   }
 
   updatePackOption(item: CartItem, packOption: PackOption | null) {
     this.cartItems.update(prev => prev.map(prevItem =>
-      this.isSameCartItem(prevItem, item) ? { ...prevItem, packOption: packOption || undefined } : prevItem
+      prevItem.lineId === item.lineId ? { ...prevItem, packOption: packOption || undefined } : prevItem
     ));
   }
 
   getPackOptions(product: CartProduct | CalculatedRecipe): PackOption[] {
-    if (product.category === 'BAGEL') {
-      return [
-        { id: 'single', label: 'Single Bagel', size: 1, price: 2 },
-        { id: '4-pack', label: '4 Bagels (Pack)', size: 4, price: 8 },
-        { id: '8-pack', label: '8 Bagels (Pack)', size: 8, price: 12 }
-      ];
-    }
-
-    if (product.category === 'COOKIE') {
-      return [
-        { id: 'single', label: 'Single Cookie', size: 1, price: product.price || 0 },
-        { id: '6-pack', label: '6 Cookies (Pack)', size: 6, price: 8 },
-        { id: '13-pack', label: '13 Cookies (Pack)', size: 13, price: 16 }
-      ];
-    }
-
-    if (product.name.toLowerCase().includes('cinnamon roll')) {
-      return [
-        { id: 'single', label: 'Single Cinnamon Roll', size: 1, price: 5 },
-        { id: '2-pack', label: '2 Cinnamon Rolls (Pack)', size: 2, price: 10 },
-        { id: '4-pack', label: '4 Cinnamon Rolls (Pack)', size: 4, price: 18 }
-      ];
-    }
-
-    return [];
+    return resolvePackOptions(product);
   }
 
   getItemUnitPrice(item: CartItem): number {
@@ -407,7 +385,16 @@ export class CartService {
     return item.packOption || this.getPackOptions(item.product)[0];
   }
 
+  private newLineId(): string {
+    const uuid = globalThis.crypto?.randomUUID?.();
+    return uuid || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
   private getUnitWeightFromProduct(product: CartProduct | CalculatedRecipe): number {
+    // Prefer the finished per-item weight; the ingredient sum is the whole batch.
+    if (product.itemWeightGrams && product.itemWeightGrams > 0) {
+      return product.itemWeightGrams;
+    }
     const ingredients = product.ingredients;
     if (!ingredients || ingredients.length === 0) {
       return 0;
@@ -423,10 +410,13 @@ export class CartService {
       category: product.category || 'OTHER',
       price: product.price,
       trueHydration: product.trueHydration,
-      ingredients: product.ingredients
+      ingredients: product.ingredients,
+      packOptions: product.packOptions,
+      itemWeightGrams: product.itemWeightGrams
     };
     return {
       ...item,
+      lineId: item.lineId || this.newLineId(),
       product: normalizedProduct,
       unitWeightGrams: item.unitWeightGrams ?? this.getUnitWeightFromProduct(normalizedProduct)
     };
@@ -441,23 +431,17 @@ export class CartService {
         name: item.product.name,
         category: item.product.category,
         price: item.product.price,
-        trueHydration: item.product.trueHydration
+        trueHydration: item.product.trueHydration,
+        packOptions: item.product.packOptions,
+        itemWeightGrams: item.product.itemWeightGrams
       }
     };
   }
 
-  private isSameCartItem(a: CartItem, b: CartItem): boolean {
-    const sameProduct = (a.product.id && b.product.id && a.product.id === b.product.id) || a.product.name === b.product.name;
-    return sameProduct
-      && a.notes === b.notes
-      && JSON.stringify(a.selectedOptions) === JSON.stringify(b.selectedOptions)
-      && a.packOption?.id === b.packOption?.id;
-  }
-
-  toggleSubscription(productId: string) {
+  toggleSubscription(lineId: string) {
     this.cartItems.update(prev =>
       prev.map(item =>
-        item.product.id === productId
+        item.lineId === lineId
           ? { ...item, isSubscription: !item.isSubscription }
           : item
       )

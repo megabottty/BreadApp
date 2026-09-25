@@ -32,6 +32,15 @@ export interface Review {
   date: string;
 }
 
+/** A purchasable bundle of a product, e.g. "6 Cookies" for $10. `price` is the
+ * total for the whole pack (it replaces the base product price). */
+export interface PackOption {
+  id: string;
+  label: string;
+  size: number;
+  price: number;
+}
+
 export interface Recipe {
   id?: string;
   name: string;
@@ -47,6 +56,10 @@ export interface Recipe {
   barcode?: string;
   productType?: 'PHYSICAL' | 'SERVICE' | 'DIGITAL';
   servingSizeGrams?: number;
+  /** Finished (baked) weight of one item — one loaf, one bagel, one cookie. */
+  itemWeightGrams?: number;
+  /** Per-product pack pricing. Empty/undefined = sold singly at `price`. */
+  packOptions?: PackOption[];
   levainDetails?: {
     hydration: number; // e.g., 1.0 for 100%
   };
@@ -63,13 +76,31 @@ export interface CalculatedRecipe extends Recipe {
   totalWater: number;
   trueHydration: number;
   ingredients: (Ingredient & { percentage: number })[];
+  /** Sum of all ingredient weights (grams) for the whole recipe/batch as entered. */
+  totalWeightGrams: number;
   totalNutrition: {
     calories: number;
     protein: number;
     carbs: number;
     fat: number;
   };
+  /** Nutrition per gram of the recipe — the reliable basis for any per-serving
+   * or "grams eaten" calculation, since it doesn't depend on knowing how many
+   * servings/items the batch yields. */
+  nutritionPerGram: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
   nutritionPerServing?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  /** Nutrition for one whole item, when `itemWeightGrams` is known. */
+  nutritionPerItem?: {
     calories: number;
     protein: number;
     carbs: number;
@@ -174,17 +205,33 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
   const profitMargin = price > 0 ? ((price - totalCost) / price) * 100 : 0;
 
   const totalWeight = recipe.ingredients.reduce((acc, ing) => acc + ing.weight, 0);
-  let nutritionPerServing;
 
-  if (recipe.servingSizeGrams && recipe.servingSizeGrams > 0 && totalWeight > 0) {
-    const servings = totalWeight / recipe.servingSizeGrams;
-    nutritionPerServing = {
-      calories: totalNutrition.calories / servings,
-      protein: totalNutrition.protein / servings,
-      carbs: totalNutrition.carbs / servings,
-      fat: totalNutrition.fat / servings,
-    };
-  }
+  // Nutrition per gram is the stable basis for both "per serving" display
+  // and the customer-facing "how many grams did you eat?" calculator —
+  // it doesn't require knowing how many servings/items a batch yields.
+  const nutritionPerGram = totalWeight > 0
+    ? {
+      calories: totalNutrition.calories / totalWeight,
+      protein: totalNutrition.protein / totalWeight,
+      carbs: totalNutrition.carbs / totalWeight,
+      fat: totalNutrition.fat / totalWeight,
+    }
+    : { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+  const scaleNutrition = (grams: number) => ({
+    calories: nutritionPerGram.calories * grams,
+    protein: nutritionPerGram.protein * grams,
+    carbs: nutritionPerGram.carbs * grams,
+    fat: nutritionPerGram.fat * grams,
+  });
+
+  const nutritionPerServing = (recipe.servingSizeGrams && recipe.servingSizeGrams > 0 && totalWeight > 0)
+    ? scaleNutrition(recipe.servingSizeGrams)
+    : undefined;
+
+  const nutritionPerItem = (recipe.itemWeightGrams && recipe.itemWeightGrams > 0 && totalWeight > 0)
+    ? scaleNutrition(recipe.itemWeightGrams)
+    : undefined;
 
   return {
     ...recipe,
@@ -193,8 +240,11 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     totalWater,
     trueHydration,
     ingredients: calculatedIngredients,
+    totalWeightGrams: totalWeight,
     totalNutrition,
+    nutritionPerGram,
     nutritionPerServing,
+    nutritionPerItem,
     totalCost,
     profitMargin
   };

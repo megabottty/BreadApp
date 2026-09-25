@@ -1402,3 +1402,34 @@ td {
   color: white !important;
 }
 
+
+/* Pack options editor */
+.pack-options-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.pack-option-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.pack-option-row .form-group {
+  margin-bottom: 0;
+}
+
+.pack-option-row .btn-remove-image {
+  position: static;
+  align-self: end;
+  margin-bottom: 0.35rem;
+}
+
+@media (max-width: 600px) {
+  .pack-option-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}

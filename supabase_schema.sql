@@ -45,8 +45,21 @@ CREATE TABLE IF NOT EXISTS bakery_recipes (
     barcode TEXT, -- Barcode/EAN for Retail
     product_type TEXT DEFAULT 'PHYSICAL', -- 'PHYSICAL', 'SERVICE', 'DIGITAL'
     available_addons JSONB DEFAULT '[]', -- List of possible customizations
+    serving_size_grams INTEGER DEFAULT 50, -- Nutrition label serving size
+    item_weight_grams INTEGER, -- Finished weight of one baked item (loaf/bagel/cookie)
+    pack_options JSONB DEFAULT '[]', -- [{id,label,size,price}] e.g. 6 cookies for $10
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Ensure newer recipe fields exist on existing installs
+ALTER TABLE IF EXISTS bakery_recipes
+    ADD COLUMN IF NOT EXISTS serving_size_grams INTEGER DEFAULT 50;
+
+ALTER TABLE IF EXISTS bakery_recipes
+    ADD COLUMN IF NOT EXISTS item_weight_grams INTEGER;
+
+ALTER TABLE IF EXISTS bakery_recipes
+    ADD COLUMN IF NOT EXISTS pack_options JSONB DEFAULT '[]';
 
 -- 3. Orders Table
 CREATE TABLE IF NOT EXISTS bakery_orders (

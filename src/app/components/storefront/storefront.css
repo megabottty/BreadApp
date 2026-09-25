@@ -1018,3 +1018,9 @@ h1 {
     background-position: 0 50%;
   }
 }
+
+.price-from {
+  font-size: 0.75em;
+  font-weight: 400;
+  opacity: 0.8;
+}

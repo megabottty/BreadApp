@@ -14,12 +14,12 @@
  */
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
+const { searchFoods, pickBestMatch } = require('../utils/usda.cjs');
 
 const dryRun = process.argv.includes('--dry-run');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
-const usdaApiKey = process.env.USDA_API_KEY || 'DEMO_KEY';
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing SUPABASE_URL / SUPABASE_SERVICE_KEY in environment.');
@@ -75,35 +75,20 @@ async function lookupNutrition(name) {
   // Fall back to the USDA API for any future/unknown ingredient name, with
   // retry-on-429 since the DEMO_KEY rate limit is easy to hit.
   for (let attempt = 0; attempt < 3; attempt++) {
-    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(name)}&pageSize=5&api_key=${usdaApiKey}`;
-    const res = await fetch(url);
-    if (res.status === 429) {
-      await sleep(5000 * (attempt + 1));
-      continue;
-    }
-    if (!res.ok) {
-      throw new Error(`USDA API returned ${res.status} for "${name}"`);
-    }
-    const data = await res.json();
-    const foods = data.foods || [];
-    if (foods.length === 0) return null;
-
-    const best = foods.find((f) => f.dataType === 'Foundation' || f.dataType === 'SR Legacy') || foods[0];
-
-    const getNutrient = (id) => {
-      const n = (best.foodNutrients || []).find((nut) => nut.nutrientId === id);
-      return n ? n.value : 0;
-    };
-
-    return {
-      matchedName: best.description,
-      nutrition: {
-        caloriesPer100g: getNutrient(1008),
-        proteinPer100g: getNutrient(1003),
-        carbsPer100g: getNutrient(1005),
-        fatPer100g: getNutrient(1004)
+    let foods;
+    try {
+      foods = await searchFoods(name, { pageSize: 5 });
+    } catch (e) {
+      if (e.status === 429) {
+        await sleep(5000 * (attempt + 1));
+        continue;
       }
-    };
+      throw e;
+    }
+
+    const best = pickBestMatch(foods);
+    if (!best) return null;
+    return { matchedName: best.name, nutrition: best.nutrition };
   }
 
   throw new Error(`USDA API rate-limited after retries for "${name}"`);

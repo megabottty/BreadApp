@@ -1,10 +1,10 @@
 import { Component, OnInit, signal, computed, inject, effect, OnDestroy } from '@angular/core';
 import { HelpService } from '../../services/help.service';
 import { CommonModule, DecimalPipe, PercentPipe } from '@angular/common';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { calculateBakersMath, Recipe, CalculatedRecipe, IngredientType, scaleRecipe, MOCK_INGREDIENTS_DB, RecipeCategory, FlavorProfile } from '../../logic/bakers-math';
+import { calculateBakersMath, Recipe, CalculatedRecipe, IngredientType, scaleRecipe, MOCK_INGREDIENTS_DB, RecipeCategory, FlavorProfile, NutritionData, PackOption } from '../../logic/bakers-math';
 import { AuthService } from '../../services/auth.service';
 import { IngredientService, FoodSearchItem } from '../../services/ingredient.service';
 import { ModalService } from '../../services/modal.service';
@@ -81,6 +81,8 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       images: this.fb.array([]),
       levainHydration: [100],
       servingSizeGrams: [50],
+      itemWeightGrams: [null],
+      packOptions: this.fb.array([]),
       prepTimeMinutes: [0],
       bakeTimeMinutes: [45],
       isHidden: [false],
@@ -273,9 +275,21 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       imageUrl: recipe.imageUrl || '',
       levainHydration: (recipe.levainDetails?.hydration ?? 1) * 100 || recipe.levainHydration,
       servingSizeGrams: recipe.servingSizeGrams || 50,
+      itemWeightGrams: recipe.itemWeightGrams || null,
+      prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
+      bakeTimeMinutes: recipe.bakeTimeMinutes ?? 45,
+      sku: recipe.sku || '',
+      barcode: recipe.barcode || '',
+      productType: recipe.productType || recipe.product_type || 'PHYSICAL',
       isHidden: recipe.isHidden || false,
       currentUnits: recipe.currentUnits || 1,
       targetUnits: recipe.targetUnits || 1
+    });
+
+    const packOptionsArray = this.packOptions;
+    packOptionsArray.clear();
+    (recipe.packOptions || []).forEach((opt: PackOption) => {
+      packOptionsArray.push(this.createPackOption(opt.label, opt.size, opt.price));
     });
 
     const imagesArray = this.recipeForm.get('images') as FormArray;
@@ -289,7 +303,11 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     const ingredientsArray = this.recipeForm.get('ingredients') as FormArray;
     ingredientsArray.clear();
     recipe.ingredients.forEach((ing: any) => {
-      ingredientsArray.push(this.createIngredient(ing.name, ing.weight, ing.type, ing.costPerUnit, ing.bulkPrice, ing.bulkWeight));
+      ingredientsArray.push(this.createIngredient(ing.name, ing.weight, ing.type, ing.costPerUnit, ing.bulkPrice, ing.bulkWeight, ing.nutrition));
+      // Keep saved (e.g. USDA-backfilled) nutrition available to getNutrition()
+      if (ing.name && ing.nutrition) {
+        this.ingredientService.addIngredient(ing.name, ing.nutrition);
+      }
     });
     this.updateCalculations();
   }
@@ -391,8 +409,12 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       imageUrl: '',
       levainHydration: 100,
       servingSizeGrams: 50,
+      itemWeightGrams: null,
       prepTimeMinutes: 0,
       bakeTimeMinutes: 45,
+      sku: '',
+      barcode: '',
+      productType: 'PHYSICAL',
       isHidden: false,
       currentUnits: 1,
       targetUnits: 1
@@ -403,6 +425,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     while (imagesArray.length !== 0) {
       imagesArray.removeAt(0);
     }
+    this.packOptions.clear();
 
     // Reset ingredients to defaults
     const ingredientsArray = this.recipeForm.get('ingredients') as FormArray;
@@ -665,7 +688,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.activeSearchIndex.set(null);
 
     const ingredientForm = this.ingredients.at(index) as FormGroup;
-    ingredientForm.patchValue({ name: item.name });
+    ingredientForm.patchValue({ name: item.name, nutrition: item.nutrition || null });
 
     this.applyIngredientCostDefaults(index, item.name);
 
@@ -791,15 +814,40 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     return name.trim().toLowerCase();
   }
 
-  createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR', cost = 0, bulkPrice = 0, bulkWeight = 0): FormGroup {
+  createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR', cost = 0, bulkPrice = 0, bulkWeight = 0, nutrition: NutritionData | null = null): FormGroup {
     return this.fb.group({
       name: [name],
       weight: [weight],
       type: [type],
       costPerUnit: [cost],
       bulkPrice: [bulkPrice],
-      bulkWeight: [bulkWeight]
+      bulkWeight: [bulkWeight],
+      // Nutrition travels with the ingredient so re-saving a recipe never
+      // wipes values that were looked up or backfilled earlier.
+      nutrition: [nutrition]
     });
+  }
+
+  get packOptions(): FormArray {
+    return this.recipeForm.get('packOptions') as FormArray;
+  }
+
+  createPackOption(label = '', size = 1, price = 0): FormGroup {
+    return this.fb.group({
+      label: [label],
+      size: [size, [Validators.required, Validators.min(1)]],
+      price: [price, [Validators.required, Validators.min(0)]]
+    });
+  }
+
+  addPackOption(): void {
+    this.packOptions.push(this.createPackOption());
+    this.updateCalculations();
+  }
+
+  removePackOption(index: number): void {
+    this.packOptions.removeAt(index);
+    this.updateCalculations();
   }
 
   addIngredient(): void {
@@ -822,16 +870,33 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       imageUrl: formValue.imageUrl,
       images: formValue.images,
       isHidden: formValue.isHidden,
+      sku: formValue.sku,
+      barcode: formValue.barcode,
+      productType: formValue.productType,
+      prepTimeMinutes: formValue.prepTimeMinutes,
+      bakeTimeMinutes: formValue.bakeTimeMinutes,
       ingredients: formValue.ingredients.map((ing: any) => ({
         ...ing,
         bulkPrice: ing.bulkPrice,
         bulkWeight: ing.bulkWeight,
-        nutrition: this.ingredientService.getNutrition(ing.name)
+        nutrition: ing.nutrition || this.ingredientService.getNutrition(ing.name)
       })),
       levainDetails: {
         hydration: formValue.levainHydration / 100
       },
-      servingSizeGrams: formValue.servingSizeGrams
+      servingSizeGrams: formValue.servingSizeGrams,
+      itemWeightGrams: Number(formValue.itemWeightGrams) > 0 ? Number(formValue.itemWeightGrams) : undefined,
+      packOptions: (formValue.packOptions || [])
+        .filter((opt: any) => Number(opt.size) > 0)
+        .map((opt: any): PackOption => {
+          const size = Number(opt.size);
+          return {
+            id: size === 1 ? 'single' : `${size}-pack`,
+            label: (opt.label || '').trim() || (size === 1 ? 'Single' : `${size} Pack`),
+            size,
+            price: Number(opt.price) || 0
+          };
+        })
     };
 
     if (formValue.targetUnits !== formValue.currentUnits) {
