@@ -10,12 +10,51 @@ export interface NutritionData {
 
 export interface Ingredient {
   name: string;
+  /** Canonical grams — always authoritative. `amount`/`unit` below are what
+   * she typed and never feed the math directly; see `logic/units.ts`. */
   weight: number;
   type: IngredientType;
   nutrition?: NutritionData;
   costPerUnit?: number; // Legacy/Fallback Cost per 100g
   bulkPrice?: number;   // What you paid for the whole pack
   bulkWeight?: number;  // How much the pack weighs (in grams)
+  /** What she typed, in `unit` — display/round-trip only. Optional so
+   * existing saved recipes (which only ever had `weight`) parse unchanged. */
+  amount?: number;
+  /** Bare string union rather than importing `MeasureUnit` from
+   * `logic/units.ts` — this file must never depend on the unit-conversion
+   * module, so the storefront/server/ledger that read `weight` directly
+   * never need to know a unit picker exists. Keep in sync with
+   * `logic/units.ts`'s `MeasureUnit`. */
+  unit?: 'g' | 'kg' | 'oz' | 'lb' | 'cup' | 'tbsp' | 'tsp' | 'each';
+  /** Density/per-item conversion snapshot used to compute `weight` from
+   * `amount` at entry time, so reopening a saved recipe reproduces the same
+   * grams even if the pantry's density is corrected later. */
+  gramsPerCup?: number;
+  gramsPerItem?: number;
+}
+
+/** How an ingredient's per-gram cost was determined. */
+export type CostBasis = 'PACK' | 'LEGACY' | 'FREE' | 'MISSING';
+
+export type CostWarningCode = 'HIGH_UNIT_COST' | 'COST_OUTLIER' | 'LIKELY_PACK_SIZE_TYPO';
+
+export interface CostWarning {
+  code: CostWarningCode;
+  ingredientName: string;
+  costPerGram: number;
+  message: string;
+}
+
+/** Per-recipe rollup of what's priced, what isn't, and anything that looks like a typo. */
+export interface CostBreakdown {
+  totalCost: number;
+  /** Names of ingredients with no price at all — cost is understated by an unknown amount. */
+  unpricedIngredientNames: string[];
+  /** Fraction (0-1) of total batch weight that has a real price behind it. */
+  costCoverageRatio: number;
+  isComplete: boolean;
+  warnings: CostWarning[];
 }
 
 export type RecipeCategory = 'BREAD' | 'PASTRY' | 'COOKIE' | 'BAGEL' | 'MUFFIN' | 'SCONE' | 'SPECIAL' | 'OTHER';
@@ -76,7 +115,7 @@ export interface CalculatedRecipe extends Recipe {
   totalFlour: number;
   totalWater: number;
   trueHydration: number;
-  ingredients: (Ingredient & { percentage: number })[];
+  ingredients: (Ingredient & { percentage: number; cost: number; costPerGram: number; costBasis: CostBasis })[];
   /** Sum of all ingredient weights (grams) for the whole recipe/batch as entered. */
   totalWeightGrams: number;
   totalNutrition: {
@@ -119,6 +158,10 @@ export interface CalculatedRecipe extends Recipe {
   };
   totalCost: number;
   profitMargin: number;
+  /** The recipe as entered makes one item (see `itemWeightGrams` above), so
+   * this equals `totalCost` — named for clarity when showing per-item cost. */
+  costPerItem: number;
+  costBreakdown: CostBreakdown;
 }
 
 export const MOCK_INGREDIENTS_DB: Record<string, NutritionData> = {
@@ -142,6 +185,54 @@ export const MOCK_INGREDIENTS_DB: Record<string, NutritionData> = {
   'Chocolate Chips': { caloriesPer100g: 478, proteinPer100g: 4, carbsPer100g: 65, fatPer100g: 23 },
   'Yeast': { caloriesPer100g: 325, proteinPer100g: 40, carbsPer100g: 41, fatPer100g: 8 },
 };
+
+/** $1/g ≈ $454/lb — nothing a bakery buys by weight legitimately costs this
+ * much, outside genuine specialty spices (saffron, vanilla beans...), which
+ * is why this only ever produces a dismissible warning, never a block. */
+export const SUSPICIOUS_COST_PER_GRAM = 1;
+
+/**
+ * Resolves one ingredient's per-gram cost and how confident we are in it.
+ * The numeric result exactly matches the historical precedence — bulk pack
+ * basis when `bulkWeight > 0`, else the legacy per-100g fallback, else 0 —
+ * this only adds a label for the cost-visibility UI.
+ */
+export function resolveIngredientCostPerGram(ing: Ingredient): { costPerGram: number; costBasis: CostBasis } {
+  const bulkWeightGrams = Number(ing.bulkWeight);
+  if (ing.bulkPrice && ing.bulkWeight && bulkWeightGrams > 0) {
+    return { costPerGram: Number(ing.bulkPrice) / bulkWeightGrams, costBasis: 'PACK' };
+  }
+
+  const legacyCostPerUnit = ing.costPerUnit === undefined || ing.costPerUnit === null ? NaN : Number(ing.costPerUnit);
+  if (!Number.isNaN(legacyCostPerUnit)) {
+    return { costPerGram: legacyCostPerUnit / 100, costBasis: legacyCostPerUnit > 0 ? 'LEGACY' : 'FREE' };
+  }
+
+  // Tap water has no realistic price to enter; treat it as free rather than
+  // "missing a price" so the missing-price warning stays meaningful.
+  if (ing.type === 'WATER') {
+    return { costPerGram: 0, costBasis: 'FREE' };
+  }
+
+  return { costPerGram: 0, costBasis: 'MISSING' };
+}
+
+/** Weighted median (by cost contribution) used to flag an outlier ingredient
+ * cost without a fixed dollar threshold — a $2/g spice is fine on its own,
+ * but not when it's 10x every other ingredient in the same recipe. */
+function weightedMedianCostPerGram(entries: { costPerGram: number; weight: number }[]): number {
+  if (entries.length === 0) return 0;
+  const sorted = [...entries].sort((a, b) => a.costPerGram - b.costPerGram);
+  const totalWeight = sorted.reduce((acc, entry) => acc + entry.weight, 0);
+  if (totalWeight <= 0) return sorted[Math.floor(sorted.length / 2)].costPerGram;
+
+  let cumulative = 0;
+  for (const entry of sorted) {
+    cumulative += entry.weight;
+    if (cumulative >= totalWeight / 2) return entry.costPerGram;
+  }
+  return sorted[sorted.length - 1].costPerGram;
+}
 
 /**
  * Calculates Baker's Percentages, True Hydration, and Nutrition.
@@ -173,9 +264,17 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
   const totalWater = recipeWater + waterInLevain;
   const trueHydration = totalFlour > 0 ? totalWater / totalFlour : 0;
 
-  const calculatedIngredients = recipe.ingredients.map((ing: Ingredient) => ({
+  const costPerIngredient = recipe.ingredients.map((ing: Ingredient) => {
+    const { costPerGram, costBasis } = resolveIngredientCostPerGram(ing);
+    return { costPerGram, costBasis, cost: costPerGram * Number(ing.weight) };
+  });
+
+  const calculatedIngredients = recipe.ingredients.map((ing: Ingredient, index: number) => ({
     ...ing,
-    percentage: totalFlour > 0 ? (ing.weight / totalFlour) * 100 : 0
+    percentage: totalFlour > 0 ? (ing.weight / totalFlour) * 100 : 0,
+    cost: costPerIngredient[index].cost,
+    costPerGram: costPerIngredient[index].costPerGram,
+    costBasis: costPerIngredient[index].costBasis
   }));
 
   const totalNutrition = recipe.ingredients.reduce(
@@ -201,21 +300,78 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
   // Ensure price is a number
   const price = Number(recipe.price) || 0;
 
-  const totalCost = recipe.ingredients.reduce((acc, ing) => {
-    let ingCost = 0;
-    if (ing.bulkPrice && ing.bulkWeight && Number(ing.bulkWeight) > 0) {
-      // (Bulk Price / Bulk Weight) * weight in recipe
-      ingCost = (Number(ing.bulkPrice) / Number(ing.bulkWeight)) * Number(ing.weight);
-    } else {
-      // Fallback to legacy costPerUnit (cost per 100g)
-      ingCost = (Number(ing.weight) / 100) * (Number(ing.costPerUnit) || 0);
-    }
-    return acc + ingCost;
-  }, 0);
-
+  const totalCost = costPerIngredient.reduce((acc, c) => acc + c.cost, 0);
   const profitMargin = price > 0 ? ((price - totalCost) / price) * 100 : 0;
+  const costPerItem = totalCost;
 
   const totalWeight = recipe.ingredients.reduce((acc, ing) => acc + ing.weight, 0);
+
+  const unpricedIngredientNames = calculatedIngredients
+    .filter(ing => ing.costBasis === 'MISSING')
+    .map(ing => ing.name);
+
+  const pricedWeight = calculatedIngredients
+    .filter(ing => ing.costBasis !== 'MISSING')
+    .reduce((acc, ing) => acc + Number(ing.weight), 0);
+
+  const costCoverageRatio = totalWeight > 0 ? pricedWeight / totalWeight : 1;
+
+  // Weighted by grams used, not by dollar cost — weighting by cost would bias
+  // the median toward the very outlier this is meant to detect.
+  const pricedIngredientsForMedian = calculatedIngredients
+    .filter(ing => ing.cost > 0)
+    .map(ing => ({ costPerGram: ing.costPerGram, weight: Number(ing.weight) }));
+  const medianCostPerGram = weightedMedianCostPerGram(pricedIngredientsForMedian);
+
+  const costWarnings: CostWarning[] = [];
+  calculatedIngredients.forEach(ing => {
+    if (ing.costBasis === 'MISSING' || ing.costPerGram <= 0) return;
+
+    const bulkWeightGrams = Number(ing.bulkWeight);
+    const bulkPriceDollars = Number(ing.bulkPrice);
+    // A package under 200g for more than $5 is far more likely to be a typo
+    // (100g typed for 1000g) than a genuine tiny/pricey package.
+    const looksLikePackSizeTypo = ing.costBasis === 'PACK'
+      && bulkWeightGrams > 0 && bulkWeightGrams < 200
+      && bulkPriceDollars > 5;
+
+    if (looksLikePackSizeTypo) {
+      costWarnings.push({
+        code: 'LIKELY_PACK_SIZE_TYPO',
+        ingredientName: ing.name,
+        costPerGram: ing.costPerGram,
+        message: `${ing.name} costs $${ing.costPerGram.toFixed(2)}/g from a ${bulkWeightGrams}g package — did you mean ${bulkWeightGrams * 10}g?`
+      });
+      return;
+    }
+
+    if (ing.costPerGram > SUSPICIOUS_COST_PER_GRAM) {
+      costWarnings.push({
+        code: 'HIGH_UNIT_COST',
+        ingredientName: ing.name,
+        costPerGram: ing.costPerGram,
+        message: `${ing.name} costs $${ing.costPerGram.toFixed(2)}/g — double check the package price and weight.`
+      });
+      return;
+    }
+
+    if (medianCostPerGram > 0 && ing.costPerGram > medianCostPerGram * 10 && ing.cost > totalCost * 0.25) {
+      costWarnings.push({
+        code: 'COST_OUTLIER',
+        ingredientName: ing.name,
+        costPerGram: ing.costPerGram,
+        message: `${ing.name} costs much more per gram than the rest of this recipe and makes up a big share of its cost — worth a second look.`
+      });
+    }
+  });
+
+  const costBreakdown: CostBreakdown = {
+    totalCost,
+    unpricedIngredientNames,
+    costCoverageRatio,
+    isComplete: unpricedIngredientNames.length === 0,
+    warnings: costWarnings
+  };
 
   // Nutrition per gram is the stable basis for both "per serving" display
   // and the customer-facing "how many grams did you eat?" calculator —
@@ -268,7 +424,9 @@ export function calculateBakersMath(recipe: Recipe): CalculatedRecipe {
     nutritionPerItem,
     nutritionPerBakedGram,
     totalCost,
-    profitMargin
+    profitMargin,
+    costPerItem,
+    costBreakdown
   };
 }
 
@@ -281,7 +439,10 @@ export function scaleRecipe(recipe: Recipe, currentUnits: number, targetUnits: n
     ...recipe,
     ingredients: recipe.ingredients.map((ing: Ingredient) => ({
       ...ing,
-      weight: ing.weight * factor
+      weight: ing.weight * factor,
+      // Scale what she typed too -- otherwise a scaled recipe would still
+      // show "2 cups" next to a doubled/halved gram figure.
+      amount: ing.amount !== undefined ? ing.amount * factor : ing.amount
     }))
   };
 }

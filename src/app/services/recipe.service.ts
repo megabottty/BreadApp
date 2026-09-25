@@ -1,7 +1,8 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { CalculatedRecipe } from '../logic/bakers-math';
+import { CalculatedRecipe, Ingredient, Recipe, calculateBakersMath } from '../logic/bakers-math';
 import { TenantService } from './tenant.service';
+import { PantryService } from './pantry.service';
 import { environment } from '../../environments/environment';
 import { of } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
@@ -10,6 +11,7 @@ import { catchError, tap } from 'rxjs/operators';
 export class RecipeService {
   private http = inject(HttpClient);
   private tenantService = inject(TenantService);
+  private pantryService = inject(PantryService);
 
   savedRecipes = signal<CalculatedRecipe[]>([]);
   isLoading = signal(false);
@@ -96,7 +98,7 @@ export class RecipeService {
           if (saved) {
             try {
               const normalized = this.normalizeRecipeImages(JSON.parse(saved));
-              this.savedRecipes.set(normalized);
+              this.savedRecipes.set(this.rehydrateFromCache(normalized));
             } catch {
               // ignore parse errors
             }
@@ -104,6 +106,32 @@ export class RecipeService {
         }
         this.isLoading.set(false);
       }
+    });
+  }
+
+  /**
+   * The offline-fallback cache (`getOptimizedRecipesForStorage`) deliberately
+   * strips bulkPrice/bulkWeight to keep localStorage small, so a recipe
+   * restored from it would otherwise show every ingredient at $0 cost. Pull
+   * prices back in from the pantry (loaded independently of this cache) and
+   * recompute the whole recipe, rather than trusting the stale cached
+   * computed fields (totalCost, profitMargin, etc. weren't cached either).
+   */
+  private rehydrateFromCache(recipes: CalculatedRecipe[]): CalculatedRecipe[] {
+    return recipes.map(recipe => {
+      const rehydratedIngredients: Ingredient[] = (recipe.ingredients || []).map(ing => {
+        if (ing.bulkPrice || ing.bulkWeight) return ing; // cache never had these, but be defensive
+        const pantryItem = this.pantryService.find(ing.name);
+        if (!pantryItem) return ing;
+        return {
+          ...ing,
+          bulkPrice: pantryItem.bulkPrice ?? undefined,
+          bulkWeight: pantryItem.bulkWeight ?? undefined,
+          costPerUnit: pantryItem.costPerUnit ?? undefined
+        };
+      });
+
+      return calculateBakersMath({ ...recipe, ingredients: rehydratedIngredients } as Recipe);
     });
   }
 

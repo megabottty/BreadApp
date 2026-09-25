@@ -1,231 +1,211 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
-import { TenantService } from '../../services/tenant.service';
+import { ActivatedRoute } from '@angular/router';
+import { IngredientType } from '../../logic/bakers-math';
+import { MEASURE_UNITS, MeasureUnit, UnitDefinition } from '../../logic/units';
 import { ModalService } from '../../services/modal.service';
+import { PantryItem, PantryService } from '../../services/pantry.service';
+import { RecipeService } from '../../services/recipe.service';
+import { TenantService } from '../../services/tenant.service';
 
-interface IngredientCost {
-  name: string;
-  bulkPrice?: number;
-  bulkWeight?: number;
-  costPerUnit?: number;
-}
+type PantryFilter = 'all' | 'needs-price';
 
+/**
+ * "My Pantry" — the baker's reusable ingredient catalog: package price,
+ * weight, unit, density, and nutrition, once per ingredient, shared across
+ * every recipe. Recipe rows pull from this (and can fix a price inline via
+ * the price chip); this screen is where the pantry itself is reviewed,
+ * corrected, or cleaned up.
+ */
 @Component({
   selector: 'app-ingredient-manager',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
-    <div class="manager-container">
-      <header class="section-header">
-        <h2>Product Prices & Ingredients</h2>
-        <p>Manage the bulk prices and weights for your ingredients. These will be automatically applied in the Recipe Calculator.</p>
-      </header>
-
-      <div class="actions-bar">
-        <button class="btn-primary" (click)="addIngredient()">+ Add New Product</button>
-      </div>
-
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Ingredient Name</th>
-              <th>Bulk Price ($)</th>
-              <th>Bulk Weight (g)</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (item of ingredients(); track item.name; let i = $index) {
-              <tr>
-                <td>
-                  <input type="text" [(ngModel)]="item.name" placeholder="Flour, Salt, etc.">
-                </td>
-                <td>
-                  <input type="number" [(ngModel)]="item.bulkPrice" placeholder="0.00">
-                </td>
-                <td>
-                  <input type="number" [(ngModel)]="item.bulkWeight" placeholder="0">
-                </td>
-                <td class="actions">
-                  <button class="btn-icon delete" (click)="removeIngredient(i)" title="Remove">×</button>
-                </td>
-              </tr>
-            }
-            @if (ingredients().length === 0) {
-              <tr>
-                <td colspan="4" class="empty-state">No products added yet. Click "+ Add New Product" to start.</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      <div class="footer-actions">
-        <button class="btn-save" (click)="saveAll()">Save All Prices</button>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .manager-container {
-      padding: 2rem;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-    .section-header {
-      margin-bottom: 2rem;
-    }
-    .section-header h2 {
-      margin-bottom: 0.5rem;
-      color: var(--text-primary);
-    }
-    .section-header p {
-      color: var(--text-secondary);
-    }
-    .actions-bar {
-      margin-bottom: 1rem;
-      display: flex;
-      justify-content: flex-end;
-    }
-    .table-container {
-      background: var(--card-bg);
-      border-radius: 8px;
-      box-shadow: 0 2px 8px var(--shadow-color);
-      overflow: hidden;
-      margin-bottom: 2rem;
-      border: 1px solid var(--border-color);
-    }
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .data-table th, .data-table td {
-      padding: 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-      color: var(--text-primary);
-    }
-    .data-table th {
-      background: var(--btn-secondary);
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-    .data-table input {
-      width: 100%;
-      padding: 0.5rem;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      background: var(--input-bg);
-      color: var(--text-primary);
-    }
-    .btn-icon.delete {
-      background: none;
-      border: none;
-      color: var(--color-error, #ff4444);
-      font-size: 1.5rem;
-      cursor: pointer;
-      line-height: 1;
-    }
-    .footer-actions {
-      display: flex;
-      justify-content: center;
-    }
-    .btn-primary, .btn-save {
-      background: var(--color-accent, #e67e22);
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .btn-primary:hover, .btn-save:hover {
-      opacity: 0.9;
-    }
-    .empty-state {
-      text-align: center;
-      color: var(--color-text-secondary);
-      padding: 3rem !important;
-    }
-  `]
+  imports: [FormsModule, CurrencyPipe],
+  templateUrl: './ingredient-manager.html',
+  styleUrl: './ingredient-manager.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IngredientManagerComponent implements OnInit {
-  private http = inject(HttpClient);
-  private tenantService = inject(TenantService);
-  private modalService = inject(ModalService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly tenantService = inject(TenantService);
+  private readonly modalService = inject(ModalService);
+  private readonly recipeService = inject(RecipeService);
+  protected readonly pantryService = inject(PantryService);
 
-  ingredients = signal<IngredientCost[]>([]);
+  protected readonly measureUnits: readonly UnitDefinition[] = MEASURE_UNITS;
+  protected readonly ingredientTypes: IngredientType[] = ['FLOUR', 'WATER', 'LEVAIN', 'SALT', 'INCLUSION'];
 
-  ngOnInit() {
-    this.loadIngredientCosts();
+  protected readonly searchTerm = signal('');
+  protected readonly filter = signal<PantryFilter>('all');
+  /** Names with a save currently in flight or just confirmed -- drives the
+   * "Saving…" / "Saved ✓" text next to each card. */
+  protected readonly savingNames = signal<ReadonlySet<string>>(new Set());
+  protected readonly justSavedNames = signal<ReadonlySet<string>>(new Set());
+  protected readonly itemPendingArchive = signal<PantryItem | null>(null);
+  protected readonly newItemName = signal('');
+
+  /** How many saved recipes currently use each ingredient, by normalized
+   * name -- gives an otherwise-inert pantry row a reason to matter. */
+  protected readonly usageCounts = computed<ReadonlyMap<string, number>>(() => {
+    const counts = new Map<string, number>();
+    for (const recipe of this.recipeService.savedRecipes()) {
+      for (const ing of recipe.ingredients || []) {
+        const key = (ing.name || '').trim().toLowerCase();
+        if (!key) continue;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    }
+    return counts;
+  });
+
+  protected readonly visibleItems = computed<readonly PantryItem[]>(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    const activeFilter = this.filter();
+    return this.pantryService.items()
+      .filter(item => !item.isArchived)
+      .filter(item => activeFilter !== 'needs-price' || item.costBasis === 'MISSING')
+      .filter(item => !term || item.name.toLowerCase().includes(term))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  ngOnInit(): void {
+    this.pantryService.load();
+
+    // Support the results-panel "Add prices" deep link: /ingredients?filter=needs-price
+    const requestedFilter = this.route.snapshot.queryParamMap.get('filter');
+    if (requestedFilter === 'needs-price') {
+      this.filter.set('needs-price');
+    }
   }
 
-  private get headers(): HttpHeaders | null {
-    const slug = this.tenantService.tenant()?.slug;
-    if (!slug) return null;
-    return new HttpHeaders().set('x-tenant-slug', slug);
+  protected usageCountFor(item: PantryItem): number {
+    return this.usageCounts().get(item.normalizedName) || 0;
   }
 
-  loadIngredientCosts() {
-    const headers = this.headers;
-    if (!headers) return;
+  private get tenantReady(): boolean {
+    return !!this.tenantService.tenant();
+  }
 
-    this.http.get<IngredientCost[]>(
-      `${environment.apiUrl}/orders/ingredients/costs`,
-      { headers }
-    ).subscribe({
-      next: (costs) => {
-        // Filter out duplicates based on normalized name
-        const unique = new Map<string, IngredientCost>();
-        costs.forEach(c => {
-          const name = c.name.trim();
-          if (!unique.has(name.toLowerCase())) {
-            unique.set(name.toLowerCase(), { ...c, name });
-          }
+  /** Saves one field immediately on blur -- no debounce, no "Save All"
+   * button. That "Save All" button on the old screen is exactly why a price
+   * she'd entered could silently go unsaved; saving per field per row
+   * removes the chance to lose it. */
+  protected commitField(item: PantryItem, patch: Partial<PantryItem>): void {
+    if (!this.tenantReady) return;
+
+    this.savingNames.update(prev => new Set(prev).add(item.normalizedName));
+    this.pantryService.save({
+      name: item.name,
+      bulkPrice: patch.bulkPrice ?? item.bulkPrice,
+      bulkWeight: patch.bulkWeight ?? item.bulkWeight,
+      packSize: patch.packSize ?? item.packSize,
+      packUnit: patch.packUnit ?? item.packUnit,
+      gramsPerCup: patch.gramsPerCup ?? item.gramsPerCup,
+      gramsPerItem: patch.gramsPerItem ?? item.gramsPerItem,
+      defaultType: patch.defaultType ?? item.defaultType
+    }).subscribe({
+      next: () => this.flagSaved(item.normalizedName),
+      error: () => {
+        this.savingNames.update(prev => {
+          const next = new Set(prev);
+          next.delete(item.normalizedName);
+          return next;
         });
-        this.ingredients.set(Array.from(unique.values()));
-      },
-      error: (err) => console.error('Failed to load costs', err)
-    });
-  }
-
-  addIngredient() {
-    this.ingredients.update(prev => [
-      ...prev,
-      { name: '', bulkPrice: 0, bulkWeight: 0 }
-    ]);
-  }
-
-  removeIngredient(index: number) {
-    this.ingredients.update(prev => prev.filter((_, i) => i !== index));
-  }
-
-  saveAll() {
-    const headers = this.headers;
-    if (!headers) return;
-
-    const payload = this.ingredients()
-      .filter(ing => ing.name.trim() !== '')
-      .map(ing => ({
-        name: ing.name.trim(),
-        bulkPrice: ing.bulkPrice || null,
-        bulkWeight: ing.bulkWeight || null,
-        costPerUnit: ing.costPerUnit || null
-      }));
-
-    this.http.post(`${environment.apiUrl}/orders/ingredients/costs`, payload, { headers }).subscribe({
-      next: () => {
-        this.modalService.showAlert('All ingredient prices have been saved successfully!', 'Success', 'success');
-        this.loadIngredientCosts();
-      },
-      error: (err) => {
-        console.error('Failed to save costs', err);
-        this.modalService.showAlert('Failed to save prices. Please try again.', 'Error', 'error');
+        this.modalService.showAlert('Failed to save. Please try again.', 'Error', 'error');
       }
     });
+  }
+
+  private flagSaved(normalizedName: string): void {
+    this.savingNames.update(prev => {
+      const next = new Set(prev);
+      next.delete(normalizedName);
+      return next;
+    });
+    this.justSavedNames.update(prev => new Set(prev).add(normalizedName));
+    setTimeout(() => {
+      this.justSavedNames.update(prev => {
+        const next = new Set(prev);
+        next.delete(normalizedName);
+        return next;
+      });
+    }, 2000);
+  }
+
+  /** Package size + unit are entered together; a size with no unit yet
+   * (unit defaults to 'g') just means the grams figure is the size itself. */
+  protected onPackSizeChange(item: PantryItem, rawValue: string): void {
+    const size = Number(rawValue);
+    if (!Number.isFinite(size) || size < 0) return;
+    this.commitField(item, { packSize: size, bulkWeight: this.resolvePackGrams(size, item.packUnit, item) });
+  }
+
+  protected onPackUnitChange(item: PantryItem, unit: MeasureUnit): void {
+    this.commitField(item, { packUnit: unit, bulkWeight: this.resolvePackGrams(item.packSize ?? 0, unit, item) });
+  }
+
+  protected onPackPriceChange(item: PantryItem, rawValue: string): void {
+    const price = Number(rawValue);
+    if (!Number.isFinite(price) || price < 0) return;
+    this.commitField(item, { bulkPrice: price });
+  }
+
+  protected onDensityChange(item: PantryItem, rawValue: string): void {
+    const grams = Number(rawValue);
+    if (!Number.isFinite(grams) || grams < 0) return;
+    this.commitField(item, { gramsPerCup: grams });
+  }
+
+  protected onPerItemWeightChange(item: PantryItem, rawValue: string): void {
+    const grams = Number(rawValue);
+    if (!Number.isFinite(grams) || grams < 0) return;
+    this.commitField(item, { gramsPerItem: grams });
+  }
+
+  protected onTypeChange(item: PantryItem, type: IngredientType): void {
+    this.commitField(item, { defaultType: type });
+  }
+
+  private resolvePackGrams(size: number, unit: MeasureUnit, item: PantryItem): number {
+    // Mass units convert exactly; volume/count need this item's own density,
+    // which the pantry already has if she's set one.
+    const massFactors: Record<string, number> = { g: 1, kg: 1000, oz: 28.349523125, lb: 453.59237 };
+    if (unit in massFactors) return size * massFactors[unit];
+    if (unit === 'cup' && item.gramsPerCup) return size * item.gramsPerCup;
+    if (unit === 'each' && item.gramsPerItem) return size * item.gramsPerItem;
+    return item.bulkWeight ?? 0; // unresolvable without a density -- leave grams as-is rather than guess
+  }
+
+  protected addNewItem(): void {
+    if (!this.tenantReady) return;
+    const name = this.newItemName().trim();
+    if (!name) return;
+
+    if (this.pantryService.find(name)) {
+      this.modalService.showAlert(`"${name}" is already in your pantry.`, 'Already in your pantry', 'info');
+      return;
+    }
+
+    this.pantryService.save({ name }).subscribe({
+      error: () => this.modalService.showAlert('Failed to add ingredient. Please try again.', 'Error', 'error')
+    });
+    this.newItemName.set('');
+  }
+
+  protected confirmArchive(item: PantryItem): void {
+    this.itemPendingArchive.set(item);
+  }
+
+  protected cancelArchive(): void {
+    this.itemPendingArchive.set(null);
+  }
+
+  protected executeArchive(): void {
+    const item = this.itemPendingArchive();
+    if (!item) return;
+    this.pantryService.archive(item.id).subscribe({
+      error: () => this.modalService.showAlert('Failed to remove ingredient. Please try again.', 'Error', 'error')
+    });
+    this.itemPendingArchive.set(null);
   }
 }

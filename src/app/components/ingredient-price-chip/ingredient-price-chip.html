@@ -1,0 +1,78 @@
+<div class="price-chip">
+  <button
+    type="button"
+    class="chip-trigger"
+    [class.chip-missing]="costBasis() === 'MISSING'"
+    [class.chip-free]="costBasis() === 'FREE'"
+    (click)="open()"
+    [attr.aria-label]="costBasis() === 'MISSING' ? ('Add a price for ' + ingredientName()) : ('Edit price for ' + ingredientName())"
+    [attr.aria-expanded]="isOpen()"
+  >
+    @if (costBasis() === 'MISSING') {
+      <span>+ Add price</span>
+    } @else if (costBasis() === 'FREE') {
+      <span>free</span>
+    } @else {
+      <span>{{ costHere() | currency }}</span>
+      <span class="chip-info" aria-hidden="true">ⓘ</span>
+    }
+  </button>
+
+  @if (isOpen()) {
+    <div class="chip-backdrop" (click)="close()"></div>
+    <div class="chip-popover" role="dialog" [attr.aria-label]="'Price for ' + ingredientName()" (click)="$event.stopPropagation()" (keydown.escape)="close()">
+      <div class="chip-popover-header">
+        <span>{{ costBasis() === 'MISSING' ? ('Add a price for ' + ingredientName()) : ingredientName() }}</span>
+        <button type="button" class="chip-close" aria-label="Close" (click)="close()">×</button>
+      </div>
+
+      @if (costBasis() === 'MISSING') {
+        <p class="chip-hint">You can skip this — your cost will just read low until you fill it in.</p>
+      }
+
+      @if (hasPantryMismatch()) {
+        <div class="chip-pantry-note">
+          <span>Your pantry has this at {{ pantryBulkPrice() | currency }} / {{ pantryBulkWeightGrams() }}g.</span>
+          <button type="button" class="chip-link-button" (click)="useDraftFromPantry()">Use this price</button>
+        </div>
+      }
+
+      <div class="chip-field">
+        <label for="chip-price-{{ ingredientName() }}">Package price ($)</label>
+        <input
+          id="chip-price-{{ ingredientName() }}"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="e.g. 15.00"
+          [ngModel]="draftPrice()"
+          (ngModelChange)="draftPrice.set($event)"
+          autofocus
+        >
+      </div>
+      <div class="chip-field">
+        <label for="chip-weight-{{ ingredientName() }}">Package weight (g)</label>
+        <input
+          id="chip-weight-{{ ingredientName() }}"
+          type="number"
+          min="0"
+          step="1"
+          placeholder="e.g. 5000"
+          [ngModel]="draftWeight()"
+          (ngModelChange)="draftWeight.set($event)"
+        >
+      </div>
+
+      @if (draftCostPerGram() > 0) {
+        <div class="chip-summary">
+          <div>= {{ draftCostPerGram() | currency:'USD':'symbol':'1.4-4' }} per gram</div>
+          @if (amountGrams() > 0) {
+            <div>= {{ draftCostHere() | currency }} of {{ ingredientName() }} in this recipe</div>
+          }
+        </div>
+      }
+
+      <button type="button" class="chip-done" (click)="close()">Done</button>
+    </div>
+  }
+</div>

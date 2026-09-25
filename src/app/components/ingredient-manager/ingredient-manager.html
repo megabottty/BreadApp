@@ -1,0 +1,111 @@
+<div class="manager-container">
+  <header class="section-header">
+    <h2>🧺 My Pantry</h2>
+    <p>Every ingredient's package price, weight, and unit — set once here, used automatically in every recipe.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" [attr.aria-selected]="filter() === 'all'" [class.active]="filter() === 'all'" (click)="filter.set('all')">
+        All ({{ pantryService.items().length }})
+      </button>
+      <button type="button" role="tab" [attr.aria-selected]="filter() === 'needs-price'" [class.active]="filter() === 'needs-price'" (click)="filter.set('needs-price')">
+        ⚠ Needs a price ({{ pantryService.needsPrice().length }})
+      </button>
+    </div>
+    <label for="pantry-search" class="sr-only">Search your pantry</label>
+    <input id="pantry-search" type="search" placeholder="🔍 Search your pantry…" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)">
+  </div>
+
+  <div class="add-item-row">
+    <label for="new-pantry-item" class="sr-only">Add a new ingredient</label>
+    <input id="new-pantry-item" type="text" placeholder="Add an ingredient by name…" [ngModel]="newItemName()" (ngModelChange)="newItemName.set($event)" (keydown.enter)="addNewItem()">
+    <button type="button" class="btn-primary" (click)="addNewItem()">+ Add ingredient</button>
+  </div>
+
+  @if (visibleItems().length === 0) {
+    <div class="empty-state">
+      @if (pantryService.items().length === 0) {
+        <p>🧺 Your pantry is empty.</p>
+        <p class="meta">Add ingredients here, or just start typing them into a recipe — they'll land here automatically.</p>
+      } @else {
+        <p>No ingredients match{{ searchTerm() ? ' "' + searchTerm() + '"' : '' }}.</p>
+      }
+    </div>
+  }
+
+  <div class="pantry-grid">
+    @for (item of visibleItems(); track item.id) {
+      <div class="pantry-card">
+        <div class="pantry-card-header">
+          <h3>{{ item.name }}</h3>
+          <label [for]="'pantry-type-' + item.id" class="sr-only">Role</label>
+          <select [id]="'pantry-type-' + item.id" [ngModel]="item.defaultType" (ngModelChange)="onTypeChange(item, $event)">
+            @for (type of ingredientTypes; track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+        </div>
+
+        @if (item.costBasis === 'MISSING') {
+          <p class="pantry-warning">⚠ No price yet — recipes using this will look cheaper than they really are.</p>
+        }
+
+        <div class="pantry-row">
+          <span class="pantry-label">I buy it as</span>
+          <input type="number" min="0" step="0.01" [value]="item.packSize" placeholder="amount" [attr.aria-label]="'Package amount for ' + item.name" (blur)="onPackSizeChange(item, $any($event.target).value)">
+          <label [for]="'pantry-unit-' + item.id" class="sr-only">Package unit</label>
+          <select [id]="'pantry-unit-' + item.id" [ngModel]="item.packUnit" (ngModelChange)="onPackUnitChange(item, $event)">
+            @for (u of measureUnits; track u.unit) {
+              <option [value]="u.unit">{{ u.abbreviation }}</option>
+            }
+          </select>
+          <span class="pantry-label">for $</span>
+          <input type="number" min="0" step="0.01" [value]="item.bulkPrice" placeholder="price" [attr.aria-label]="'Package price for ' + item.name" (blur)="onPackPriceChange(item, $any($event.target).value)">
+        </div>
+
+        @if (item.costPerGram > 0) {
+          <p class="pantry-cost-summary">= {{ item.costPerGram | currency:'USD':'symbol':'1.4-4' }} / g</p>
+        }
+
+        <div class="pantry-row pantry-row-density">
+          <span class="pantry-label">1 cup ≈</span>
+          <input type="number" min="0" [value]="item.gramsPerCup" placeholder="g" [attr.aria-label]="'Grams per cup for ' + item.name" (blur)="onDensityChange(item, $any($event.target).value)">
+          <span class="pantry-unit-label">g</span>
+          <span class="pantry-label">1 each ≈</span>
+          <input type="number" min="0" [value]="item.gramsPerItem" placeholder="g" [attr.aria-label]="'Grams per item for ' + item.name" (blur)="onPerItemWeightChange(item, $any($event.target).value)">
+          <span class="pantry-unit-label">g</span>
+        </div>
+
+        <div class="pantry-card-footer">
+          <span class="pantry-meta">
+            @if (item.nutrition) { 🥗 Nutrition known } @else { No nutrition yet }
+          </span>
+          <span class="pantry-meta">Used in {{ usageCountFor(item) }} recipe{{ usageCountFor(item) === 1 ? '' : 's' }}</span>
+        </div>
+
+        <div class="pantry-card-status">
+          @if (savingNames().has(item.normalizedName)) {
+            <span class="pantry-saving">Saving…</span>
+          } @else if (justSavedNames().has(item.normalizedName)) {
+            <span class="pantry-saved">Saved ✓</span>
+          }
+          <button type="button" class="btn-icon delete" [attr.aria-label]="'Remove ' + item.name" (click)="confirmArchive(item)">🗑</button>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+
+@if (itemPendingArchive(); as item) {
+  <div class="modal-overlay" (click)="cancelArchive()" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h2 id="archive-title">Remove {{ item.name }}?</h2>
+      <p>Any recipe that still uses "{{ item.name }}" will show it with no price on file instead of losing it entirely.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn-outline" (click)="cancelArchive()">Keep it</button>
+        <button type="button" class="btn-danger" (click)="executeArchive()">Remove</button>
+      </div>
+    </div>
+  </div>
+}

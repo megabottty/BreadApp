@@ -1,7 +1,7 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
-import { Order, CalculatedRecipe, Review } from '../../logic/bakers-math';
+import { Order, CalculatedRecipe, CostBreakdown, Review, resolveIngredientCostPerGram } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { ReviewService } from '../../services/review.service';
 import { SubscriptionService } from '../../services/subscription.service';
@@ -30,6 +30,16 @@ type StoredRecipe = Pick<
 > & {
   ingredients?: { name: string; weight: number; type: CalculatedRecipe['ingredients'][number]['type'] }[];
   ratings?: Review[];
+};
+
+/** Used only for the placeholder/mock CalculatedRecipe objects below — never
+ * a real recipe's cost, so there's nothing to flag or report on. */
+const EMPTY_COST_BREAKDOWN: CostBreakdown = {
+  totalCost: 0,
+  unpricedIngredientNames: [],
+  costCoverageRatio: 1,
+  isComplete: true,
+  warnings: []
 };
 
 @Component({
@@ -236,7 +246,9 @@ export class ProfileComponent implements OnInit {
          totalNutrition: { calories: 1500, protein: 50, carbs: 300, fat: 10 },
          nutritionPerGram: { calories: 0, protein: 0, carbs: 0, fat: 0 },
          totalCost: 0,
-         profitMargin: 0
+         profitMargin: 0,
+         costPerItem: 0,
+         costBreakdown: EMPTY_COST_BREAKDOWN
        };
        for(let i=0; i<item.quantity; i++) {
          this.cartService.addToCart(mockProduct);
@@ -255,10 +267,10 @@ export class ProfileComponent implements OnInit {
       price: product.price ?? 12,
       imageUrl: product.imageUrl,
       images: product.images,
-      ingredients: (product.ingredients || []).map(ing => ({
-        ...ing,
-        percentage: 0
-      })),
+      ingredients: (product.ingredients || []).map(ing => {
+        const { costPerGram, costBasis } = resolveIngredientCostPerGram(ing);
+        return { ...ing, percentage: 0, cost: costPerGram * Number(ing.weight), costPerGram, costBasis };
+      }),
       totalFlour: 0,
       totalWater: 0,
       trueHydration: product.trueHydration ?? 0,
@@ -267,6 +279,8 @@ export class ProfileComponent implements OnInit {
       nutritionPerGram: { calories: 0, protein: 0, carbs: 0, fat: 0 },
       totalCost: 0,
       profitMargin: 0,
+      costPerItem: 0,
+      costBreakdown: EMPTY_COST_BREAKDOWN,
       ratings: product.ratings,
       averageRating: product.averageRating,
       isHidden: product.isHidden,

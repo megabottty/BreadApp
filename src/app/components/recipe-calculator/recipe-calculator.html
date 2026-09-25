@@ -167,16 +167,17 @@
 
       <div class="ingredients-header">
         <h3>{{ currentTenant()?.business_type === 'BAKERY' ? 'Ingredients' : 'Product Components / Costs' }}</h3>
-        <p class="section-hint">Enter the price and weight of the whole package for each {{ currentTenant()?.business_type === 'BAKERY' ? 'ingredient' : 'component' }} (e.g., $15 for 5000g of Flour) to track costs.</p>
+        <p class="section-hint">Add each {{ currentTenant()?.business_type === 'BAKERY' ? 'ingredient' : 'component' }} and how much this recipe uses. Set the package price and weight once — it's saved to your pantry and reused in every recipe.</p>
+        <a routerLink="/ingredients" class="btn-outline btn-small pantry-link">🧺 My Pantry →</a>
       </div>
 
-      <div class="ingredient-row-header desktop-only" role="row">
+      <!-- Purely visual: every field below carries its own (always-present,
+           if visually-hidden-on-desktop) label, so this duplicate header row
+           would only confuse a screen reader. -->
+      <div class="ingredient-row-header desktop-only" role="row" aria-hidden="true">
         <span role="columnheader">Ingredient Name</span>
-        <span role="columnheader">Weight (g)</span>
-        <div class="bulk-cost-header">
-          <span role="columnheader">Package Price ($)</span>
-          <span role="columnheader">Package Weight (g)</span>
-        </div>
+        <span role="columnheader">How Much</span>
+        <span role="columnheader">Cost</span>
         <span role="columnheader">Type</span>
         <span role="columnheader">Actions</span>
       </div>
@@ -186,20 +187,43 @@
           <div [formGroupName]="i" class="ingredient-row">
             <div class="search-container">
               <label for="ingredient-name-{{i}}" class="tiny-label-mobile">Ingredient Name</label>
-              <input type="text" id="ingredient-name-{{i}}" formControlName="name" placeholder="Name" (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur(i)" autocomplete="off">
+              <input
+                type="text" id="ingredient-name-{{i}}" formControlName="name" placeholder="Name" autocomplete="off"
+                role="combobox" aria-autocomplete="list" [attr.aria-haspopup]="'listbox'"
+                [attr.aria-expanded]="activeSearchIndex() === i && searchResults().length > 0"
+                [attr.aria-controls]="'ingredient-listbox-' + i"
+                [attr.aria-activedescendant]="activeSearchIndex() === i && activeOptionIndex() !== null ? ('ingredient-option-' + i + '-' + activeOptionIndex()) : null"
+                (input)="onSearch($event, i)" (focus)="onSearch($event, i)" (blur)="onBlur(i)" (keydown)="onSearchKeydown($event, i)"
+              >
               @if (activeSearchIndex() === i && searchResults().length > 0) {
                 <div class="search-results-wrapper">
-                  <ul class="search-results">
-                    @for (item of searchResults(); track item.name) {
-                      <li (mousedown)="selectIngredient(item, i); $event.preventDefault()">
+                  <span class="sr-only" aria-live="polite">{{searchResults().length}} ingredient{{searchResults().length === 1 ? '' : 's'}} found</span>
+                  <ul class="search-results" role="listbox" [id]="'ingredient-listbox-' + i" [attr.aria-label]="'Matching ingredients for ' + (ingredient.get('name')?.value || '')">
+                    @for (item of searchResults(); track item.name; let idx = $index) {
+                      @if (idx === 0 && item.isKnown) {
+                        <li class="search-group-label" role="presentation">In your pantry</li>
+                      }
+                      @if ((idx === 0 && !item.isKnown) || (idx > 0 && searchResults()[idx - 1].isKnown && !item.isKnown)) {
+                        <li class="search-group-label" role="presentation">Nutrition info only — no price yet</li>
+                      }
+                      <li
+                        role="option"
+                        [id]="'ingredient-option-' + i + '-' + idx"
+                        [attr.aria-selected]="activeOptionIndex() === idx"
+                        [class.active-option]="activeOptionIndex() === idx"
+                        (mousedown)="selectIngredient(item, i); $event.preventDefault()"
+                        (mouseenter)="activeOptionIndex.set(idx)"
+                      >
                         <div class="search-item-info">
                           <span class="search-item-name">{{item.name}}</span>
                           @if (item.isKnown) {
-                            <span class="search-item-meta" style="color: var(--color-accent); font-weight: 600;">✨ Known Product</span>
-                          } @else if (item.hasCost) {
-                            <span class="search-item-meta" style="color: var(--color-accent); font-weight: 600;">💰 Price on File</span>
+                            @if (item.hasCost) {
+                              <span class="search-item-meta" style="color: var(--color-accent); font-weight: 600;">💰 Price on File</span>
+                            } @else {
+                              <span class="search-item-meta">No price yet</span>
+                            }
                           } @else {
-                            <span class="search-item-meta">{{item.nutrition.caloriesPer100g | number:'1.0-0'}} kcal/100g</span>
+                            <span class="search-item-meta">{{item.nutrition.caloriesPer100g | number:'1.0-0'}} kcal/100g · you'll add your own price after</span>
                           }
                         </div>
                       </li>
@@ -209,18 +233,42 @@
               }
             </div>
             <div class="input-with-label">
-              <label for="ingredient-weight-{{i}}" class="tiny-label-mobile">Weight (g)</label>
-              <input type="number" id="ingredient-weight-{{i}}" formControlName="weight" placeholder="Grams">
+              <label for="ingredient-amount-{{i}}" class="tiny-label-mobile">How Much</label>
+              <div class="amount-unit-group">
+                <input type="number" min="0" id="ingredient-amount-{{i}}" formControlName="amount" placeholder="Amount" (input)="onAmountOrUnitChange(i)">
+                <label for="ingredient-unit-{{i}}" class="sr-only">Unit</label>
+                <select id="ingredient-unit-{{i}}" formControlName="unit" (change)="onAmountOrUnitChange(i)">
+                  @for (u of measureUnits; track u.unit) {
+                    <option [value]="u.unit">{{u.abbreviation}}</option>
+                  }
+                </select>
+              </div>
+              @if (conversionFor(i).hint) {
+                <output class="grams-hint" [class.grams-hint-assumed]="conversionFor(i).assumed">
+                  = {{conversionFor(i).grams | number:'1.0-1'}}g
+                  @if (conversionFor(i).assumed) { <span title="Estimated -- correct it below">⚠</span> }
+                </output>
+              }
+              @if (needsDensityPrompt(i)) {
+                <div class="density-prompt">
+                  <label for="ingredient-density-{{i}}">{{ densityPromptLabel(i) }}</label>
+                  <input type="number" min="0" id="ingredient-density-{{i}}" placeholder="grams" (change)="onDensityEntered(i, $any($event.target).value)">
+                </div>
+              }
             </div>
-            <div class="bulk-cost-inputs">
-              <div class="input-with-label">
-                <label for="ingredient-bulk-price-{{i}}" class="tiny-label-mobile">Package Price ($)</label>
-                <input type="number" id="ingredient-bulk-price-{{i}}" formControlName="bulkPrice" placeholder="Price Paid">
-              </div>
-              <div class="input-with-label">
-                <label for="ingredient-bulk-weight-{{i}}" class="tiny-label-mobile">Package Weight (g)</label>
-                <input type="number" id="ingredient-bulk-weight-{{i}}" formControlName="bulkWeight" placeholder="Full Weight">
-              </div>
+            <div class="input-with-label">
+              <span class="tiny-label-mobile" id="ingredient-cost-label-{{i}}">Cost</span>
+              <app-ingredient-price-chip
+                [ingredientName]="ingredient.get('name')?.value || 'this ingredient'"
+                [ingredientType]="ingredient.get('type')?.value"
+                [amountGrams]="ingredient.get('weight')?.value || 0"
+                [bulkPrice]="ingredient.get('bulkPrice')?.value ?? null"
+                [bulkWeightGrams]="ingredient.get('bulkWeight')?.value ?? null"
+                [pantryBulkPrice]="pantryService.find(ingredient.get('name')?.value)?.bulkPrice ?? null"
+                [pantryBulkWeightGrams]="pantryService.find(ingredient.get('name')?.value)?.bulkWeight ?? null"
+                (bulkPriceChange)="onBulkPriceChange(i, $event)"
+                (bulkWeightGramsChange)="onBulkWeightChange(i, $event)"
+              ></app-ingredient-price-chip>
             </div>
             <div class="input-with-label">
               <label for="ingredient-type-{{i}}" class="tiny-label-mobile">Type</label>
@@ -289,6 +337,47 @@
             </div>
           </div>
 
+          @if (!recipe.costBreakdown.isComplete) {
+            <p class="cost-warning" role="status">
+              ⚠ {{recipe.costBreakdown.unpricedIngredientNames.length}}
+              {{recipe.costBreakdown.unpricedIngredientNames.length === 1 ? 'ingredient has' : 'ingredients have'}}
+              no price yet ({{recipe.costBreakdown.unpricedIngredientNames.join(', ')}}).
+              Your true cost is higher than {{recipe.totalCost | currency}}.
+            </p>
+          }
+
+          @for (warning of recipe.costBreakdown.warnings; track warning.ingredientName + warning.code) {
+            <p class="cost-warning cost-warning-typo" role="status">⚠ {{warning.message}}</p>
+          }
+
+          @if (packEconomics().length > 0) {
+            <h4>Per Pack</h4>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pack</th>
+                    <th>Items</th>
+                    <th>Sells For</th>
+                    <th>Costs</th>
+                    <th>Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (pack of packEconomics(); track pack.id) {
+                    <tr>
+                      <td>{{pack.label}}</td>
+                      <td>{{pack.size}}</td>
+                      <td>{{pack.price | currency}}</td>
+                      <td>{{pack.cost | currency}}</td>
+                      <td [class.low-margin]="pack.margin < 60">{{pack.margin | number:'1.1-1'}}%</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
           <h3>Ingredient Breakdown</h3>
           <div class="table-responsive">
             <table>
@@ -297,6 +386,7 @@
                   <th>Name</th>
                   <th>Weight</th>
                   <th>%</th>
+                  <th>Cost</th>
                 </tr>
               </thead>
               <tbody>
@@ -305,6 +395,15 @@
                     <td>{{ing.name}}</td>
                     <td>{{ing.weight}}g</td>
                     <td>{{ing.percentage | number:'1.1-1'}}%</td>
+                    <td>
+                      @if (ing.costBasis === 'MISSING') {
+                        <span class="cost-missing">no price</span>
+                      } @else if (ing.costBasis === 'FREE') {
+                        <span class="cost-free">free</span>
+                      } @else {
+                        {{ing.cost | currency}}
+                      }
+                    </td>
                   </tr>
                 }
               </tbody>

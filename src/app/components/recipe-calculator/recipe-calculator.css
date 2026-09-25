@@ -269,6 +269,12 @@ textarea:focus {
   margin-bottom: 0.25rem;
 }
 
+.pantry-link {
+  display: inline-block;
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+
 .section-hint {
   font-size: 0.8rem;
   color: var(--text-secondary);
@@ -310,7 +316,7 @@ textarea:focus {
 
 .ingredient-row-header {
   display: grid;
-  grid-template-columns: 2fr 100px 1.5fr 1fr 40px;
+  grid-template-columns: 2fr 100px 140px 1fr 40px;
   gap: 1rem;
   padding: 0 0 0.5rem;
   border-bottom: 2px solid var(--accent-sage);
@@ -323,12 +329,6 @@ textarea:focus {
   align-items: flex-end;
 }
 
-.bulk-cost-header {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
 .desktop-only {
   display: none;
 }
@@ -339,20 +339,60 @@ textarea:focus {
   }
 }
 
-.bulk-cost-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  background: #f8f8f4;
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px dashed var(--border-color);
-}
-
 .input-with-label {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.amount-unit-group {
+  display: flex;
+  gap: 6px;
+}
+
+.amount-unit-group input {
+  flex: 1;
+  min-width: 0;
+}
+
+.amount-unit-group select {
+  width: 62px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  padding: 0 0.25rem;
+}
+
+.grams-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #4A4A4A);
+}
+
+.grams-hint-assumed {
+  color: #874d00;
+}
+
+.density-prompt {
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.density-prompt label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #874d00;
+}
+
+.density-prompt input {
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  padding: 0 0.5rem;
 }
 
 .tiny-label, .tiny-label-mobile {
@@ -365,12 +405,6 @@ textarea:focus {
 
 .tiny-label-mobile {
   display: block;
-}
-
-.bulk-cost-inputs input {
-  padding: 0.6rem !important;
-  font-size: 0.95rem !important;
-  background: white !important;
 }
 
 .ingredient-row button.btn-delete-product {
@@ -394,7 +428,7 @@ textarea:focus {
 
 @media (min-width: 768px) {
   .ingredient-row {
-    grid-template-columns: 2fr 100px 1.5fr 1fr 40px;
+    grid-template-columns: 2fr 100px 140px 1fr 40px;
     padding: 0.5rem 0;
     background: transparent;
     border: none;
@@ -404,15 +438,20 @@ textarea:focus {
     align-items: flex-end;
   }
 
+  /* The column header row already shows these labels visually, but the
+   * per-field labels must stay in the accessibility tree — display:none
+   * here previously stripped them, leaving desktop screen-reader users with
+   * unlabeled number inputs. */
   .tiny-label-mobile {
-    display: none;
-  }
-
-  .bulk-cost-inputs {
-    background: transparent;
+    position: absolute;
+    width: 1px;
+    height: 1px;
     padding: 0;
-    border: none;
-    gap: 0.5rem;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .ingredient-row button.btn-delete-product {
@@ -471,8 +510,24 @@ textarea:focus {
   border-bottom: none;
 }
 
-.search-results li:hover {
+.search-results li:hover,
+.search-results li.active-option {
   background: var(--btn-secondary);
+}
+
+.search-results li.search-group-label {
+  padding: 0.4rem 1rem 0.2rem;
+  cursor: default;
+  border-bottom: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #4A4A4A);
+}
+
+.search-results li.search-group-label:hover {
+  background: transparent;
 }
 
 .search-item-info {
@@ -820,6 +875,36 @@ td {
 
 .low-margin .value {
   color: #cf1322 !important;
+}
+
+/* Cost visibility warnings */
+.cost-warning {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  background-color: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #874d00;
+  line-height: 1.5;
+}
+
+.cost-warning-typo {
+  background-color: #fff1f0;
+  border-color: #ffa39e;
+  color: #a8071a;
+}
+
+.cost-missing {
+  color: #874d00;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.cost-free {
+  color: var(--text-secondary, #4A4A4A);
+  font-style: italic;
+  font-size: 0.85rem;
 }
 
 .checkbox-group {

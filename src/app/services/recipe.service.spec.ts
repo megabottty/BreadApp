@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { RecipeService } from './recipe.service';
 import { TenantService } from './tenant.service';
+import { PantryService } from './pantry.service';
 import { environment } from '../../environments/environment';
 import { CalculatedRecipe } from '../logic/bakers-math';
 import { firstValueFrom } from 'rxjs';
@@ -93,6 +94,49 @@ describe('RecipeService', () => {
 
     await promise;
     expect(service.savedRecipes().some(r => r.id === 'del-2')).toBeFalsy();
+  });
+
+  it('rehydrates a cache-fallback recipe\'s ingredient cost from the pantry, instead of showing $0', async () => {
+    const pantryService = TestBed.inject(PantryService);
+    pantryService.items.set([{
+      id: 1,
+      name: 'Bread Flour',
+      normalizedName: 'bread flour',
+      bulkPrice: 15,
+      bulkWeight: 5000,
+      costPerUnit: null,
+      packSize: 5,
+      packUnit: 'lb',
+      defaultUseUnit: 'g',
+      gramsPerCup: null,
+      gramsPerItem: null,
+      defaultType: 'FLOUR',
+      nutrition: null,
+      nutritionSource: null,
+      usdaFdcId: null,
+      isArchived: false,
+      costPerGram: 0.003,
+      costBasis: 'PACK',
+      updatedAt: null
+    }]);
+
+    // The offline cache strips bulkPrice/bulkWeight -- this is exactly that shape.
+    const cached = [{
+      id: 'r1', name: 'Loaf', category: 'BREAD', price: 12,
+      ingredients: [{ name: 'Bread Flour', weight: 450, type: 'FLOUR' }]
+    }];
+    // jsdom's localStorage is Proxy-backed, so spying the instance method
+    // doesn't intercept calls -- spy Storage.prototype instead.
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(JSON.stringify(cached));
+
+    service.loadRecipes();
+    const req = httpMock.expectOne(`${environment.apiUrl}/orders/recipes`);
+    req.error(new ErrorEvent('network'), { status: 500, statusText: 'Server Error' });
+
+    const recipe = service.savedRecipes().find(r => r.id === 'r1');
+    expect(recipe).toBeDefined();
+    // (15 / 5000) * 450 = 1.35 -- proves the pantry price, not $0, drove this
+    expect(recipe!.totalCost).toBeCloseTo(1.35, 6);
   });
 
 });

@@ -5,7 +5,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
     globals: true,
-    include: ['src/**/*.spec.ts'],
+    // Server helpers get plain .spec.cjs files (matching the rest of
+    // server/ being CommonJS) so pure logic like pantry.cjs's normalization
+    // and cost-precedence rules stays covered without a bundler step.
+    include: ['src/**/*.spec.ts', 'server/**/*.spec.cjs'],
     deps: {
       inline: [
         '@angular/core',

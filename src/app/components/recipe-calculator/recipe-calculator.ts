@@ -2,22 +2,38 @@ import { Component, OnInit, signal, computed, inject, effect, OnDestroy } from '
 import { HelpService } from '../../services/help.service';
 import { CommonModule, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
 import { calculateBakersMath, Recipe, CalculatedRecipe, IngredientType, scaleRecipe, MOCK_INGREDIENTS_DB, RecipeCategory, FlavorProfile, NutritionData, PackOption } from '../../logic/bakers-math';
+import { calculatePackEconomics, PackEconomics } from '../../logic/pack-options';
 import { AuthService } from '../../services/auth.service';
 import { IngredientService, FoodSearchItem } from '../../services/ingredient.service';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of, catchError, map } from 'rxjs';
 import { logger } from '../../utils/logger';
 import { RecipeService } from '../../services/recipe.service';
+import { IngredientPriceChipComponent } from '../ingredient-price-chip/ingredient-price-chip';
+import { PantryService } from '../../services/pantry.service';
+import { GramConversion, MEASURE_UNITS, MeasureUnit, parsePackageWeight, toGrams, UnitDefinition } from '../../logic/units';
+
+interface CreateIngredientOptions {
+  name?: string;
+  weight?: number;
+  type?: IngredientType;
+  costPerUnit?: number;
+  bulkPrice?: number;
+  bulkWeight?: number;
+  nutrition?: NutritionData | null;
+  amount?: number;
+  unit?: MeasureUnit;
+  gramsPerCup?: number | null;
+  gramsPerItem?: number | null;
+}
 
 @Component({
   selector: 'app-recipe-calculator',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, DecimalPipe, PercentPipe],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, DecimalPipe, PercentPipe, IngredientPriceChipComponent, RouterLink],
   templateUrl: './recipe-calculator.html',
   styleUrls: ['./recipe-calculator.css']
 })
@@ -29,26 +45,32 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
   private modalService = inject(ModalService);
   private helpService = inject(HelpService);
   private tenantService = inject(TenantService);
-  private http = inject(HttpClient);
   private fb = inject(FormBuilder);
   private recipeService = inject(RecipeService);
+  protected pantryService = inject(PantryService);
 
   currentTenant = this.tenantService.tenant;
 
   recipeForm: FormGroup;
   ingredientTypes: IngredientType[] = ['FLOUR', 'WATER', 'LEVAIN', 'SALT', 'INCLUSION'];
+  protected readonly measureUnits: readonly UnitDefinition[] = MEASURE_UNITS;
   recipeCategories: RecipeCategory[] = ['BREAD', 'PASTRY', 'COOKIE', 'BAGEL', 'MUFFIN', 'SCONE', 'SPECIAL', 'OTHER'];
   flavorProfiles: FlavorProfile[] = ['SWEET', 'SAVORY', 'PLAIN'];
   knownIngredients = Object.keys(MOCK_INGREDIENTS_DB);
 
   searchResults = signal<FoodSearchItem[]>([]);
   activeSearchIndex = signal<number | null>(null);
+  /** Index within `searchResults()` currently highlighted by keyboard/mouse hover. */
+  protected activeOptionIndex = signal<number | null>(null);
   private searchSubject = new Subject<{ term: string, index: number }>();
   private destroy$ = new Subject<void>();
 
   calculatedRecipe = signal<CalculatedRecipe | undefined>(undefined);
+  packEconomics = computed<PackEconomics[]>(() => {
+    const recipe = this.calculatedRecipe();
+    return recipe ? calculatePackEconomics(recipe) : [];
+  });
   savedRecipes = this.recipeService.savedRecipes;
-  ingredientCostDefaults = signal<Record<string, { bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }>>({});
 
   showNotifications = signal<boolean>(false);
   recipeToDelete = signal<CalculatedRecipe | null>(null);
@@ -92,10 +114,10 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       currentUnits: [1],
       targetUnits: [1],
       ingredients: this.fb.array([
-        this.createIngredient('Bread Flour', 400, 'FLOUR', 0.15),
-        this.createIngredient('Water', 300, 'WATER', 0),
-        this.createIngredient('Starter', 75, 'LEVAIN', 0.15),
-        this.createIngredient('Salt', 10, 'SALT', 0.05),
+        this.createIngredient({ name: 'Bread Flour', weight: 400, type: 'FLOUR', costPerUnit: 0.15 }),
+        this.createIngredient({ name: 'Water', weight: 300, type: 'WATER', costPerUnit: 0 }),
+        this.createIngredient({ name: 'Starter', weight: 75, type: 'LEVAIN', costPerUnit: 0.15 }),
+        this.createIngredient({ name: 'Salt', weight: 10, type: 'SALT', costPerUnit: 0.05 }),
       ])
     });
 
@@ -105,7 +127,7 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       if (tenant) {
         logger.info('[RecipeCalculator] Tenant identified, loading recipes:', tenant.slug);
         this.recipeService.loadRecipes();
-        this.loadIngredientCosts();
+        this.pantryService.load();
       }
     });
 
@@ -132,16 +154,9 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
       distinctUntilChanged((prev, curr) => prev.term === curr.term && prev.index === curr.index),
       switchMap(({ term, index: _index }) => {
         logger.debug('Debounced search triggered for:', term);
-        // We ALWAYS want to include matching known ingredients immediately,
-        // even before the API returns.
-        const knownIngredients = Array.from(new Set(Object.keys(this.ingredientCostDefaults()).map(n => n.toLowerCase())))
-          .map(name => ({
-            name: this.capitalizeFirstLetter(name),
-            nutrition: this.ingredientService.getNutrition(name) || { caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 },
-            isKnown: true,
-            hasCost: true
-          }))
-          .filter(ki => ki.name.toLowerCase().includes(term.toLowerCase()));
+        // We ALWAYS want to include matching pantry ingredients immediately,
+        // even before the USDA API returns.
+        const knownIngredients = this.buildKnownIngredientResults(term);
 
         if (term.length >= 2) {
           return this.ingredientService.search(term).pipe(
@@ -172,8 +187,8 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
 
       // Enhance search results with cost availability flag
       const enhancedResults = results.map((res: FoodSearchItem) => {
-        const normalized = this.normalizeIngredientName(res.name);
-        const hasCost = !!(this.ingredientCostDefaults()[normalized] || this.ingredientCostDefaults()[res.name]);
+        const pantryMatch = this.pantryService.find(res.name);
+        const hasCost = !!pantryMatch && pantryMatch.costBasis !== 'MISSING';
         return { ...res, hasCost };
       });
 
@@ -303,7 +318,21 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     const ingredientsArray = this.recipeForm.get('ingredients') as FormArray;
     ingredientsArray.clear();
     recipe.ingredients.forEach((ing: any) => {
-      ingredientsArray.push(this.createIngredient(ing.name, ing.weight, ing.type, ing.costPerUnit, ing.bulkPrice, ing.bulkWeight, ing.nutrition));
+      ingredientsArray.push(this.createIngredient({
+        name: ing.name,
+        weight: ing.weight,
+        type: ing.type,
+        costPerUnit: ing.costPerUnit,
+        bulkPrice: ing.bulkPrice,
+        bulkWeight: ing.bulkWeight,
+        nutrition: ing.nutrition,
+        // Legacy (pre-unit-picker) rows have no amount/unit at all --
+        // createIngredient backfills amount from weight and unit to 'g'.
+        amount: ing.amount,
+        unit: ing.unit,
+        gramsPerCup: ing.gramsPerCup,
+        gramsPerItem: ing.gramsPerItem
+      }));
       // Keep saved (e.g. USDA-backfilled) nutrition available to getNutrition()
       if (ing.name && ing.nutrition) {
         this.ingredientService.addIngredient(ing.name, ing.nutrition);
@@ -432,10 +461,10 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     while (ingredientsArray.length !== 0) {
       ingredientsArray.removeAt(0);
     }
-    ingredientsArray.push(this.createIngredient('Bread Flour', 400, 'FLOUR', 0.15));
-    ingredientsArray.push(this.createIngredient('Water', 300, 'WATER', 0));
-    ingredientsArray.push(this.createIngredient('Starter', 75, 'LEVAIN', 0.15));
-    ingredientsArray.push(this.createIngredient('Salt', 10, 'SALT', 0.05));
+    ingredientsArray.push(this.createIngredient({ name: 'Bread Flour', weight: 400, type: 'FLOUR', costPerUnit: 0.15 }));
+    ingredientsArray.push(this.createIngredient({ name: 'Water', weight: 300, type: 'WATER', costPerUnit: 0 }));
+    ingredientsArray.push(this.createIngredient({ name: 'Starter', weight: 75, type: 'LEVAIN', costPerUnit: 0.15 }));
+    ingredientsArray.push(this.createIngredient({ name: 'Salt', weight: 10, type: 'SALT', costPerUnit: 0.05 }));
 
     this.hasUnsavedChanges.set(false);
     this.recipeService.removeCalculatorDraft();
@@ -470,8 +499,9 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         }
       }
 
-      const rawIngredients = this.recipeForm.getRawValue().ingredients || [];
-      this.persistIngredientCostDefaults(rawIngredients);
+      // Ingredient prices already saved to the pantry as they were entered
+      // (see PantryService.queueSave, called from onBulkPriceChange /
+      // onBulkWeightChange / selectIngredient) -- nothing left to persist here.
 
       // Delegate network save + local-signal update to RecipeService
       this.recipeService.saveRecipe(current).subscribe({
@@ -617,17 +647,29 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     return this.recipeForm.get('ingredients') as FormArray;
   }
 
+  /** Ingredients from the baker's own pantry matching `term` — shown
+   * instantly (before USDA's debounced results) and tagged `isKnown` so the
+   * dropdown can surface "her" ingredients ahead of generic nutrition-only
+   * records. */
+  private buildKnownIngredientResults(term: string): FoodSearchItem[] {
+    const termLower = term.toLowerCase();
+    return this.pantryService.items()
+      .filter(item => !item.isArchived)
+      .map(item => ({
+        name: item.name,
+        nutrition: item.nutrition || this.ingredientService.getNutrition(item.name) || { caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 },
+        isKnown: true,
+        hasCost: item.costBasis !== 'MISSING'
+      }))
+      .filter(ki => ki.name.toLowerCase().includes(termLower));
+  }
+
   onSearch(event: Event, index: number) {
     const term = (event.target as HTMLInputElement).value;
     this.activeSearchIndex.set(index);
+    this.activeOptionIndex.set(null);
 
-    const knownIngredients = Array.from(new Set(Object.keys(this.ingredientCostDefaults()).map(n => n.toLowerCase())))
-      .map(name => ({
-        name: this.capitalizeFirstLetter(name),
-        nutrition: this.ingredientService.getNutrition(name) || { caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 },
-        isKnown: true,
-        hasCost: true
-      }));
+    const knownIngredients = this.buildKnownIngredientResults(term || '');
 
     if (!term || term.length < 1) {
       this.searchResults.set(knownIngredients.slice(0, 10));
@@ -660,13 +702,19 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.searchSubject.next({ term, index });
   }
 
-  private capitalizeFirstLetter(string: string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-  }
-
   onBlur(index: number) {
-    // Apply cost defaults on blur
-    this.applyIngredientCostDefaults(index);
+    // Fill in a pantry price if this row doesn't have one yet. Never
+    // overwrites a value already sitting in the row -- that clobber (any
+    // dropdown-adjacent event silently replacing a price she'd just typed)
+    // was a real bug; see selectIngredient for the one place an overwrite is
+    // actually correct: an explicit pick from the dropdown.
+    this.fillEmptyPriceFromPantry(index);
+
+    // Free-text (never picked from the dropdown) is still a first-class
+    // ingredient: if she typed a name with no existing pantry match, save a
+    // bare entry now so it's reusable next time, instead of only ever
+    // becoming reusable once a price happens to get added.
+    this.createBarePantryEntryIfNew(index);
 
     // Only clear if the blurring index is the active search index
     if (this.activeSearchIndex() === index) {
@@ -675,9 +723,55 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         if (this.activeSearchIndex() === index) {
           this.activeSearchIndex.set(null);
           this.searchResults.set([]);
+          this.activeOptionIndex.set(null);
         }
       }, 400); // Slightly more generous timeout for mobile/slower interactions
     }
+  }
+
+  /** Keyboard navigation for the ingredient dropdown -- it was mouse-only
+   * (`mousedown` with no `role="listbox"`), making it unusable by keyboard. */
+  protected onSearchKeydown(event: KeyboardEvent, index: number): void {
+    if (this.activeSearchIndex() !== index || this.searchResults().length === 0) {
+      if (event.key === 'Escape') {
+        this.activeSearchIndex.set(null);
+        this.searchResults.set([]);
+        this.activeOptionIndex.set(null);
+      }
+      return;
+    }
+
+    const results = this.searchResults();
+    const current = this.activeOptionIndex();
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        this.activeOptionIndex.set(current === null ? 0 : Math.min(current + 1, results.length - 1));
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        this.activeOptionIndex.set(current === null ? results.length - 1 : Math.max(current - 1, 0));
+        break;
+      case 'Enter':
+        if (current !== null && results[current]) {
+          event.preventDefault();
+          this.selectIngredient(results[current], index);
+        }
+        break;
+      case 'Escape':
+        this.activeSearchIndex.set(null);
+        this.searchResults.set([]);
+        this.activeOptionIndex.set(null);
+        break;
+    }
+  }
+
+  private createBarePantryEntryIfNew(index: number): void {
+    const ingredientForm = this.ingredients.at(index) as FormGroup;
+    const name = (ingredientForm.get('name')?.value || '').trim();
+    if (!name || this.pantryService.find(name)) return;
+    this.pantryService.queueSave({ name });
   }
 
   selectIngredient(item: FoodSearchItem, index: number) {
@@ -690,7 +784,39 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     const ingredientForm = this.ingredients.at(index) as FormGroup;
     ingredientForm.patchValue({ name: item.name, nutrition: item.nutrition || null });
 
-    this.applyIngredientCostDefaults(index, item.name);
+    // An explicit pick is the one place it's correct to overwrite whatever
+    // was in the row -- she just told us exactly which ingredient this is.
+    const pantryItem = this.pantryService.find(item.name);
+    if (pantryItem) {
+      ingredientForm.patchValue({
+        bulkPrice: pantryItem.bulkPrice,
+        bulkWeight: pantryItem.bulkWeight,
+        costPerUnit: pantryItem.costPerUnit,
+        type: pantryItem.defaultType || ingredientForm.get('type')?.value
+      }, { emitEvent: false });
+    }
+
+    // A USDA Branded hit (not yet in her pantry) often carries a package
+    // weight, e.g. "16 oz" -- pre-fill it so picking a specific packaged
+    // product gets her closer to "add an item, its weight" in one step.
+    let pantryPatchBulkWeight: number | undefined;
+    if (!pantryItem && item.packageWeight) {
+      const parsed = parsePackageWeight(item.packageWeight);
+      const grams = parsed ? toGrams(parsed.amount, parsed.unit).grams : 0;
+      if (grams > 0) {
+        ingredientForm.patchValue({ bulkWeight: grams }, { emitEvent: false });
+        pantryPatchBulkWeight = grams;
+      }
+    }
+
+    // Persist the name + nutrition to the pantry even when there's no price
+    // yet -- so this ingredient is reusable next time, instead of being
+    // silently dropped for lacking a price (the old behavior).
+    this.pantryService.queueSave({
+      name: item.name,
+      nutrition: item.nutrition ?? null,
+      ...(pantryPatchBulkWeight !== undefined ? { bulkWeight: pantryPatchBulkWeight } : {})
+    });
 
     // Add to local DB so getNutrition can find it later
     this.ingredientService.addIngredient(item.name, item.nutrition);
@@ -698,133 +824,141 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
     this.updateCalculations();
   }
 
-  private loadIngredientCosts() {
-    const headers = this.getTenantHeaders();
-    if (!headers) return;
+  onBulkPriceChange(index: number, value: number | null): void {
+    this.ingredients.at(index).patchValue({ bulkPrice: value });
+    this.queuePantrySave(index);
+  }
 
-    this.http.get<Array<{ name: string; bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }>>(
-      `${environment.apiUrl}/orders/ingredients/costs`,
-      { headers }
-    ).subscribe({
-      next: (costs) => {
-        const map: Record<string, { bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }> = {};
-        costs.forEach(item => {
-          if (item.name) {
-            const normalizedName = this.normalizeIngredientName(item.name);
-            const payload = {
-              bulkPrice: item.bulkPrice ?? undefined,
-              bulkWeight: item.bulkWeight ?? undefined,
-              costPerUnit: item.costPerUnit ?? undefined
-            };
-            map[item.name] = payload;
-            map[normalizedName] = payload;
-          }
-        });
-        this.ingredientCostDefaults.set(map);
-        this.applyIngredientCostDefaultsToAll();
-      },
-      error: (err) => {
-        console.warn('Failed to load ingredient cost defaults:', err);
-      }
+  onBulkWeightChange(index: number, value: number | null): void {
+    this.ingredients.at(index).patchValue({ bulkWeight: value });
+    this.queuePantrySave(index);
+  }
+
+  private queuePantrySave(index: number): void {
+    const ingredientForm = this.ingredients.at(index) as FormGroup;
+    const name = (ingredientForm.get('name')?.value || '').trim();
+    if (!name) return;
+
+    this.pantryService.queueSave({
+      name,
+      bulkPrice: ingredientForm.get('bulkPrice')?.value ?? null,
+      bulkWeight: ingredientForm.get('bulkWeight')?.value ?? null
     });
   }
 
-  private getTenantHeaders(): HttpHeaders | null {
-    const slug = this.tenantService.tenant()?.slug;
-    if (!slug) return null;
-    return new HttpHeaders().set('x-tenant-slug', slug);
-  }
-
-  private applyIngredientCostDefaults(index: number, nameOverride?: string) {
+  /** Fills bulkPrice/bulkWeight/type from the pantry only when this row's
+   * own values are still empty -- so a value she's already typed is never
+   * silently replaced. */
+  private fillEmptyPriceFromPantry(index: number): void {
     const ingredientForm = this.ingredients.at(index) as FormGroup;
-    const name = (nameOverride ?? (ingredientForm.get('name')?.value || '')).trim();
+    const name = (ingredientForm.get('name')?.value || '').trim();
     if (!name) return;
 
-    const normalized = this.normalizeIngredientName(name);
-    const defaults = this.ingredientCostDefaults()[normalized]
-      || this.ingredientCostDefaults()[name];
-
-    if (!defaults) return;
+    const pantryItem = this.pantryService.find(name);
+    if (!pantryItem) return;
 
     const currentBulkPrice = ingredientForm.get('bulkPrice')?.value;
     const currentBulkWeight = ingredientForm.get('bulkWeight')?.value;
-    const currentCostPerUnit = ingredientForm.get('costPerUnit')?.value;
+    if (currentBulkPrice || currentBulkWeight) return; // she already has values here -- leave them alone
 
-    // We overwrite if currently empty/zero OR if we just explicitly selected this ingredient by name
-    const shouldOverwrite = !currentBulkPrice || !currentBulkWeight || !!nameOverride;
-
-    if (shouldOverwrite) {
-      ingredientForm.patchValue({
-        bulkPrice: defaults.bulkPrice ?? currentBulkPrice,
-        bulkWeight: defaults.bulkWeight ?? currentBulkWeight,
-        costPerUnit: defaults.costPerUnit ?? currentCostPerUnit
-      }, { emitEvent: false });
-    }
+    ingredientForm.patchValue({
+      bulkPrice: pantryItem.bulkPrice,
+      bulkWeight: pantryItem.bulkWeight,
+      costPerUnit: pantryItem.costPerUnit
+    }, { emitEvent: false });
 
     this.updateCalculations();
   }
 
-  private applyIngredientCostDefaultsToAll() {
-    this.ingredients.controls.forEach((_, index) => {
-      this.applyIngredientCostDefaults(index);
+  /** Resolves the current amount+unit for a row into grams, using this
+   * ingredient's own saved density/item-weight first, then the pantry's,
+   * then (inside `toGrams`) the generic default table by name. */
+  protected conversionFor(index: number): GramConversion {
+    const ingredientForm = this.ingredients.at(index) as FormGroup;
+    const amount = Number(ingredientForm.get('amount')?.value);
+    const unit: MeasureUnit = ingredientForm.get('unit')?.value || 'g';
+    const name = (ingredientForm.get('name')?.value || '').trim();
+    const ownGramsPerCup = ingredientForm.get('gramsPerCup')?.value;
+    const ownGramsPerItem = ingredientForm.get('gramsPerItem')?.value;
+    const pantryCtx = this.pantryService.conversionContextFor(name);
+
+    return toGrams(Number.isFinite(amount) ? amount : 0, unit, {
+      gramsPerCup: ownGramsPerCup ?? pantryCtx.gramsPerCup,
+      gramsPerItem: ownGramsPerItem ?? pantryCtx.gramsPerItem,
+      ingredientName: name
     });
   }
 
-  private persistIngredientCostDefaults(ingredients: Array<{ name: string; bulkPrice?: number; bulkWeight?: number; costPerUnit?: number }>) {
-    const headers = this.getTenantHeaders();
-    if (!headers) return;
-
-    const payload = ingredients
-      .filter(ing => ing.name && ((ing.bulkPrice && ing.bulkWeight) || ing.costPerUnit))
-      .map(ing => ({
-        name: ing.name.trim(),
-        bulkPrice: ing.bulkPrice ?? null,
-        bulkWeight: ing.bulkWeight ?? null,
-        costPerUnit: ing.costPerUnit ?? null
-      }));
-
-    if (payload.length === 0) return;
-
-    this.http.post(`${environment.apiUrl}/orders/ingredients/costs`, payload, { headers }).subscribe({
-      next: () => {
-        payload.forEach(item => {
-          const normalizedName = this.normalizeIngredientName(item.name);
-          this.ingredientCostDefaults.update(prev => ({
-            ...prev,
-            [item.name]: {
-              bulkPrice: item.bulkPrice ?? undefined,
-              bulkWeight: item.bulkWeight ?? undefined,
-              costPerUnit: item.costPerUnit ?? undefined
-            },
-            [normalizedName]: {
-              bulkPrice: item.bulkPrice ?? undefined,
-              bulkWeight: item.bulkWeight ?? undefined,
-              costPerUnit: item.costPerUnit ?? undefined
-            }
-          }));
-        });
-      },
-      error: (err) => {
-        console.warn('Failed to save ingredient cost defaults:', err);
-      }
-    });
+  /** The only place `weight` (canonical grams) gets written from an
+   * amount/unit edit -- called on every change to either field. */
+  protected onAmountOrUnitChange(index: number): void {
+    const conversion = this.conversionFor(index);
+    this.ingredients.at(index).patchValue({ weight: conversion.grams });
   }
 
-  private normalizeIngredientName(name: string): string {
-    return name.trim().toLowerCase();
+  /** True when this row's unit needs a density/item-weight that isn't known
+   * specifically for this ingredient yet (pantry or its own saved value) --
+   * she's seeing a generic assumption, so we offer a one-time correction
+   * that's remembered from here on. */
+  protected needsDensityPrompt(index: number): boolean {
+    return this.conversionFor(index).assumed;
   }
 
-  createIngredient(name = '', weight = 0, type: IngredientType = 'FLOUR', cost = 0, bulkPrice = 0, bulkWeight = 0, nutrition: NutritionData | null = null): FormGroup {
+  protected densityPromptLabel(index: number): string {
+    const unit = (this.ingredients.at(index) as FormGroup).get('unit')?.value;
+    return unit === 'each' ? 'How much does one weigh? (g)' : 'How much does 1 cup weigh? (g)';
+  }
+
+  protected onDensityEntered(index: number, rawValue: string): void {
+    const grams = Number(rawValue);
+    if (!Number.isFinite(grams) || grams <= 0) return;
+
+    const ingredientForm = this.ingredients.at(index) as FormGroup;
+    const name = (ingredientForm.get('name')?.value || '').trim();
+    if (!name) return;
+
+    const unit: MeasureUnit = ingredientForm.get('unit')?.value || 'g';
+    const patch = unit === 'each' ? { gramsPerItem: grams } : { gramsPerCup: grams };
+
+    ingredientForm.patchValue(patch, { emitEvent: false });
+    this.pantryService.queueSave({ name, ...patch });
+    this.onAmountOrUnitChange(index);
+  }
+
+  createIngredient(opts: CreateIngredientOptions = {}): FormGroup {
+    const {
+      name = '',
+      weight = 0,
+      type = 'FLOUR',
+      costPerUnit = 0,
+      bulkPrice = 0,
+      bulkWeight = 0,
+      nutrition = null,
+      // An ingredient with no saved amount/unit is a legacy (pre-unit-picker)
+      // row -- backfill amount from weight and assume grams, so it renders
+      // and behaves exactly as it always has.
+      amount = weight,
+      unit = 'g',
+      gramsPerCup = null,
+      gramsPerItem = null
+    } = opts;
+
     return this.fb.group({
       name: [name],
       weight: [weight],
       type: [type],
-      costPerUnit: [cost],
+      costPerUnit: [costPerUnit],
       bulkPrice: [bulkPrice],
       bulkWeight: [bulkWeight],
       // Nutrition travels with the ingredient so re-saving a recipe never
       // wipes values that were looked up or backfilled earlier.
-      nutrition: [nutrition]
+      nutrition: [nutrition],
+      // What she actually typed -- weight above is always the canonical
+      // grams value derived from these; see syncWeightFromAmount.
+      amount: [amount],
+      unit: [unit as MeasureUnit],
+      gramsPerCup: [gramsPerCup],
+      gramsPerItem: [gramsPerItem]
     });
   }
 
@@ -879,7 +1013,11 @@ export class RecipeCalculatorComponent implements OnInit, OnDestroy {
         ...ing,
         bulkPrice: ing.bulkPrice,
         bulkWeight: ing.bulkWeight,
-        nutrition: ing.nutrition || this.ingredientService.getNutrition(ing.name)
+        // Recipe's own saved nutrition wins (never overwritten retroactively);
+        // then the pantry (this is what survives a page reload); then the
+        // in-memory local DB; calculateBakersMath itself falls further back
+        // to MOCK_INGREDIENTS_DB, then zeros.
+        nutrition: ing.nutrition || this.pantryService.nutritionFor(ing.name) || this.ingredientService.getNutrition(ing.name)
       })),
       levainDetails: {
         hydration: formValue.levainHydration / 100

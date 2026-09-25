@@ -1,10 +1,26 @@
-import { PackOption, RecipeCategory } from './bakers-math';
+import { CalculatedRecipe, PackOption, RecipeCategory } from './bakers-math';
 
 export interface PackOptionsProduct {
   name: string;
   category: RecipeCategory;
   price?: number;
   packOptions?: PackOption[];
+}
+
+/** How a single pack option performs against the recipe's actual cost. */
+export interface PackEconomics {
+  id: string;
+  label: string;
+  size: number;
+  /** Total price for the whole pack. */
+  price: number;
+  /** Total cost for the whole pack (recipe cost-per-item × size). */
+  cost: number;
+  profit: number;
+  /** Percent, same formula as `CalculatedRecipe.profitMargin`. */
+  margin: number;
+  pricePerItem: number;
+  costPerItem: number;
 }
 
 /**
@@ -54,4 +70,30 @@ export function getStartingPrice(product: PackOptionsProduct): { price: number; 
     return { price: product.price || 12, isFrom: false };
   }
   return { price: Math.min(...packs.map(p => p.price)), isFrom: packs.length > 1 };
+}
+
+/**
+ * Cost and margin for every pack option this recipe is actually sold under —
+ * including the storefront's category-default packs when the recipe has no
+ * explicit `packOptions` of its own (via `resolvePackOptions`), so margin
+ * reflects what the customer is really charged, not just the batch price.
+ */
+export function calculatePackEconomics(recipe: CalculatedRecipe): PackEconomics[] {
+  const packs = resolvePackOptions(recipe);
+  return packs.map(pack => {
+    const cost = recipe.costPerItem * pack.size;
+    const profit = pack.price - cost;
+    const margin = pack.price > 0 ? (profit / pack.price) * 100 : 0;
+    return {
+      id: pack.id,
+      label: pack.label,
+      size: pack.size,
+      price: pack.price,
+      cost,
+      profit,
+      margin,
+      pricePerItem: pack.size > 0 ? pack.price / pack.size : 0,
+      costPerItem: recipe.costPerItem
+    };
+  });
 }

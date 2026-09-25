@@ -64,7 +64,10 @@ function writeCache(key, value) {
 async function searchFoods(query, { pageSize = 10 } = {}) {
   const normalized = String(query || '').trim().toLowerCase();
   const size = Math.min(25, Math.max(1, Number(pageSize) || 10));
-  const cacheKey = `${normalized}|${size}`;
+  // v2: results now carry brandName/packageWeight/fdcId. Bumped so a
+  // still-warm cache entry from before this field doesn't serve field-less
+  // results after deploy.
+  const cacheKey = `v2|${normalized}|${size}`;
 
   const cached = readCache(cacheKey);
   if (cached) return cached;
@@ -81,7 +84,14 @@ async function searchFoods(query, { pageSize = 10 } = {}) {
   const results = (data.foods || []).map((food) => ({
     name: food.description,
     dataType: food.dataType,
-    nutrition: mapFoodToNutrition(food)
+    nutrition: mapFoodToNutrition(food),
+    // Branded foods carry brand + package info; Foundation/SR Legacy foods
+    // (generic ingredients) won't have these. Passed through so a Branded
+    // hit can pre-fill the recipe row's package price/weight fields --
+    // "add an item, its weight" from a single pick, instead of two lookups.
+    brandName: food.brandName || food.brandOwner || undefined,
+    packageWeight: food.packageWeight || undefined,
+    fdcId: food.fdcId != null ? String(food.fdcId) : undefined
   }));
 
   writeCache(cacheKey, results);

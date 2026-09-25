@@ -3,6 +3,7 @@ const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 const { searchFoods } = require('../utils/usda.cjs');
+const pantry = require('../utils/pantry.cjs');
 const ssrCache = require('../utils/ssr-cache.cjs');
 
 // Initialize Supabase Client
@@ -318,7 +319,10 @@ router.get('/ingredients/search', async (req, res) => {
   try {
     const foods = await searchFoods(q, { pageSize: 10 });
     res.set('Cache-Control', 'public, max-age=3600');
-    res.json(foods.map(({ name, nutrition }) => ({ name, nutrition })));
+    // name/nutrition first so this stays a structural superset of the old
+    // shape; brandName/packageWeight/fdcId let a Branded-food pick pre-fill
+    // the recipe row's package price/weight (parsed client-side).
+    res.json(foods.map(({ name, nutrition, brandName, packageWeight, fdcId }) => ({ name, nutrition, brandName, packageWeight, fdcId })));
   } catch (error) {
     if (error.status === 429) {
       return res.status(429).json({ error: 'Ingredient search is rate limited right now. Please try again in a minute.' });
@@ -327,6 +331,12 @@ router.get('/ingredients/search', async (req, res) => {
     res.status(502).json({ error: 'Ingredient lookup is temporarily unavailable' });
   }
 });
+
+// GET/POST /ingredients/costs below are DEPRECATED in favor of
+// GET/PUT /ingredients/pantry, which read/write the same table and columns
+// but return the pantry's full shape (units, density, nutrition) rather
+// than just price/weight. Kept working so a stale cached browser bundle
+// doesn't break; new frontend code should use /ingredients/pantry.
 
 // GET: Ingredient cost defaults
 router.get('/ingredients/costs', async (req, res) => {
@@ -407,6 +417,66 @@ router.post('/ingredients/costs', async (req, res) => {
   } catch (error) {
     console.error('Error saving ingredient costs:', error);
     res.status(500).json({ error: 'Failed to save ingredient costs' });
+  }
+});
+
+// GET: The baker's pantry -- every ingredient she's priced, with its unit,
+// density and nutrition. Active (non-archived) items only.
+router.get('/ingredients/pantry', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  try {
+    const items = await pantry.listPantryItems(supabase, req.tenantId);
+    res.json(items);
+  } catch (error) {
+    console.error('[Pantry] Failed to list pantry items:', error.message);
+    res.status(500).json({ error: 'Failed to fetch pantry', details: error.message });
+  }
+});
+
+// PUT: Create or merge one pantry item by name. Single-item, not a batch
+// upsert -- see the comment on savePantryItem for why: a batch upsert would
+// blank out fields a partial patch didn't mean to touch.
+router.put('/ingredients/pantry', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  try {
+    const item = await pantry.savePantryItem(supabase, req.tenantId, req.body || {});
+    res.json(item);
+  } catch (error) {
+    const status = error.status || 500;
+    if (status >= 500) console.error('[Pantry] Failed to save pantry item:', error.message);
+    res.status(status).json({ error: error.message || 'Failed to save pantry item' });
+  }
+});
+
+// DELETE: Soft-delete (archive) one pantry item. Never a hard delete -- a
+// recipe that still name-matches this ingredient would silently show $0
+// cost for it the next time it's opened.
+router.delete('/ingredients/pantry/:id', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  if (!req.tenantId) {
+    return res.status(400).json({ error: 'Tenant not identified' });
+  }
+
+  try {
+    await pantry.archivePantryItem(supabase, req.tenantId, req.params.id);
+    res.json({ archived: true });
+  } catch (error) {
+    console.error('[Pantry] Failed to archive pantry item:', error.message);
+    res.status(500).json({ error: 'Failed to archive pantry item', details: error.message });
   }
 });
 

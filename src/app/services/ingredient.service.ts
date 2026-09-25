@@ -10,6 +10,11 @@ export interface FoodSearchItem {
   nutrition: NutritionData;
   isKnown?: boolean;
   hasCost?: boolean;
+  /** Present only for a USDA Branded-food hit -- lets selection pre-fill the
+   * recipe row's package price/weight fields (via `parsePackageWeight`). */
+  brandName?: string;
+  packageWeight?: string;
+  fdcId?: string;
 }
 
 @Injectable({
