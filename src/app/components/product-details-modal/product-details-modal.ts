@@ -18,13 +18,13 @@ import type { ProductNutritionDisplay } from '../storefront/storefront';
             @if (isInlineImage(product.images[0])) {
               <img [src]="product.images[0]" [alt]="product.name" class="details-image" width="960" height="540">
             } @else {
-              <img [ngSrc]="product.images[0]" [alt]="product.name" class="details-image" width="960" height="540" sizes="(max-width: 768px) 92vw, 680px">
+              <img [ngSrc]="product.images[0]" [alt]="product.name" class="details-image" width="960" height="540" sizes="(max-width: 768px) 92vw, 50vw">
             }
           } @else if (product.imageUrl) {
             @if (isInlineImage(product.imageUrl)) {
               <img [src]="product.imageUrl" [alt]="product.name" class="details-image" width="960" height="540">
             } @else {
-              <img [ngSrc]="product.imageUrl" [alt]="product.name" class="details-image" width="960" height="540" sizes="(max-width: 768px) 92vw, 680px">
+              <img [ngSrc]="product.imageUrl" [alt]="product.name" class="details-image" width="960" height="540" sizes="(max-width: 768px) 92vw, 50vw">
             }
           } @else {
             <div class="details-image-placeholder" aria-hidden="true">🍞</div>

@@ -1,7 +1,6 @@
 import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { RuntimeConfigService } from '../services/runtime-config.service';
 
 export const authGuard: CanActivateFn = async (route, state) => {
   // Bypass guards when running E2E tests via query param
@@ -54,32 +53,35 @@ export const guestGuard: CanActivateFn = async (_route, _state) => {
   return true;
 };
 
-export const storefrontAdminGuard: CanActivateFn = async (_route, _state) => {
-  // Bypass guards when running E2E tests via query param
-  if (typeof window !== 'undefined' && window.location.search.includes('e2e=1')) return true;
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') return true;
-  }
+// The storefront is open to everyone now. The "under construction" gate
+// (admin-preview mode: only logged-in bakers could see the store) is kept
+// below, commented out, in case it's ever needed again.
+export const storefrontAdminGuard: CanActivateFn = async () => true;
 
-  const authService = inject(AuthService);
-  const runtimeConfig = inject(RuntimeConfigService);
-  const router = inject(Router);
-
-  // Check public mode first: it's already resolved synchronously via the
-  // APP_INITIALIZER (see app.config.ts) and lets public storefront visitors
-  // render immediately without waiting on the (much slower) Supabase auth
-  // session check below, which only matters for admin-preview mode.
-  if (runtimeConfig.isPublicMode()) {
-    return true;
-  }
-
-  await authService.waitForAuthReady();
-
-  if (authService.isAuthenticated() && authService.isBaker()) {
-    return true;
-  }
-
-  router.navigate(['/under-construction']);
-  return false;
-};
+// export const storefrontAdminGuard: CanActivateFn = async (_route, _state) => {
+//   // Bypass guards when running E2E tests via query param
+//   if (typeof window !== 'undefined' && window.location.search.includes('e2e=1')) return true;
+//   if (typeof window !== 'undefined') {
+//     const host = window.location.hostname;
+//     if (host === 'localhost' || host === '127.0.0.1') return true;
+//   }
+//
+//   const authService = inject(AuthService);
+//   const runtimeConfig = inject(RuntimeConfigService);
+//   const router = inject(Router);
+//
+//   // Public mode is resolved synchronously via the APP_INITIALIZER, so public
+//   // visitors render immediately without waiting on the Supabase auth check.
+//   if (runtimeConfig.isPublicMode()) {
+//     return true;
+//   }
+//
+//   await authService.waitForAuthReady();
+//
+//   if (authService.isAuthenticated() && authService.isBaker()) {
+//     return true;
+//   }
+//
+//   router.navigate(['/under-construction']);
+//   return false;
+// };

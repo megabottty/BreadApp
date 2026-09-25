@@ -2,10 +2,11 @@ import { Routes } from '@angular/router';
 import { authGuard, bakerGuard, guestGuard, storefrontAdminGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
-  {
-    path: 'under-construction',
-    loadComponent: () => import('./components/under-construction/under-construction').then(m => m.UnderConstructionComponent)
-  },
+  // The "under construction" page is retired; route kept for reference.
+  // {
+  //   path: 'under-construction',
+  //   loadComponent: () => import('./components/under-construction/under-construction').then(m => m.UnderConstructionComponent)
+  // },
   { path: '', redirectTo: 'front', pathMatch: 'full' },
   {
     path: 'login',
@@ -114,6 +115,7 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'under-construction'
+    redirectTo: 'front'
+    // redirectTo: 'under-construction'
   }
 ];
