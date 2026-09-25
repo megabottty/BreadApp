@@ -19,7 +19,10 @@
           "options": {
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
-              "allowedCommonJsDependencies": ["qrcode","dijkstrajs"],
+            "allowedCommonJsDependencies": [
+              "qrcode",
+              "dijkstrajs"
+            ],
             "assets": [
               {
                 "glob": "**/*",
@@ -44,7 +47,20 @@
             "sourceMap": false,
             "extractLicenses": true,
             "namedChunks": false,
-            "aot": true
+            "aot": true,
+            "server": "src/main.server.ts",
+            "outputMode": "server",
+            "security": {
+              "allowedHosts": [
+                "thedailydough.store",
+                "www.thedailydough.store",
+                "bread-app-backend.onrender.com",
+                "localhost"
+              ]
+            },
+            "ssr": {
+              "entry": "src/server.ts"
+            }
           },
           "configurations": {
             "production": {

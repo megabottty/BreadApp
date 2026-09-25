@@ -78,7 +78,8 @@ app.use(helmet({
         'https://*.supabase.co',
         'https://api.stripe.com',
         'https://maps.googleapis.com',
-        'https://maps.gstatic.com'
+        'https://maps.gstatic.com',
+        'https://bread-app-backend.onrender.com'
       ],
       frameSrc: [
         "'self'",
@@ -233,6 +234,45 @@ app.use(express.static(distPath, {
     res.setHeader('Cache-Control', 'public, max-age=3600');
   }
 }));
+
+// Server-side render the public storefront routes ("/front" and "/b/:slug")
+// so the initial HTML already contains product data/images. This is the
+// single biggest lever for LCP: without it, nothing renders until the JS
+// bundle boots and fetches products from the API. All other routes
+// (dashboard, admin, checkout, etc.) keep the previous client-rendered
+// behavior below, since they require client-side auth state anyway and
+// aren't part of the public, LCP-sensitive storefront path.
+let angularSsrHandlerPromise = null;
+function getAngularSsrHandler() {
+  if (!angularSsrHandlerPromise) {
+    const ssrServerPath = path.join(__dirname, '../dist/BreadApp/server/server.mjs');
+    angularSsrHandlerPromise = import(require('node:url').pathToFileURL(ssrServerPath).href)
+      .then((mod) => mod.reqHandler)
+      .catch((err) => {
+        console.error('[SSR] Failed to load Angular SSR handler, falling back to CSR:', err.message);
+        angularSsrHandlerPromise = null;
+        return null;
+      });
+  }
+  return angularSsrHandlerPromise;
+}
+
+app.get(['/front', '/b/:slug'], async (req, res, next) => {
+  const handler = await getAngularSsrHandler();
+  if (!handler) {
+    return next();
+  }
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  try {
+    await handler(req, res);
+  } catch (err) {
+    console.error('[SSR] Render failed, falling back to CSR:', err.message);
+    if (!res.headersSent) {
+      next();
+    }
+  }
+});
 
 // The "Catch-all" route for Angular routing — MUST be after express.static
 // This regex matches paths that don't start with /api and don't have file extensions
