@@ -3,6 +3,7 @@ const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 const { searchFoods } = require('../utils/usda.cjs');
+const ssrCache = require('../utils/ssr-cache.cjs');
 
 // Initialize Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -19,6 +20,17 @@ const supabase = (supabaseUrl && supabaseKey)
   : null;
 
 const toDateString = (date) => date.toISOString().split('T')[0];
+
+// Any successful write here (recipes, tenant info, reviews, promos, ...) may
+// change what the public storefront shows, so drop the cached SSR HTML.
+router.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
+    res.on('finish', () => {
+      if (res.statusCode < 400) ssrCache.invalidate();
+    });
+  }
+  next();
+});
 
 // Map a bakery_recipes row (snake_case) to the frontend Recipe shape (camelCase).
 // Used by both GET and POST so a freshly saved recipe looks identical to a loaded one.

@@ -66,3 +66,13 @@ if (isMainModule(import.meta.url) || process.env['pm_id']) {
  * Request handler used by the Angular CLI (for dev-server and during build) or Firebase Cloud Functions.
  */
 export const reqHandler = createNodeRequestHandler(app);
+
+/**
+ * Renders a route to an HTML string (or null when the route isn't handled by
+ * Angular), so the hosting Express server can cache the result.
+ */
+export async function renderRoute(req: import('node:http').IncomingMessage): Promise<{ status: number; html: string } | null> {
+  const response = await angularApp.handle(req);
+  if (!response) return null;
+  return { status: response.status, html: await response.text() };
+}

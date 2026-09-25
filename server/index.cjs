@@ -248,30 +248,48 @@ app.use(express.static(distPath, {
 // (dashboard, admin, checkout, etc.) keep the previous client-rendered
 // behavior below, since they require client-side auth state anyway and
 // aren't part of the public, LCP-sensitive storefront path.
-let angularSsrHandlerPromise = null;
-function getAngularSsrHandler() {
-  if (!angularSsrHandlerPromise) {
+//
+// Rendered HTML is cached in memory per host+URL (see utils/ssr-cache.cjs):
+// the render costs ~1s of server time, which was most of mobile TTFB. Writes
+// under /api/orders invalidate the cache so admins see their edits immediately.
+const ssrCache = require('./utils/ssr-cache.cjs');
+let angularRenderPromise = null;
+function getAngularRenderer() {
+  if (!angularRenderPromise) {
     const ssrServerPath = path.join(__dirname, '../dist/BreadApp/server/server.mjs');
-    angularSsrHandlerPromise = import(require('node:url').pathToFileURL(ssrServerPath).href)
-      .then((mod) => mod.reqHandler)
+    angularRenderPromise = import(require('node:url').pathToFileURL(ssrServerPath).href)
+      .then((mod) => mod.renderRoute)
       .catch((err) => {
         console.error('[SSR] Failed to load Angular SSR handler, falling back to CSR:', err.message);
-        angularSsrHandlerPromise = null;
+        angularRenderPromise = null;
         return null;
       });
   }
-  return angularSsrHandlerPromise;
+  return angularRenderPromise;
 }
 
 app.get(['/front', '/b/:slug'], async (req, res, next) => {
-  const handler = await getAngularSsrHandler();
-  if (!handler) {
+  const render = await getAngularRenderer();
+  if (!render) {
     return next();
   }
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+  const cacheKey = `${req.hostname}|${req.originalUrl}`;
+  const cached = ssrCache.get(cacheKey);
+  if (cached) {
+    res.setHeader('X-SSR-Cache', 'HIT');
+    return res.status(200).send(cached);
+  }
+
   try {
-    await handler(req, res);
+    const result = await render(req);
+    if (!result) return next();
+    if (result.status === 200) ssrCache.set(cacheKey, result.html);
+    res.setHeader('X-SSR-Cache', 'MISS');
+    res.status(result.status).send(result.html);
   } catch (err) {
     console.error('[SSR] Render failed, falling back to CSR:', err.message);
     if (!res.headersSent) {
