@@ -74,6 +74,26 @@ export class CartComponent implements OnInit {
     return d.toISOString().split('T')[0];
   });
 
+  /** Subscriptions are baked in the Monday/Tuesday batch, so instead of a free
+   * date picker they choose from the next four weeks of Mondays and Tuesdays
+   * (respecting the 48-hour lead time). Each following week repeats on the
+   * same day. */
+  subscriptionDateOptions = computed<{ value: string; label: string }[]>(() => {
+    const options: { value: string; label: string }[] = [];
+    const start = new Date(`${this.minDate()}T00:00:00Z`);
+    for (let offset = 0; offset < 28; offset++) {
+      const day = new Date(start);
+      day.setUTCDate(start.getUTCDate() + offset);
+      const weekday = day.getUTCDay();
+      if (weekday !== 1 && weekday !== 2) continue;
+      options.push({
+        value: day.toISOString().slice(0, 10),
+        label: day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
+      });
+    }
+    return options;
+  });
+
   checkoutBlockedReason = computed(() => {
     if (this.hasSubscription() && !this.authService.isAuthenticated()) {
       return 'Subscriptions need an account. Log in or create one to check out, or switch the item back to a one-time purchase.';
@@ -85,10 +105,12 @@ export class CartComponent implements OnInit {
       return 'Dispatch date must be a Monday or Tuesday, at least 48 hours from now';
     }
     if (this.fulfillmentType() === 'PICKUP' && !this.pickupDate()) {
-      return 'Please select a pickup date';
+      return this.hasSubscription() ? 'Please choose a Monday or Tuesday for your pickup' : 'Please select a pickup date';
     }
     if (this.fulfillmentType() === 'PICKUP' && !this.isPickupDateValid(this.pickupDate())) {
-      return 'Pickup date must be at least 48 hours from now';
+      return this.hasSubscription()
+        ? 'Subscriptions are baked for Monday or Tuesday pickup, at least 48 hours from now'
+        : 'Pickup date must be at least 48 hours from now';
     }
     if (!this.authService.isAuthenticated() && !this.guestName()) {
       return 'Please enter your name for guest checkout';
@@ -120,6 +142,8 @@ export class CartComponent implements OnInit {
 
   isPickupDateValid = (date: string) => {
     if (!date) return false;
+    // A bag with a subscription is on the Monday/Tuesday bake schedule.
+    if (this.hasSubscription()) return this.isDispatchDateValid(date);
     const selected = new Date(date);
     const min = new Date(this.minDate());
     return selected >= min;
@@ -222,7 +246,11 @@ export class CartComponent implements OnInit {
     }
 
     if (this.fulfillmentType() === 'PICKUP' && !this.isPickupDateValid(this.pickupDate())) {
-      this.modalService.showAlert('Please select a pickup date at least 48 hours from now.', 'Invalid Date', 'warning');
+      this.modalService.showAlert(
+        this.hasSubscription()
+          ? 'Subscriptions are baked for Monday or Tuesday pickup. Please choose one of those days, at least 48 hours from now.'
+          : 'Please select a pickup date at least 48 hours from now.',
+        'Invalid Date', 'warning');
       return;
     }
 

@@ -30,8 +30,18 @@
               </div>
               <div class="form-group">
                 <label for="dispatch-date">Dispatch Date (Mon/Tue Only)</label>
-                <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
-                <input type="date" id="dispatch-date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="dispatchDate() && !isDispatchDateValid(dispatchDate())" aria-describedby="dispatch-hint">
+                @if (hasSubscription()) {
+                  <p class="helper-text">🔄 Subscriptions ship in our Monday/Tuesday batch. Choose the day your first order should go out; each following week repeats on that day.</p>
+                  <select id="dispatch-date" [(ngModel)]="dispatchDate" aria-describedby="dispatch-hint">
+                    <option value="">Choose a Monday or Tuesday</option>
+                    @for (option of subscriptionDateOptions(); track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                } @else {
+                  <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
+                  <input type="date" id="dispatch-date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="dispatchDate() && !isDispatchDateValid(dispatchDate())" aria-describedby="dispatch-hint">
+                }
                 @if (dispatchDate() && !isDispatchDateValid(dispatchDate())) {
                   <small id="dispatch-hint" class="error-text">Bread only ships on Mondays and Tuesdays, with a 48-hour lead time.</small>
                 }
@@ -40,11 +50,21 @@
           } @else {
             <div class="pickup-details">
               <div class="form-group">
-                <label for="pickup-date">Pickup Date</label>
-                <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
-                <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())" aria-describedby="pickup-hint">
+                <label for="pickup-date">{{ hasSubscription() ? 'Pickup Day (Mon/Tue Only)' : 'Pickup Date' }}</label>
+                @if (hasSubscription()) {
+                  <p class="helper-text">🔄 Subscriptions are baked in our Monday/Tuesday batch. Choose the day your first order will be ready; each following week repeats on that day.</p>
+                  <select id="pickup-date" [(ngModel)]="pickupDate" aria-describedby="pickup-hint">
+                    <option value="">Choose a Monday or Tuesday</option>
+                    @for (option of subscriptionDateOptions(); track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                } @else {
+                  <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
+                  <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())" aria-describedby="pickup-hint">
+                }
                 @if (pickupDate() && !isPickupDateValid(pickupDate())) {
-                  <small id="pickup-hint" class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
+                  <small id="pickup-hint" class="error-text">{{ hasSubscription() ? 'Subscription pickups are Mondays and Tuesdays, with a 48-hour lead time.' : 'We need at least 48 hours to prepare your handcrafted loaf.' }}</small>
                 }
               </div>
               @if (!hasSubscription()) {
