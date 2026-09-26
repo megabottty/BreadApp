@@ -8,19 +8,13 @@ describe('resolvePackOptions', () => {
     expect(resolvePackOptions({ name: 'Cookie', category: 'COOKIE', packOptions: custom })).toBe(custom);
   });
 
-  it('prices bagels as 4-pack $12 / 8-pack $20', () => {
-    const packs = resolvePackOptions({ name: 'Everything Bagels', category: 'BAGEL' });
-    expect(packs.map(p => [p.size, p.price])).toEqual([[4, 12], [8, 20]]);
-  });
-
-  it('adds $2 per pack for blueberry bagels', () => {
-    const packs = resolvePackOptions({ name: 'Blueberry Bagels', category: 'BAGEL' });
-    expect(packs.map(p => [p.size, p.price])).toEqual([[4, 14], [8, 22]]);
-  });
-
-  it('prices cookies as 1/$3, 6/$10, 12/$20', () => {
-    const packs = resolvePackOptions({ name: 'Chocolate Chip', category: 'COOKIE' });
-    expect(packs.map(p => [p.size, p.price])).toEqual([[1, 3], [6, 10], [12, 20]]);
+  it('never invents packs from the category or name -- the saved price wins', () => {
+    // A $6 "Cinnamon Roll" and a $20 "Cinnamon Rolls 4 Pack" used to both
+    // come back as a hard-coded 1/$5, 2/$10, 4/$18 table.
+    expect(resolvePackOptions({ name: 'Cinnamon Roll', category: 'OTHER', price: 6 })).toEqual([]);
+    expect(resolvePackOptions({ name: 'Cinnamon Rolls 4 Pack', category: 'OTHER', price: 20 })).toEqual([]);
+    expect(resolvePackOptions({ name: 'Everything Bagels', category: 'BAGEL', price: 3 })).toEqual([]);
+    expect(resolvePackOptions({ name: 'Chocolate Chip', category: 'COOKIE', price: 3 })).toEqual([]);
   });
 
   it('returns no packs for plain bread', () => {
@@ -33,8 +27,21 @@ describe('getStartingPrice', () => {
     expect(getStartingPrice({ name: 'Loaf', category: 'BREAD', price: 14 })).toEqual({ price: 14, isFrom: false });
   });
 
-  it('uses the cheapest pack otherwise', () => {
-    expect(getStartingPrice({ name: 'Plain Bagels', category: 'BAGEL', price: 2 })).toEqual({ price: 12, isFrom: true });
+  it('uses the saved price for products that used to hit the hard-coded table', () => {
+    expect(getStartingPrice({ name: 'Cinnamon Roll', category: 'OTHER', price: 6 })).toEqual({ price: 6, isFrom: false });
+    expect(getStartingPrice({ name: 'Cinnamon Rolls 4 Pack', category: 'OTHER', price: 20 })).toEqual({ price: 20, isFrom: false });
+  });
+
+  it('uses the cheapest saved pack otherwise', () => {
+    const packOptions = [
+      { id: '4-pack', label: '4 Bagels', size: 4, price: 12 },
+      { id: '8-pack', label: '8 Bagels', size: 8, price: 20 }
+    ];
+    expect(getStartingPrice({ name: 'Plain Bagels', category: 'BAGEL', price: 2, packOptions })).toEqual({ price: 12, isFrom: true });
+  });
+
+  it('shows $0 rather than a made-up price when a product has no price yet', () => {
+    expect(getStartingPrice({ name: 'Loaf', category: 'BREAD' })).toEqual({ price: 0, isFrom: false });
   });
 });
 
@@ -61,13 +68,9 @@ describe('calculatePackEconomics', () => {
     expect(economics.costPerItem).toBeCloseTo(0.1, 6);
   });
 
-  it('falls back to the category default packs when the recipe has none of its own', () => {
-    const recipe = calculateBakersMath(oneItemFlourRecipe); // no packOptions set
-    const economics = calculatePackEconomics(recipe);
-
-    // Matches resolvePackOptions' COOKIE defaults: 1/$3, 6/$10, 12/$20
-    expect(economics.map(e => [e.size, e.price])).toEqual([[1, 3], [6, 10], [12, 20]]);
-    expect(economics[1].cost).toBeCloseTo(0.1 * 6, 6);
+  it('has no pack economics when the recipe has no packs of its own, whatever its category', () => {
+    const recipe = calculateBakersMath(oneItemFlourRecipe); // COOKIE, no packOptions set
+    expect(calculatePackEconomics(recipe)).toEqual([]);
   });
 
   it('does not divide by zero when a pack price is 0', () => {

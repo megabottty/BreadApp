@@ -361,7 +361,7 @@ export class CartService {
 
   getItemUnitPrice(item: CartItem): number {
     const packOption = this.resolvePackOption(item);
-    return packOption?.price ?? item.product.price ?? 12;
+    return packOption?.price ?? item.product.price ?? 0;
   }
 
   getItemOptionsPrice(item: CartItem): number {
@@ -381,8 +381,16 @@ export class CartService {
     return packOption?.size ?? 1;
   }
 
+  /** The pack this line is priced at. A line's remembered pack is only
+   * honoured if the product still offers it -- a cart restored from storage
+   * may carry a pack that no longer exists (e.g. the old hard-coded
+   * "single cinnamon roll $5"), and must not be charged at that price. */
   private resolvePackOption(item: CartItem): PackOption | undefined {
-    return item.packOption || this.getPackOptions(item.product)[0];
+    const packs = this.getPackOptions(item.product);
+    if (item.packOption) {
+      return packs.find(pack => pack.id === item.packOption?.id) ?? packs[0];
+    }
+    return packs[0];
   }
 
   private newLineId(): string {
