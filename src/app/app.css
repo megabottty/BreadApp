@@ -639,7 +639,7 @@ textarea:focus-visible {
 }
 
 main {
-  min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
   background-color: var(--bg-color);
 }
 

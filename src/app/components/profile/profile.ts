@@ -4,7 +4,9 @@ import { AuthService } from '../../services/auth.service';
 import { Order, CalculatedRecipe, CostBreakdown, Review, resolveIngredientCostPerGram } from '../../logic/bakers-math';
 import { CartService } from '../../services/cart.service';
 import { ReviewService } from '../../services/review.service';
-import { SubscriptionService } from '../../services/subscription.service';
+import { Subscription, SubscriptionService } from '../../services/subscription.service';
+import { ToastService } from '../../services/toast.service';
+import { NotificationSettingsComponent } from '../notification-settings/notification-settings';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
 import { RecipeService } from '../../services/recipe.service';
@@ -45,7 +47,7 @@ const EMPTY_COST_BREAKDOWN: CostBreakdown = {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule, RouterLink],
+  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule, RouterLink, NotificationSettingsComponent],
   templateUrl: './profile.html',
   styleUrls: ['./profile.css']
 })
@@ -56,6 +58,9 @@ export class ProfileComponent implements OnInit {
   subscriptionService = inject(SubscriptionService);
   modalService = inject(ModalService);
   route = inject(ActivatedRoute);
+  private readonly toastService = inject(ToastService);
+  /** Subscription id with a request in flight. */
+  busySubscriptionId = signal<string | null>(null);
   private http = inject(HttpClient);
   private tenantService = inject(TenantService);
   private recipeService = inject(RecipeService);
@@ -136,7 +141,7 @@ export class ProfileComponent implements OnInit {
     // Attempt to load from database if user is authenticated
     const user = this.authService.user();
     if (user) {
-      const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+      const slug = this.tenantService.tenant()?.slug || 'thedailydough';
       const headers = new HttpHeaders().set('x-tenant-slug', slug);
       this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe({
         next: (orders) => {
@@ -329,10 +334,54 @@ export class ProfileComponent implements OnInit {
     this.reviewingRecipeId.set(null);
   }
 
-  cancelSubscription(id: string) {
-    if (confirm('Are you sure you want to cancel this subscription?')) {
-      this.subscriptionService.cancelSubscription(id);
-    }
+  cancelSubscription(sub: Subscription) {
+    this.modalService.showConfirm(
+      `Cancel ${sub.recipeName} for good? You can always subscribe again from the storefront.`,
+      'Cancel subscription',
+      () => this.runSubscriptionAction(sub.id, this.subscriptionService.cancelSubscription(sub.id), () => 'Your subscription has been cancelled.'),
+      undefined,
+      'Cancel subscription',
+      'Keep it'
+    );
+  }
+
+  upcomingSkipped(sub: Subscription): string | null {
+    return this.subscriptionService.upcomingSkipped(sub);
+  }
+
+  skipNextWeek(sub: Subscription) {
+    const when = this.formatDay(sub.nextBakeDate);
+    this.modalService.showConfirm(
+      `Skip your ${sub.recipeName} pickup on ${when}? You won't be charged for that week; it's credited on your next payment.`,
+      'Skip a week',
+      () => this.runSubscriptionAction(sub.id, this.subscriptionService.skipNextWeek(sub.id), (updated) => `Skipped ${when}. Next pickup: ${this.formatDay(updated.nextBakeDate)}.`),
+      undefined,
+      'Skip this week',
+      'Keep it'
+    );
+  }
+
+  undoSkip(sub: Subscription) {
+    this.runSubscriptionAction(sub.id, this.subscriptionService.undoSkip(sub.id), (updated) => `Skip undone. Next pickup: ${this.formatDay(updated.nextBakeDate)}.`);
+  }
+
+  formatDay(isoDate: string): string {
+    if (!isoDate) return '';
+    return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  private runSubscriptionAction(id: string, request: import('rxjs').Observable<Subscription>, successMessage: (updated: Subscription) => string) {
+    this.busySubscriptionId.set(id);
+    request.subscribe({
+      next: (updated) => {
+        this.busySubscriptionId.set(null);
+        this.toastService.success(successMessage(updated), 5000);
+      },
+      error: (err: { error?: { error?: string } }) => {
+        this.busySubscriptionId.set(null);
+        this.toastService.error(err?.error?.error || 'That didn\'t go through. Please try again.');
+      }
+    });
   }
 
   claimReviewPerk() {
@@ -345,11 +394,11 @@ export class ProfileComponent implements OnInit {
     this.modalService.showAlert('Your $8 "Bread Addict" discount has been applied to your bag! 💸', 'Reward Claimed', 'success');
   }
 
-  pauseSubscription(id: string) {
-    this.subscriptionService.pauseSubscription(id);
+  pauseSubscription(sub: Subscription) {
+    this.runSubscriptionAction(sub.id, this.subscriptionService.pauseSubscription(sub.id), () => 'Your subscription is paused. Resume whenever you like.');
   }
 
-  resumeSubscription(id: string) {
-    this.subscriptionService.resumeSubscription(id);
+  resumeSubscription(sub: Subscription) {
+    this.runSubscriptionAction(sub.id, this.subscriptionService.resumeSubscription(sub.id), () => 'Welcome back! Your subscription is active again.');
   }
 }

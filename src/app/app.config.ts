@@ -5,6 +5,7 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 
 import { routes } from './app.routes';
 import { errorInterceptor } from './interceptors/error.interceptor';
+import { authTokenInterceptor } from './interceptors/auth-token.interceptor';
 import { RuntimeConfigService } from './services/runtime-config.service';
 import { SelectivePreloadingService } from './services/selective-preloading.service';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
@@ -16,7 +17,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withPreloading(SelectivePreloadingService)),
     provideHttpClient(
       withFetch(),
-      withInterceptors([errorInterceptor])
+      withInterceptors([authTokenInterceptor, errorInterceptor])
     ),
     {
       provide: APP_INITIALIZER,

@@ -117,3 +117,96 @@
     font-size: 2.5rem;
   }
 }
+
+/* --- Meet the starter ---------------------------------------------------- */
+.starter-section {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  margin-bottom: 3rem;
+  background: #F1F3EB;
+  border: 1px solid #DCE3D1;
+}
+
+.starter-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.starter-section h2 {
+  margin: 0 0 0.5rem;
+  color: #5F6F52;
+}
+
+.starter-section p {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--text-secondary, #4A4A4A);
+}
+
+/* --- Come find me -------------------------------------------------------- */
+.find-me-section {
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.find-me-section h2 {
+  color: #5F6F52;
+  margin-bottom: 0.75rem;
+}
+
+.find-me-section p {
+  max-width: 620px;
+  margin: 0 auto 1.5rem;
+  line-height: 1.7;
+  color: var(--text-secondary, #4A4A4A);
+}
+
+.find-me-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.find-me-actions .btn-primary,
+.find-me-actions .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.find-me-actions .btn-primary {
+  background: var(--accent-sage, #7D8F69);
+  color: #fff;
+}
+
+.find-me-actions .btn-primary:hover {
+  background: var(--accent-sage-dark, #5F6F52);
+}
+
+.find-me-actions .btn-outline {
+  border: 1.5px solid var(--accent-sage, #7D8F69);
+  color: var(--accent-sage-dark, #5F6F52);
+  background: transparent;
+}
+
+.find-me-actions .btn-outline:hover {
+  background: #F1F3EB;
+}
+
+.values-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+@media (max-width: 480px) {
+  .starter-section {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}

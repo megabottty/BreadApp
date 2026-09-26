@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { normalizePhone } = require('../utils/phone.cjs');
+const { formatBakeDate, weekdayOf, addDays } = require('../utils/subscriptions.cjs');
+const notificationPrefs = require('../utils/notification-prefs.cjs');
 
 // Initialize Supabase Client (for webhook order creation)
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -102,6 +104,26 @@ router.post('/create-checkout-session', async (req, res) => {
       orderId: orderId || 'webhook-generated',
       ...(metadata || {})
     };
+
+    // The webhook creates one bakery_subscriptions row per recurring item; the
+    // generic orderItems list doesn't say which lines recur, so pass a compact
+    // list. Stripe caps each metadata value at 500 characters.
+    const subscriptionItems = items
+      .filter(item => item && item.isSubscription)
+      .map(item => ({
+        n: String(item.name || item.product?.name || 'Bread').slice(0, 60),
+        q: Number(item.quantity) || 1,
+        r: item.recipeId || item.product?.id || null,
+        p: Number(item.price || item.product?.price || 0)
+      }));
+    if (subscriptionItems.length > 0) {
+      let encoded = JSON.stringify(subscriptionItems);
+      while (encoded.length > 500 && subscriptionItems.length > 1) {
+        subscriptionItems.pop();
+        encoded = JSON.stringify(subscriptionItems);
+      }
+      if (encoded.length <= 500) sessionMetadata.subscriptionItems = encoded;
+    }
 
     // Build success URL based on whether we have orderId
     const successUrl = orderId
@@ -250,39 +272,72 @@ router.post('/webhook', async (req, res) => {
 
     console.log(`[Stripe Webhook] Order created:`, newOrder);
     if (supabase && tenantId) {
-      // Create Subscription if it was a subscription mode session
+      // Create one subscription row per recurring item in a subscription-mode session
       if (session.mode === 'subscription' && session.subscription) {
         try {
-          // If multiple items, we create subscription for the whole "package"
-          // In this simple app, we usually have one subscription item or aggregate
-          const { data: sub, error: subErr } = await supabase
-            .from('bakery_subscriptions')
-            .insert({
-              tenant_id: tenantId,
-              customer_id: newOrder.customerId,
-              recipe_name: 'Weekly Subscription Pack', // Generic or from first item
-              quantity: 1,
-              frequency: 'WEEKLY',
-              price: newOrder.totalPrice,
-              start_date: new Date().toISOString().split('T')[0],
-              next_bake_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              status: 'ACTIVE'
-            })
-            .select()
-            .single();
+          let subscriptionItems = [];
+          if (metadata.subscriptionItems) {
+            try { subscriptionItems = JSON.parse(metadata.subscriptionItems); } catch { subscriptionItems = []; }
+          }
+          if (subscriptionItems.length === 0) {
+            // Older sessions (no subscriptionItems metadata): fall back to the first order line.
+            const first = parsedItems[0] || {};
+            subscriptionItems = [{ n: first.name || 'Weekly bread', q: Number(first.quantity) || 1, r: first.recipeId || null, p: newOrder.totalPrice }];
+          }
 
-        if (subErr) console.error('[Stripe Webhook] Failed to create subscription record:', subErr);
-        else {
-          console.log('[Stripe Webhook] Subscription record created:', sub.id);
-          // Send notification for new subscription
-          if (twilioClient && newOrder.customerPhone && newOrder.notificationPreference !== 'EMAIL') {
+          const today = new Date().toISOString().split('T')[0];
+          const chosenDate = /^\d{4}-\d{2}-\d{2}$/.test(metadata.pickupDate || '') ? metadata.pickupDate : addDays(today, 7);
+          const weekday = weekdayOf(chosenDate);
+          const normalizedPhone = normalizePhone(newOrder.customerPhone);
+          const customerEmail = newOrder.customerEmail || session.customer_details?.email || session.customer_email || null;
+
+          const created = [];
+          for (const item of subscriptionItems) {
+            const { data: sub, error: subErr } = await supabase
+              .from('bakery_subscriptions')
+              .insert({
+                tenant_id: tenantId,
+                customer_id: newOrder.customerId,
+                recipe_id: item.r || null,
+                recipe_name: item.n || 'Weekly bread',
+                quantity: item.q || 1,
+                frequency: 'WEEKLY',
+                price: Number(((item.p || 0) * (item.q || 1)).toFixed(2)),
+                start_date: today,
+                next_bake_date: chosenDate,
+                pickup_weekday: weekday === 1 || weekday === 2 ? weekday : null,
+                customer_name: newOrder.customerName,
+                customer_email: customerEmail,
+                customer_phone: normalizedPhone,
+                stripe_subscription_id: session.subscription,
+                skipped_dates: [],
+                status: 'ACTIVE'
+              })
+              .select()
+              .single();
+            if (subErr) console.error('[Stripe Webhook] Failed to create subscription record:', subErr.message);
+            else created.push(sub);
+          }
+          console.log(`[Stripe Webhook] Subscription records created: ${created.map(s => s.id).join(', ') || 'none'}`);
+
+          await notificationPrefs.seedFromCheckout(supabase, tenantId, newOrder.customerId, {
+            phone: normalizedPhone,
+            email: customerEmail,
+            notificationPreference: newOrder.notificationPreference
+          });
+
+          const wantsSms = newOrder.notificationPreference === 'SMS' || newOrder.notificationPreference === 'BOTH';
+          if (created.length > 0 && twilioClient && wantsSms && normalizedPhone) {
+            const first = created[0];
+            const what = created.length === 1
+              ? `${first.quantity} × ${first.recipe_name}`
+              : `${created.length} weekly bakes`;
             twilioClient.messages.create({
-              body: `Hi ${newOrder.customerName}, your subscription for ${newOrder.items[0]?.name || 'Artisan Bread'} is confirmed! First bake starts ${newOrder.pickupDate || 'next week'}.`,
+              body: `Hi ${newOrder.customerName}, it's Megan at The Daily Dough 🍞 Your weekly subscription for ${what} is confirmed. First pickup: ${formatBakeDate(chosenDate)}. I'll text you each Thursday to confirm or skip.`,
               from: twilioPhoneNumber,
-              to: newOrder.customerPhone
+              to: normalizedPhone
             }).catch(e => console.error('[Twilio Subscription Error]', e.message));
           }
-        }
         } catch (subCatch) {
           console.error('[Stripe Webhook] Subscription creation catch:', subCatch);
         }

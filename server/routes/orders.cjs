@@ -5,6 +5,13 @@ const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 const { searchFoods } = require('../utils/usda.cjs');
 const pantry = require('../utils/pantry.cjs');
 const ssrCache = require('../utils/ssr-cache.cjs');
+const { requireCustomer } = require('../utils/auth.cjs');
+const subscriptions = require('../utils/subscriptions.cjs');
+const notificationPrefs = require('../utils/notification-prefs.cjs');
+
+// Stripe is only needed here to credit a skipped subscription week.
+const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
+const stripe = stripeSecret.startsWith('sk_') ? require('stripe')(stripeSecret) : null;
 
 // Initialize Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -190,6 +197,13 @@ router.post('/', async (req, res) => {
       throw error;
     }
     console.log('[Supabase Debug] Order saved successfully:', data[0].id);
+
+    // Remember how a signed-in customer wants order updates (never for guests).
+    await notificationPrefs.seedFromCheckout(supabase, req.tenantId, orderData.customerId, {
+      phone: orderData.customerPhone,
+      email: orderData.customerEmail,
+      notificationPreference: orderData.notificationPreference
+    });
 
     try {
       const { data: tenant } = await supabase
@@ -1388,26 +1402,75 @@ router.post('/subscriptions', async (req, res) => {
   }
 });
 
-// PATCH: Update subscription status
-router.patch('/subscriptions/:subId/status', async (req, res) => {
-  if (!supabase) {
-    return res.status(500).json({ error: 'Database connection not configured' });
+// Loads one subscription and checks the signed-in customer owns it.
+const loadOwnedSubscription = async (req, res) => {
+  const query = supabase.from('bakery_subscriptions').select('*').eq('id', req.params.subId);
+  if (req.tenantId) query.eq('tenant_id', req.tenantId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    res.status(404).json({ error: 'Subscription not found' });
+    return null;
   }
-  const { status } = req.body;
+  if (data.customer_id !== req.customerId) {
+    res.status(403).json({ error: 'That subscription belongs to someone else' });
+    return null;
+  }
+  return data;
+};
+
+const SUBSCRIPTION_STATUSES = new Set(['ACTIVE', 'PAUSED', 'CANCELLED']);
+
+// PATCH: Update subscription status (owner only)
+router.patch('/subscriptions/:subId/status', requireCustomer(supabase), async (req, res) => {
+  const status = String(req.body?.status || '').toUpperCase();
+  if (!SUBSCRIPTION_STATUSES.has(status)) {
+    return res.status(400).json({ error: 'Status must be ACTIVE, PAUSED or CANCELLED' });
+  }
   try {
-    const query = supabase
+    const sub = await loadOwnedSubscription(req, res);
+    if (!sub) return;
+    const { data, error } = await supabase
       .from('bakery_subscriptions')
       .update({ status })
-      .eq('id', req.params.subId);
-
-    if (req.tenantId) query.eq('tenant_id', req.tenantId);
-
-    const { data, error } = await query.select();
-
+      .eq('id', sub.id)
+      .select()
+      .single();
     if (error) throw error;
-    res.json(data[0]);
+    res.json(data);
   } catch (error) {
+    console.error('[Subscriptions] Status update failed:', error.message);
     res.status(500).json({ error: 'Failed to update subscription status' });
+  }
+});
+
+// POST: Skip the upcoming bake week (owner only). Credits the week on Stripe
+// when the subscription is billed there. Same helper the SMS "SKIP" reply uses.
+router.post('/subscriptions/:subId/skip', requireCustomer(supabase), async (req, res) => {
+  try {
+    const sub = await loadOwnedSubscription(req, res);
+    if (!sub) return;
+    if (sub.status !== 'ACTIVE') {
+      return res.status(400).json({ error: 'Only an active subscription can skip a week' });
+    }
+    const updated = await subscriptions.skipWeek(supabase, stripe, sub);
+    res.json(updated);
+  } catch (error) {
+    console.error('[Subscriptions] Skip failed:', error.message);
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'Failed to skip this week' });
+  }
+});
+
+// POST: Undo the most recent skip (owner only).
+router.post('/subscriptions/:subId/unskip', requireCustomer(supabase), async (req, res) => {
+  try {
+    const sub = await loadOwnedSubscription(req, res);
+    if (!sub) return;
+    const updated = await subscriptions.unskipWeek(supabase, stripe, sub);
+    res.json(updated);
+  } catch (error) {
+    console.error('[Subscriptions] Unskip failed:', error.message);
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'Failed to undo the skip' });
   }
 });
 

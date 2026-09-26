@@ -85,7 +85,10 @@ The Node.js server (`server/index.js`) exposes several key routes under the `/ap
 - **Recipes**: `GET /api/orders/recipes` (catalog), `POST /api/orders/recipes` (save recipe).
 - **Ingredients**: `GET /api/orders/ingredients/search?q=` (USDA nutrition lookup proxy). **Pantry**: `GET/PUT /api/orders/ingredients/pantry` (`PUT` is a single-item create-or-merge, keyed by name — deliberately not a batch upsert, since that would blank fields a partial patch didn't mean to touch), `DELETE /api/orders/ingredients/pantry/:id` (soft delete). `GET/POST /api/orders/ingredients/costs` still work (read/write the same `bulk_price`/`bulk_weight`/`cost_per_unit` columns) but are deprecated in favor of the pantry routes above.
 - **Promos**: `GET /api/orders/promos/all`, `POST /api/orders/promos`, `DELETE /api/orders/promos/:id`.
-- **Notifications**: `POST /api/notifications/send-sms`.
+- **Notifications**: `POST /api/notifications/send-sms` (pass `customerId` to honour that customer's order-update opt-out), `POST /api/notifications/send-email`. **Preferences** (signed-in customer, `Authorization: Bearer <supabase jwt>` + `x-tenant-slug`): `GET/PUT /api/notifications/preferences`. **Promotion** (baker JWT): `POST /api/notifications/promotion` `{ subject, message, channels: ['sms','email'] }`. **Inbound SMS** (Twilio webhook, signature-validated): `POST /api/notifications/sms-inbound` — YES confirms this week, SKIP skips it, STOP/START opt out/in.
+- **Subscriptions**: `GET /api/orders/subscriptions/:customerId`, `PATCH /api/orders/subscriptions/:id/status` and `POST /api/orders/subscriptions/:id/skip` / `.../unskip` (owner's JWT required; skip appends to `skipped_dates`, moves `next_bake_date` a week on and credits one week's price to the customer's Stripe balance when a `stripe_subscription_id` is stored). Date logic lives in `server/utils/subscriptions.cjs`.
+- **Scheduler**: `POST /api/notifications-scheduler/run` (header `x-scheduler-secret`; `?dryRun=1` reports without sending, `?forceCheckin=1` ignores the weekday). Runs three jobs: roll stale `next_bake_date`s forward, the weekly subscription check-in (default Thursday, `America/Denver`), and baker prep alerts. Triggered daily at 15:00 UTC by `.github/workflows/notification-scheduler.yml`, which needs a `SCHEDULER_SECRET` repository secret matching the server env — Render's free tier sleeps, so a GitHub cron (with curl retries to wake it) replaces an in-process timer.
+- **Auth for customer-owned routes**: `server/utils/auth.cjs` (`requireCustomer`, `requireBaker`) verifies the Supabase access token the frontend attaches via `src/app/interceptors/auth-token.interceptor.ts`.
 - **Onboarding**: `POST /api/orders/register-bakery`.
 - **Contact Us**: `POST /api/contact` (routes messages to baker/admin email).
 
@@ -103,8 +106,11 @@ To enable full functionality, ensure your `.env` file includes the following:
 
 ### 3. Notifications (Twilio)
 - `TWILIO_ACCOUNT_SID`: Your account SID.
-- `TWILIO_AUTH_TOKEN`: Your auth token.
-- `TWILIO_PHONE_NUMBER`: Your Twilio number.
+- `TWILIO_AUTH_TOKEN`: Your auth token (also used to validate inbound SMS webhooks).
+- `TWILIO_PHONE_NUMBER`: Your Twilio number. In the Twilio console, set its messaging webhook to `POST https://thedailydough.store/api/notifications/sms-inbound` so YES / SKIP / STOP replies work.
+- `PUBLIC_URL`: Public origin (default `https://thedailydough.store`), used for webhook signature validation and links in emails.
+- `SCHEDULER_SECRET`: Shared secret for `POST /api/notifications-scheduler/run`; set the same value as the `SCHEDULER_SECRET` GitHub Actions secret.
+- `SUBSCRIPTION_CHECKIN_DAY`: Weekday for the subscription check-in (`thursday` by default; a name or 0-6).
 
 ### 3. Email (Nodemailer/SMTP)
 - `SMTP_HOST`: e.g., `smtp.gmail.com` or `smtp.sendgrid.net`.

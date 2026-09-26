@@ -166,7 +166,7 @@ export class StorefrontComponent implements OnInit {
   private appLoadService = inject(AppLoadService);
 
   private get headers() {
-    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    const slug = this.tenantService.tenant()?.slug || 'thedailydough';
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
 

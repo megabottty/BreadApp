@@ -90,7 +90,13 @@ export class RegisterComponent implements OnInit {
         }
       }
     } catch (error: any) {
-      this.modalService.showAlert(error.message || 'Registration failed', 'Registration Error', 'error');
+      const raw: string = error?.message || 'Registration failed';
+      // Supabase Auth returns this when its email sender fails (the built-in
+      // sender is rate limited); the account itself may already exist.
+      const message = /confirmation email/i.test(raw)
+        ? 'We couldn\'t send the confirmation email right now. Please try again in a few minutes, or email megan@thedailydough.store and we\'ll get you set up.'
+        : raw;
+      this.modalService.showAlert(message, 'Registration Error', 'error');
     }
   }
 

@@ -548,3 +548,12 @@ textarea {
   cursor: pointer;
   width: 100%;
 }
+
+.sub-actions {
+  flex-wrap: wrap;
+}
+
+.btn-small:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

@@ -1,8 +1,11 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, map, tap } from 'rxjs';
 import { TenantService } from './tenant.service';
 
 import { environment } from '../../environments/environment';
+
+export type SubscriptionStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED';
 
 export interface Subscription {
   id: string;
@@ -13,8 +16,33 @@ export interface Subscription {
   frequency: 'WEEKLY';
   price: number;
   startDate: string;
+  /** Next pickup day (YYYY-MM-DD). */
   nextBakeDate: string;
-  status: 'ACTIVE' | 'PAUSED' | 'CANCELLED';
+  status: SubscriptionStatus;
+  /** Pickup days the customer skipped (YYYY-MM-DD). */
+  skippedDates: string[];
+  /** 1 = Monday, 2 = Tuesday. */
+  pickupWeekday?: number;
+  customerPhone?: string | null;
+  lastReply?: string | null;
+}
+
+/** Row shape returned by the server (snake_case). */
+export interface SubscriptionRow {
+  id: string | number;
+  customer_id: string;
+  recipe_id: string | null;
+  recipe_name: string;
+  quantity: number;
+  frequency: 'WEEKLY';
+  price: number | string;
+  start_date: string;
+  next_bake_date: string;
+  status: SubscriptionStatus;
+  skipped_dates?: string[] | null;
+  pickup_weekday?: number | null;
+  customer_phone?: string | null;
+  last_reply?: string | null;
 }
 
 type SubscriptionProduct = {
@@ -32,51 +60,39 @@ export class SubscriptionService {
   private apiUrl = environment.apiUrl + '/orders/subscriptions';
   private subscriptions = signal<Subscription[]>([]);
 
-  private get headers() {
+  private get headers(): HttpHeaders {
     const slug = this.tenantService.tenant()?.slug || 'thedailydough';
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
   allSubscriptions = computed(() => this.subscriptions());
 
-  constructor() {
-    // Local caching removed per user request
-    // this.loadSubscriptionsFromLocalStorage();
+  /** snake_case server row -> Subscription. The one place this mapping lives. */
+  mapRow(row: SubscriptionRow): Subscription {
+    return {
+      id: String(row.id),
+      customerId: row.customer_id,
+      recipeId: row.recipe_id || '',
+      recipeName: row.recipe_name,
+      quantity: row.quantity,
+      frequency: row.frequency || 'WEEKLY',
+      price: Number(row.price),
+      startDate: row.start_date,
+      nextBakeDate: row.next_bake_date,
+      status: row.status,
+      skippedDates: Array.isArray(row.skipped_dates) ? row.skipped_dates : [],
+      pickupWeekday: row.pickup_weekday ?? undefined,
+      customerPhone: row.customer_phone ?? null,
+      lastReply: row.last_reply ?? null
+    };
   }
 
-  private loadSubscriptionsFromLocalStorage() {
-    if (typeof localStorage === 'undefined') return;
-    const saved = localStorage.getItem('bakery_subscriptions');
-    if (saved) {
-      try {
-        this.subscriptions.set(JSON.parse(saved));
-      } catch (e) {
-        console.error('Error loading subscriptions from localStorage', e);
-      }
-    }
-  }
-
-  fetchSubscriptionsForUser(customerId: string) {
-    this.http.get<any[]>(`${this.apiUrl}/${customerId}`, { headers: this.headers }).subscribe({
+  fetchSubscriptionsForUser(customerId: string): void {
+    this.http.get<SubscriptionRow[]>(`${this.apiUrl}/${customerId}`, { headers: this.headers }).subscribe({
       next: (data) => {
-        const mapped: Subscription[] = data.map(s => ({
-          id: s.id,
-          customerId: s.customer_id,
-          recipeId: s.recipe_id,
-          recipeName: s.recipe_name,
-          quantity: s.quantity,
-          frequency: s.frequency,
-          price: s.price,
-          startDate: s.start_date,
-          nextBakeDate: s.next_bake_date,
-          status: s.status
-        }));
+        const mapped = data.map(row => this.mapRow(row));
         this.subscriptions.set(mapped);
-        try {
-          localStorage.setItem('bakery_subscriptions', JSON.stringify(mapped));
-        } catch (e) {
-          console.warn('Failed to save subscriptions to localStorage (quota exceeded)', e);
-        }
+        this.saveSubscriptions();
       },
       error: (err) => console.error('Error fetching subscriptions', err)
     });
@@ -86,7 +102,8 @@ export class SubscriptionService {
     return computed(() => this.subscriptions().filter(s => s.customerId === customerId));
   }
 
-  private saveSubscriptions() {
+  private saveSubscriptions(): void {
+    if (typeof localStorage === 'undefined') return;
     try {
       localStorage.setItem('bakery_subscriptions', JSON.stringify(this.subscriptions()));
     } catch (e) {
@@ -94,74 +111,94 @@ export class SubscriptionService {
     }
   }
 
-  createSubscription(customerId: string, product: SubscriptionProduct, quantity: number) {
+  createSubscription(customerId: string, product: SubscriptionProduct, quantity: number): void {
     const nextMonday = this.getNextMonday();
-    const newSub: any = {
+    const newSub = {
       customerId,
       recipeId: product.id || '',
       recipeName: product.name,
       quantity,
-      frequency: 'WEEKLY',
+      frequency: 'WEEKLY' as const,
       price: product.price || 12,
       startDate: new Date().toISOString().split('T')[0],
       nextBakeDate: nextMonday.toISOString().split('T')[0],
-      status: 'ACTIVE'
+      status: 'ACTIVE' as const
     };
 
-    this.http.post<any>(this.apiUrl, newSub, { headers: this.headers }).subscribe({
+    this.http.post<SubscriptionRow>(this.apiUrl, newSub, { headers: this.headers }).subscribe({
       next: (saved) => {
-        const formatted: Subscription = {
-          id: saved.id,
-          customerId: saved.customer_id,
-          recipeId: saved.recipe_id,
-          recipeName: saved.recipe_name,
-          quantity: saved.quantity,
-          frequency: saved.frequency,
-          price: saved.price,
-          startDate: saved.start_date,
-          nextBakeDate: saved.next_bake_date,
-          status: saved.status
-        };
-        this.subscriptions.update(prev => [...prev, formatted]);
+        this.subscriptions.update(prev => [...prev, this.mapRow(saved)]);
         this.saveSubscriptions();
       },
       error: (err) => {
         console.error('Failed to create subscription in DB, saving locally', err);
-        const localSub = { ...newSub, id: 'LOCAL_' + Math.random().toString(36).substring(7) };
+        const localSub: Subscription = { ...newSub, id: 'LOCAL_' + Math.random().toString(36).substring(7), skippedDates: [] };
         this.subscriptions.update(prev => [...prev, localSub]);
         this.saveSubscriptions();
       }
     });
   }
 
-  cancelSubscription(subId: string) {
-    this.updateSubscriptionStatus(subId, 'CANCELLED');
+  cancelSubscription(subId: string): Observable<Subscription> {
+    return this.updateSubscriptionStatus(subId, 'CANCELLED');
   }
 
-  pauseSubscription(subId: string) {
-    this.updateSubscriptionStatus(subId, 'PAUSED');
+  pauseSubscription(subId: string): Observable<Subscription> {
+    return this.updateSubscriptionStatus(subId, 'PAUSED');
   }
 
-  resumeSubscription(subId: string) {
-    this.updateSubscriptionStatus(subId, 'ACTIVE');
+  resumeSubscription(subId: string): Observable<Subscription> {
+    return this.updateSubscriptionStatus(subId, 'ACTIVE');
   }
 
-  private updateSubscriptionStatus(subId: string, status: 'ACTIVE' | 'PAUSED' | 'CANCELLED') {
-    this.http.patch<any>(`${this.apiUrl}/${subId}/status`, { status }, { headers: this.headers }).subscribe({
-      next: () => {
-        this.subscriptions.update(prev => prev.map(s =>
-          s.id === subId ? { ...s, status } : s
-        ));
-        this.saveSubscriptions();
-      },
-      error: (err) => {
-        console.error('Failed to update subscription status in DB, updating locally', err);
-        this.subscriptions.update(prev => prev.map(s =>
-          s.id === subId ? { ...s, status } : s
-        ));
-        this.saveSubscriptions();
-      }
-    });
+  /** Skip the upcoming pickup; the server moves the next date a week out
+   * and credits that week's price on the next payment. */
+  skipNextWeek(subId: string): Observable<Subscription> {
+    return this.postAndReplace(`${this.apiUrl}/${subId}/skip`);
+  }
+
+  /** Reverse the most recent skip (only while that pickup is still ahead). */
+  undoSkip(subId: string): Observable<Subscription> {
+    return this.postAndReplace(`${this.apiUrl}/${subId}/unskip`);
+  }
+
+  /** True when the latest skipped pickup hasn't happened yet, so "Undo skip" makes sense. */
+  upcomingSkipped(sub: Subscription): string | null {
+    if (!sub.skippedDates.length) return null;
+    const latest = [...sub.skippedDates].sort().at(-1) as string;
+    const today = new Date().toISOString().slice(0, 10);
+    return latest >= today ? latest : null;
+  }
+
+  private postAndReplace(url: string): Observable<Subscription> {
+    return this.http.post<SubscriptionRow>(url, {}, { headers: this.headers }).pipe(
+      map(row => this.mapRow(row)),
+      tap(updated => this.replaceLocal(updated))
+    );
+  }
+
+  private updateSubscriptionStatus(subId: string, status: SubscriptionStatus): Observable<Subscription> {
+    // Only reflect the change once the server confirms it; a failed request
+    // used to flip the card locally and mislead the customer.
+    return this.http.patch<SubscriptionRow | null>(`${this.apiUrl}/${subId}/status`, { status }, { headers: this.headers }).pipe(
+      map(row => (row && row.id !== undefined ? this.mapRow(row) : this.withStatus(subId, status))),
+      tap({
+        next: (updated) => this.replaceLocal(updated),
+        error: (err) => console.error('Failed to update subscription status', err)
+      })
+    );
+  }
+
+  private withStatus(subId: string, status: SubscriptionStatus): Subscription {
+    const existing = this.subscriptions().find(s => s.id === subId);
+    return { ...(existing as Subscription), status };
+  }
+
+  private replaceLocal(updated: Subscription): void {
+    this.subscriptions.update(prev => prev.some(s => s.id === updated.id)
+      ? prev.map(s => (s.id === updated.id ? updated : s))
+      : [...prev, updated]);
+    this.saveSubscriptions();
   }
 
   private getNextMonday(): Date {

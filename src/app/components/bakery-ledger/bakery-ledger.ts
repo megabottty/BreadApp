@@ -9,6 +9,8 @@ import { RecipeService } from '../../services/recipe.service';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
+import { NotificationPreferencesService } from '../../services/notification-preferences.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-bakery-ledger',
@@ -22,6 +24,16 @@ export class BakeryLedgerComponent implements OnInit {
   private modalService = inject(ModalService);
   private helpService = inject(HelpService);
   private recipeService = inject(RecipeService);
+  private readonly notificationPreferences = inject(NotificationPreferencesService);
+  private readonly toastService = inject(ToastService);
+
+  /** "Send to subscribers" inline form state. */
+  promoToSend = signal<PromoCode | null>(null);
+  promoSubject = signal<string>('');
+  promoMessage = signal<string>('');
+  promoViaSms = signal<boolean>(false);
+  promoViaEmail = signal<boolean>(true);
+  isSendingPromo = signal<boolean>(false);
 
   allOrders = signal<Order[]>([]);
   savedRecipes = signal<CalculatedRecipe[]>([]);
@@ -103,7 +115,7 @@ export class BakeryLedgerComponent implements OnInit {
   private tenantService = inject(TenantService);
 
   private headers() {
-    const slug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    const slug = this.tenantService.tenant()?.slug || 'thedailydough';
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
@@ -178,6 +190,44 @@ export class BakeryLedgerComponent implements OnInit {
         this.loadPromos();
         this.newPromo.set({ code: '', type: 'FIXED', value: 5, description: '', isActive: true });
         this.modalService.showAlert('Promo code saved! 🎟️', 'Success', 'success');
+      }
+    });
+  }
+
+  /** Opens the inline form, prefilled from the promo. */
+  startSendPromo(promo: PromoCode) {
+    const value = promo.type === 'PERCENT'
+      ? `${promo.value}%`
+      : promo.type === 'FREE_LOAF' ? 'a free loaf' : `$${promo.value}`;
+    this.promoToSend.set(promo);
+    this.promoSubject.set(`A little something from The Daily Dough`);
+    this.promoMessage.set(`Use code ${promo.code} for ${value} off your next order at thedailydough.store.${promo.description ? ' ' + promo.description : ''}`);
+    this.promoViaSms.set(false);
+    this.promoViaEmail.set(true);
+  }
+
+  cancelSendPromo() {
+    this.promoToSend.set(null);
+  }
+
+  sendPromo() {
+    const channels: ('sms' | 'email')[] = [];
+    if (this.promoViaSms()) channels.push('sms');
+    if (this.promoViaEmail()) channels.push('email');
+    if (!channels.length || !this.promoMessage().trim()) {
+      this.toastService.error('Pick at least one channel and write a message.');
+      return;
+    }
+    this.isSendingPromo.set(true);
+    this.notificationPreferences.sendPromotion(this.promoSubject().trim(), this.promoMessage().trim(), channels).subscribe({
+      next: (result) => {
+        this.isSendingPromo.set(false);
+        this.promoToSend.set(null);
+        this.toastService.success(`Sent to ${result.sent.sms} by text, ${result.sent.email} by email.`, 6000);
+      },
+      error: (err: { error?: { error?: string } }) => {
+        this.isSendingPromo.set(false);
+        this.toastService.error(err?.error?.error || 'Couldn\'t send the promotion. Please try again.');
       }
     });
   }

@@ -70,7 +70,7 @@ Legend: ✅ Implemented · ⚠️ Partial · ❌ Missing/Planned
 | Support pop-up events / farmers markets | ❌ Missing | — | Needs events/market calendar + order/channel tagging. |
 | Walk‑in orders | ✅ Implemented | POS terminal + order source tracking. | — |
 | Marketing campaigns | ⚠️ Partial | Promo code manager in **Ledger**. | Full campaign orchestration missing. |
-| Recurring customer orders | ⚠️ Partial | Subscribe & Save-style choice in the product dialog, cart badge + summary, account required (UI + `create-checkout-session` guard), Stripe subscription-mode checkout. | Weekly only (interval hard-coded in UI, Stripe and schema); Stripe subscription id not stored; webhook writes one aggregate `bakery_subscriptions` row with no `recipe_id`. |
+| Recurring customer orders | ✅ Implemented | Subscribe & Save-style choice in the product dialog, cart badge + summary, account required (UI + `create-checkout-session` guard), Stripe subscription-mode checkout. One `bakery_subscriptions` row per recurring item with the customer's Monday/Tuesday pickup day, contact details and Stripe subscription id. **Skip a week** from the profile / `/subscriptions` (or by texting SKIP); the skipped week is credited on the customer's Stripe balance. A daily scheduler rolls bake dates forward and sends the **Thursday check-in** (text and/or email: reply YES to confirm, SKIP to skip). | Weekly only (no other intervals). |
 | Capacity planning / bottlenecks | ⚠️ Partial | Oven capacity setting + Smart Batching foundations. | No capacity/bottleneck visualization or staffing plan. |
 | Production planning / scheduling | ⚠️ Partial | Orders + prep timeline + recipe prep/bake time. | No schedule builder tied to forecast & constraints. |
 | Financial planning / profit | ⚠️ Partial | Ledger, COGS, profit, margins. | No scenario planning or forward modeling. |
@@ -78,7 +78,7 @@ Legend: ✅ Implemented · ⚠️ Partial · ❌ Missing/Planned
 | Future/Expansion planning | ❌ Missing | — | Requires forecasting + financial modeling + goals. |
 | Market trends | ❌ Missing | — | Needs external data integration. |
 | Sales vs cost trend modeling | ⚠️ Partial | Historic metrics in analytics. | No forward‑looking trend modeling. |
-| Customer outreach (SMS + Email) | ⚠️ Partial | SMS via Twilio + contact email. | Campaign tooling + segmentation needed. |
+| Customer outreach (SMS + Email) | ✅ Implemented | Per-customer **notification preferences** (`bakery_notification_preferences`: weekly check-in, order updates, promotions — each by text and/or email; STOP by text opts out). Order-update texts honour them; the baker can send a **promotion** to everyone who opted in (`POST /api/notifications/promotion`). Inbound SMS webhook handles YES / SKIP / STOP / START. | No campaign scheduling or segmentation beyond the opt-in flags. |
 | Reviews & customer connection | ✅ Implemented | Review system + replies. | — |
 | Find markets to sell at | ❌ Missing | — | Needs discovery + recommendations. |
 | Strategy & business planning | ❌ Missing | — | Needs strategy modules & guided planning. |

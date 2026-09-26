@@ -41,6 +41,19 @@ export class AuthService {
     this.authReadyResolve = resolve;
   });
 
+  /** The current Supabase session's access token, for the API's
+   * customer-owned routes (subscriptions, notification preferences). */
+  async getAccessToken(): Promise<string | null> {
+    if (typeof window === 'undefined') return null;
+    try {
+      const supabase = await this.ensureSupabase();
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   user = computed(() => this.currentUser());
   isBaker = computed(() => this.currentUser()?.role === 'BAKER');
   isCustomer = computed(() => this.currentUser()?.role === 'CUSTOMER');

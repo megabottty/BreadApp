@@ -76,6 +76,14 @@ export class CartComponent implements OnInit {
 
   itemsSubtotal = computed(() => this.items().reduce((sum, item) => sum + this.lineTotal(item), 0));
 
+  /** One clear button, like food-ordering checkouts: what happens, and for how much. */
+  checkoutLabel = computed(() => {
+    const total = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(this.totalPrice());
+    if (this.hasSubscription()) return `Start subscription · ${total}`;
+    if (this.payAtPickup()) return `Place order · pay ${total} at pickup`;
+    return `Pay ${total}`;
+  });
+
   constructor() {
     effect(() => {
       if (!this.hasSubscription()) {
@@ -372,7 +380,7 @@ export class CartComponent implements OnInit {
     const itemsSubtotal = this.items().reduce((sum, item) =>
       sum + (item.quantity * (this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item))),
     0);
-    const tenantSlug = this.tenantService.tenant()?.slug || 'the-daily-dough';
+    const tenantSlug = this.tenantService.tenant()?.slug || 'thedailydough';
 
     const orderMetadata = {
       orderId,

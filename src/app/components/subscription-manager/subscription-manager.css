@@ -283,3 +283,27 @@
   text-decoration: none;
   font-weight: 600;
 }
+
+.btn-skip {
+  background: var(--card-bg);
+  color: var(--accent-sage-dark, #5F6F52);
+  border: 1.5px solid var(--accent-sage);
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-skip:hover:not(:disabled) {
+  background: #F1F3EB;
+}
+
+.sub-actions button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.skipped-list {
+  color: var(--text-secondary);
+}

@@ -2,7 +2,8 @@ import { Injectable } from '@angular/core';
 
 export interface HelpSection {
   title: string;
-  content: string;
+  /** One string, or one string per paragraph. */
+  content: string | string[];
 }
 
 @Injectable({
@@ -43,8 +44,13 @@ export class HelpService {
       content: 'BreadApp adapts to you. Choose "Bakery" for oven-specific tools, "Retail" for SKU focus, or "Restaurant" for table management. Your colors and logo will define your public storefront.'
     },
     'storefront': {
-      title: 'Your Branded Storefront',
-      content: 'This is what your customers see. It\'s fully responsive and PWA-ready, meaning customers can "install" it on their phones like a native app. They can browse products, leave reviews, and place orders.'
+      title: 'Welcome to The Daily Dough',
+      content: [
+        'The Daily Dough is Megan\'s home bakery in Salt Lake City: naturally leavened sourdough, raised by a 32-year-old starter and baked in small batches. Everything you see here is made by hand and picked up from her home kitchen.',
+        'To order: tap a bake to read about it, then "Add to Bag". Some loaves offer extras like sliced or double-baked. When you\'re ready, open your Bag, choose a pickup day (at least two days out so the dough gets its slow rise), enter your details, and pay by card or at pickup.',
+        'Want bread every week? Tap "Subscribe" on any bake. Subscriptions need a free account so your weekly order stays linked to you. Pickups are Mondays or Tuesdays, and each Thursday you\'ll get a text or email asking if you want that week\'s bread. Reply YES or SKIP, or pause and cancel anytime from your profile.',
+        'Pickup is from Megan\'s home; the exact address is in your confirmation. Questions? Use the contact form at the bottom of the page, email megan@thedailydough.store, or say hi on Instagram @the.daily.dough.'
+      ]
     }
   };
 

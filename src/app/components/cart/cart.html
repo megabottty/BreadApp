@@ -21,174 +21,13 @@
     }
     <div class="cart-grid">
       <div class="cart-items">
-        <div class="card fulfillment-options">
-          <h2>Local Pickup</h2>
 
-          @if (fulfillmentType() === 'SHIPPING') {
-            <div class="shipping-details">
-              <div class="form-group">
-                <label for="zip-code">Destination Zip Code</label>
-                <input type="text" id="zip-code" [value]="zipCode()" (input)="onZipChange($event)" placeholder="e.g. 90210">
-              </div>
-              <div class="form-group">
-                <label for="dispatch-date">Dispatch Date (Mon/Tue Only)</label>
-                @if (hasSubscription()) {
-                  <p class="helper-text">🔄 Subscriptions ship in our Monday/Tuesday batch. Choose the day your first order should go out; each following week repeats on that day.</p>
-                  <select id="dispatch-date" [(ngModel)]="dispatchDate" aria-describedby="dispatch-hint">
-                    <option value="">Choose a Monday or Tuesday</option>
-                    @for (option of subscriptionDateOptions(); track option.value) {
-                      <option [value]="option.value">{{ option.label }}</option>
-                    }
-                  </select>
-                } @else {
-                  <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
-                  <input type="date" id="dispatch-date" [(ngModel)]="dispatchDate" [min]="minDate()" [class.invalid]="dispatchDate() && !isDispatchDateValid(dispatchDate())" aria-describedby="dispatch-hint">
-                }
-                @if (dispatchDate() && !isDispatchDateValid(dispatchDate())) {
-                  <small id="dispatch-hint" class="error-text">Bread only ships on Mondays and Tuesdays, with a 48-hour lead time.</small>
-                }
-              </div>
-            </div>
-          } @else {
-            <div class="pickup-details">
-              <div class="form-group">
-                <label for="pickup-date">{{ hasSubscription() ? 'Pickup Day (Mon/Tue Only)' : 'Pickup Date' }}</label>
-                @if (hasSubscription()) {
-                  <p class="helper-text">🔄 Subscriptions are baked in our Monday/Tuesday batch. Choose the day your first order will be ready; each following week repeats on that day.</p>
-                  <select id="pickup-date" [(ngModel)]="pickupDate" aria-describedby="pickup-hint">
-                    <option value="">Choose a Monday or Tuesday</option>
-                    @for (option of subscriptionDateOptions(); track option.value) {
-                      <option [value]="option.value">{{ option.label }}</option>
-                    }
-                  </select>
-                } @else {
-                  <p class="helper-text">💡 Please select a date at least 2 days out so our baker has time to prepare your order with the proper fermentation and starter feeding schedule.</p>
-                  <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())" aria-describedby="pickup-hint">
-                }
-                @if (pickupDate() && !isPickupDateValid(pickupDate())) {
-                  <small id="pickup-hint" class="error-text">{{ hasSubscription() ? 'Subscription pickups are Mondays and Tuesdays, with a 48-hour lead time.' : 'We need at least 48 hours to prepare your handcrafted loaf.' }}</small>
-                }
-              </div>
-              @if (!hasSubscription()) {
-                <mat-checkbox
-                  id="pay-at-pickup"
-                  class="pay-at-pickup-checkbox"
-                  [checked]="payAtPickup()"
-                  (change)="payAtPickup.set($event.checked)">
-                  Pay at Pickup
-                </mat-checkbox>
-              } @else {
-                <p class="section-hint">Subscriptions are charged weekly by card, so pay-at-pickup isn't available for this bag.</p>
-              }
-            </div>
-          }
-          <div class="lead-time-notice">
-            <p>🥐 <strong>Artisan Takes Time:</strong> Most of our recipes involve a slow, 48-hour cold fermentation to bring out the best flavor and texture. We really appreciate your patience and understanding!</p>
+        <!-- 1 · Your bag -->
+        <div class="card bag-section">
+          <div class="step-header">
+            <h2><span class="step-number">1</span> Your bag</h2>
+            <a routerLink="/front" class="link-button">Add more</a>
           </div>
-        </div>
-
-        <div class="card notes-section">
-          <h2 id="order-notes-heading">Special Requests / Notes</h2>
-          <label for="order-notes" class="sr-only">Special Requests / Notes</label>
-          <textarea
-            id="order-notes"
-            class="notes-textarea"
-            [ngModel]="notes()"
-            (ngModelChange)="cartService.setNotes($event)"
-            placeholder="Any allergies, doorstep instructions, or flavor preferences? Let us know here!"
-            aria-labelledby="order-notes-heading"></textarea>
-        </div>
-
-        <div class="card promo-section">
-          <h2 id="promo-code-heading">Promo Code</h2>
-          <label for="promo-code" class="sr-only">Promo Code</label>
-          <div class="promo-input-group">
-            @if (cartService.appliedPromo(); as promo) {
-              <div class="applied-promo" role="status">
-                <span class="promo-info">
-                  <strong>{{promo.code}}</strong> - {{promo.description}}
-                </span>
-                <button class="btn-remove-promo" (click)="removePromo()" aria-label="Remove promo code">×</button>
-              </div>
-            } @else {
-              <input type="text" id="promo-code" [(ngModel)]="promoCodeInput" placeholder="Enter code">
-              <button class="btn-small" (click)="applyPromo()">Apply</button>
-            }
-          </div>
-        </div>
-
-        @if (!authService.isAuthenticated()) {
-          <div class="card guest-checkout-section">
-            <h2>Guest Checkout Details</h2>
-            <p class="section-hint">No account? No problem. Just let us know who you are!</p>
-            <div class="form-group">
-              <label for="guest-name">Name</label>
-              <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Your full name">
-            </div>
-          </div>
-        }
-
-        <div class="card notifications-section">
-          <h2>Order Updates</h2>
-          <p class="section-hint">Choose how you'd like to receive updates about your order.</p>
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label" for="notify-email">
-              <input type="checkbox" id="notify-email" [checked]="notifyByEmail()" (change)="notifyByEmail.set($any($event.target).checked)">
-              <span>Email Updates</span>
-            </label>
-          </div>
-          @if (authService.isAuthenticated()) {
-            <div class="form-group">
-              <label for="order-email">Email Address</label>
-              <input
-                type="email"
-                id="order-email"
-                [ngModel]="orderEmail()"
-                readonly
-                placeholder="you@example.com">
-            </div>
-          } @else if (notifyByEmail()) {
-            <div class="form-group">
-              <label for="order-email">Email Address</label>
-              <input
-                type="email"
-                id="order-email"
-                [ngModel]="orderEmail()"
-                (ngModelChange)="onOrderEmailChange($event)"
-                placeholder="you@example.com">
-            </div>
-          }
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label" for="notify-sms">
-              <input type="checkbox" id="notify-sms" [checked]="notifyBySms()" (change)="notifyBySms.set($any($event.target).checked)">
-              <span>SMS Updates</span>
-            </label>
-          </div>
-          @if (notifyBySms()) {
-            <div class="form-group">
-              <label for="guest-phone">Phone Number</label>
-              <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="For order updates via SMS">
-            </div>
-          }
-        </div>
-
-        <div class="card subscription-promo">
-          <h2>🔄 Artisan Subscriptions</h2>
-          <p>Subscribing ensures your favorite loaves are baked and ready for you every week.</p>
-          <p class="dispatch-notice">Subscription orders are baked for <strong>Monday and Tuesday</strong> pickup so they're at peak freshness.</p>
-          @if (authService.isAuthenticated()) {
-            <p class="section-hint">You can manage or cancel your subscriptions anytime in your profile.</p>
-          } @else {
-            <p class="section-hint">{{ subscriptionAccountMessage }}</p>
-            <div class="subscription-auth-actions">
-              <a class="btn-outline" [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in</a>
-              <a class="btn-outline" [routerLink]="['/register']" [queryParams]="{ role: 'CUSTOMER', returnUrl: '/cart' }">Create account</a>
-            </div>
-          }
-        </div>
-
-        <div class="card">
-          <h2>Cart Items</h2>
           @for (item of items(); track item.lineId) {
             <div class="cart-item">
               <div class="item-info">
@@ -257,6 +96,144 @@
               </div>
             </div>
           }
+          @if (hasSubscription() && !authService.isAuthenticated()) {
+            <div class="subscription-auth-note">
+              <p class="section-hint">{{ subscriptionAccountMessage }}</p>
+              <div class="subscription-auth-actions">
+                <a class="btn-outline" [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in</a>
+                <a class="btn-outline" [routerLink]="['/register']" [queryParams]="{ role: 'CUSTOMER', returnUrl: '/cart' }">Create account</a>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- 2 · Pickup -->
+        <div class="card fulfillment-options">
+          <h2><span class="step-number">2</span> Pickup</h2>
+          <p class="section-hint pickup-where">🏡 Pickup is from Megan's home kitchen in Salt Lake City. The exact address is in your order confirmation.</p>
+          <div class="pickup-details">
+            <div class="form-group">
+              <label for="pickup-date">{{ hasSubscription() ? 'Pickup day (Mondays and Tuesdays)' : 'Pickup date' }}</label>
+              @if (hasSubscription()) {
+                <p class="helper-text">🔄 Subscriptions are baked in the Monday/Tuesday batch. Choose the day your first order will be ready; each following week repeats on that day.</p>
+                <select id="pickup-date" [(ngModel)]="pickupDate" aria-describedby="pickup-hint">
+                  <option value="">Choose a Monday or Tuesday</option>
+                  @for (option of subscriptionDateOptions(); track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              } @else {
+                <p class="helper-text">💡 Pick a day at least 2 days out so the dough gets its full, slow rise.</p>
+                <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())" aria-describedby="pickup-hint">
+              }
+              @if (pickupDate() && !isPickupDateValid(pickupDate())) {
+                <small id="pickup-hint" class="error-text">{{ hasSubscription() ? 'Subscription pickups are Mondays and Tuesdays, with a 48-hour lead time.' : 'We need at least 48 hours to prepare your handcrafted loaf.' }}</small>
+              }
+            </div>
+          </div>
+          <div class="lead-time-notice">
+            <p>🥐 <strong>Artisan takes time:</strong> most bakes go through a slow, 48-hour cold fermentation for the best flavor and texture. Thank you for your patience!</p>
+          </div>
+        </div>
+
+        <!-- 3 · Your details -->
+        <div class="card details-section">
+          <h2><span class="step-number">3</span> Your details</h2>
+          @if (!authService.isAuthenticated()) {
+            <p class="section-hint">No account needed for a one-time order. Just let us know who's picking up.</p>
+            <div class="form-group">
+              <label for="guest-name">Name</label>
+              <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Your full name" autocomplete="name">
+            </div>
+          } @else {
+            <p class="section-hint">Ordering as <strong>{{ authService.user()?.name }}</strong>.</p>
+          }
+
+          <div class="form-group">
+            <label for="order-email">Email</label>
+            @if (authService.isAuthenticated()) {
+              <input type="email" id="order-email" [ngModel]="orderEmail()" readonly placeholder="you@example.com">
+            } @else {
+              <input type="email" id="order-email" [ngModel]="orderEmail()" (ngModelChange)="onOrderEmailChange($event)" placeholder="you@example.com" autocomplete="email">
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="guest-phone">Phone <span class="label-hint">(for text updates)</span></label>
+            <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="(801) 555-0123" autocomplete="tel">
+          </div>
+
+          <fieldset class="update-choice">
+            <legend>How should we update you about this order?</legend>
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label" for="notify-email">
+                <input type="checkbox" id="notify-email" [checked]="notifyByEmail()" (change)="notifyByEmail.set($any($event.target).checked)">
+                <span>Email</span>
+              </label>
+            </div>
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label" for="notify-sms">
+                <input type="checkbox" id="notify-sms" [checked]="notifyBySms()" (change)="notifyBySms.set($any($event.target).checked)">
+                <span>Text message</span>
+              </label>
+            </div>
+            <p class="section-hint sms-consent">Texts are only about your order. Msg &amp; data rates may apply; reply STOP to opt out.</p>
+          </fieldset>
+        </div>
+
+        <!-- 4 · Payment -->
+        <div class="card payment-section">
+          <h2><span class="step-number">4</span> Payment</h2>
+          <div class="payment-choices" role="radiogroup" aria-label="Payment method">
+            <label class="payment-choice" [class.selected]="!payAtPickup()">
+              <input type="radio" name="paymentMethod" value="card" [checked]="!payAtPickup()" (change)="payAtPickup.set(false)">
+              <span class="choice-text">
+                <strong>Pay by card now</strong>
+                <small>Secure checkout with Stripe. Subscriptions are charged weekly.</small>
+              </span>
+            </label>
+            @if (!hasSubscription()) {
+              <label class="payment-choice" [class.selected]="payAtPickup()">
+                <input type="radio" name="paymentMethod" value="pickup" [checked]="payAtPickup()" (change)="payAtPickup.set(true)">
+                <span class="choice-text">
+                  <strong>Pay at pickup</strong>
+                  <small>Cash or card when you collect your bread.</small>
+                </span>
+              </label>
+            } @else {
+              <p class="section-hint">Subscriptions are charged weekly by card, so pay-at-pickup isn't available for this bag.</p>
+            }
+          </div>
+        </div>
+
+        <!-- Notes & promo -->
+        <div class="card extras-section">
+          <h2>Notes &amp; promo code</h2>
+          <div class="form-group">
+            <label for="order-notes">Anything we should know?</label>
+            <textarea
+              id="order-notes"
+              class="notes-textarea"
+              [ngModel]="notes()"
+              (ngModelChange)="cartService.setNotes($event)"
+              placeholder="Allergies, pickup timing, or a note for Megan"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="promo-code">Promo code</label>
+            <div class="promo-input-group">
+              @if (cartService.appliedPromo(); as promo) {
+                <div class="applied-promo" role="status">
+                  <span class="promo-info">
+                    <strong>{{promo.code}}</strong> - {{promo.description}}
+                  </span>
+                  <button class="btn-remove-promo" (click)="removePromo()" aria-label="Remove promo code">×</button>
+                </div>
+              } @else {
+                <input type="text" id="promo-code" [(ngModel)]="promoCodeInput" placeholder="Enter code">
+                <button class="btn-small" (click)="applyPromo()">Apply</button>
+              }
+            </div>
+          </div>
         </div>
       </div>
 
@@ -320,9 +297,22 @@
         <button class="btn-checkout"
                 [disabled]="checkoutBlockedReason() !== null"
                 (click)="checkout()">
-          {{ hasSubscription() ? 'Start subscription & checkout' : 'Checkout' }}
+          {{ checkoutLabel() }}
         </button>
       </div>
+    </div>
+
+    <!-- Phones: the total and the one button stay in reach while scrolling -->
+    <div class="checkout-bar" [class.blocked]="checkoutBlockedReason() !== null">
+      <div class="checkout-bar-total">
+        <span>Total</span>
+        <strong>{{ totalPrice() | currency }}</strong>
+      </div>
+      <button class="btn-checkout btn-checkout-bar"
+              [disabled]="checkoutBlockedReason() !== null"
+              (click)="checkout()">
+        {{ checkoutLabel() }}
+      </button>
     </div>
   }
 </div>

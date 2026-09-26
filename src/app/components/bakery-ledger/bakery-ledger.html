@@ -97,7 +97,10 @@
                       <span class="status-dot" [class.active]="promo.isActive"></span>
                       {{promo.isActive ? 'Active' : 'Paused'}}
                     </td>
-                    <td>
+                    <td class="promo-actions">
+                      @if (promo.isActive) {
+                        <button type="button" class="btn-send-promo" (click)="startSendPromo(promo)" [attr.aria-label]="'Send ' + promo.code + ' to subscribers'">Send</button>
+                      }
                       <button class="btn-icon delete" (click)="deletePromo(promo.id || '')">×</button>
                     </td>
                   </tr>
@@ -109,6 +112,29 @@
               </tbody>
             </table>
           </div>
+
+          @if (promoToSend(); as promo) {
+            <div class="send-promo-form" role="region" aria-label="Send promotion">
+              <h3>Send {{ promo.code }} to subscribers</h3>
+              <p class="send-promo-hint">Goes to every customer who turned on "Promotions &amp; news" in their notification settings.</p>
+              <div class="form-group">
+                <label for="promo-subject">Email subject</label>
+                <input id="promo-subject" type="text" [ngModel]="promoSubject()" (ngModelChange)="promoSubject.set($event)">
+              </div>
+              <div class="form-group">
+                <label for="promo-message">Message</label>
+                <textarea id="promo-message" rows="3" [ngModel]="promoMessage()" (ngModelChange)="promoMessage.set($event)"></textarea>
+              </div>
+              <div class="send-promo-channels">
+                <label><input type="checkbox" [checked]="promoViaSms()" (change)="promoViaSms.set($any($event.target).checked)"> Text</label>
+                <label><input type="checkbox" [checked]="promoViaEmail()" (change)="promoViaEmail.set($any($event.target).checked)"> Email</label>
+              </div>
+              <div class="send-promo-actions">
+                <button type="button" class="btn-outline" (click)="cancelSendPromo()">Cancel</button>
+                <button type="button" class="btn-primary" [disabled]="isSendingPromo()" (click)="sendPromo()">{{ isSendingPromo() ? 'Sending…' : 'Send now' }}</button>
+              </div>
+            </div>
+          }
         </div>
       </div>
     </div>

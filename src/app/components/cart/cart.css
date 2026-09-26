@@ -812,3 +812,170 @@ label.checkbox-label:has(input:checked) {
   color: white;
   cursor: pointer;
 }
+
+
+/* --- Checkout steps -------------------------------------------------------- */
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.step-header h2 {
+  margin: 0 0 1rem;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: #7D8F69;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.pickup-where {
+  margin-top: 0;
+}
+
+.label-hint {
+  font-weight: 400;
+  color: #8c8273;
+}
+
+.update-choice {
+  border: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+.update-choice legend {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #5F6F52;
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+
+.sms-consent {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+
+.subscription-auth-note {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #E9E5D9;
+}
+
+/* Payment: two radio cards */
+.payment-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.payment-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #E9E5D9;
+  border-radius: 12px;
+  background: #FDFCF9;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.payment-choice.selected {
+  border-color: #7D8F69;
+  background: #F1F3EB;
+}
+
+.payment-choice input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+  min-width: 0;
+  min-height: 0;
+  accent-color: #7D8F69;
+  flex-shrink: 0;
+}
+
+.choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.choice-text small {
+  color: #8c8273;
+  font-size: 0.85rem;
+}
+
+/* Summary stays in view while scrolling the form on desktop */
+@media (min-width: 768px) {
+  .cart-summary {
+    position: sticky;
+    top: 90px;
+    align-self: start;
+  }
+}
+
+/* Phones: total + button pinned to the bottom */
+.checkout-bar {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .checkout-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 950;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    border-top: 1px solid #E9E5D9;
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .checkout-bar-total {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+    min-width: 80px;
+  }
+
+  .checkout-bar-total span {
+    font-size: 0.75rem;
+    color: #8c8273;
+  }
+
+  .checkout-bar-total strong {
+    font-size: 1.15rem;
+    color: #4A4A4A;
+  }
+
+  .btn-checkout-bar {
+    flex: 1;
+    margin-top: 0;
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+  }
+
+  /* Leave room so the bar never covers the last card */
+  .cart-container {
+    padding-bottom: 96px;
+  }
+}

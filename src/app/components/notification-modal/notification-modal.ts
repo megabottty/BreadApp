@@ -16,7 +16,9 @@ import { ModalService } from '../../services/modal.service';
             <button class="btn-close" (click)="close()">×</button>
           </div>
           <div class="modal-body">
-            <p>{{modal.message}}</p>
+            @for (paragraph of paragraphs(modal.message); track $index) {
+              <p>{{ paragraph }}</p>
+            }
           </div>
           <div class="modal-footer">
             @if (modal.type === 'confirm') {
@@ -105,7 +107,7 @@ import { ModalService } from '../../services/modal.service';
     }
 
     .modal-body p {
-      margin: 0;
+      margin: 0 0 0.9rem;
       line-height: 1.6;
       color: var(--text-primary);
       font-size: 1.05rem;
@@ -164,6 +166,14 @@ export class NotificationModalComponent {
 
   close() {
     this.modalService.close();
+  }
+
+  /** Help content may come as several paragraphs; alerts are one string.
+   * Blank lines in a single string also split into paragraphs. */
+  paragraphs(message: string | string[] | undefined): string[] {
+    if (!message) return [];
+    if (Array.isArray(message)) return message;
+    return message.split(/\n{2,}/).map(part => part.trim()).filter(Boolean);
   }
 
   confirm(modal: any) {

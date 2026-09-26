@@ -1,0 +1,217 @@
+:host {
+  display: block;
+}
+
+.notification-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.intro {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.opt-out-banner {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  background: #FFF3CD;
+  border: 1px solid #FFE69C;
+  color: #856404;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.load-failed {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.field .hint {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.field input {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.field input.invalid {
+  border-color: var(--accent-terracotta);
+}
+
+.error-text {
+  color: var(--accent-terracotta);
+  font-size: 0.8rem;
+}
+
+.consent {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--card-bg);
+}
+
+.row + .row {
+  border-top: 1px solid var(--border-color);
+}
+
+.row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.row-text strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.row-text span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.row-switches {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Toggle switch built on a real checkbox so keyboard and screen readers work. */
+.switch {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.track {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: var(--border-color);
+  transition: background 0.2s;
+}
+
+.knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+}
+
+.switch input:checked + .track {
+  background: var(--accent-sage);
+}
+
+.switch input:checked + .track .knob {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--accent-sage);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-save {
+  background: var(--accent-sage);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md, 8px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: var(--accent-sage-dark);
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.compact .row {
+  padding: 0.75rem 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .row-switches {
+    justify-content: flex-start;
+  }
+}

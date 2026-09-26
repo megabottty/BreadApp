@@ -147,22 +147,35 @@
             </div>
             <div class="sub-details">
               <span>{{sub.quantity}}x per week</span>
-              <span>Next Bake: {{sub.nextBakeDate | date:'shortDate'}}</span>
+              <span>Next pickup: {{ sub.nextBakeDate | date:'EEE, MMM d' }}</span>
             </div>
             <div class="sub-actions">
               @if (sub.status === 'ACTIVE') {
-                <button class="btn-small" (click)="pauseSubscription(sub.id)" [attr.aria-label]="'Pause subscription for ' + sub.recipeName">Pause</button>
+                @if (upcomingSkipped(sub); as skipped) {
+                  <button class="btn-small" [disabled]="busySubscriptionId() === sub.id" (click)="undoSkip(sub)" [attr.aria-label]="'Undo skip for ' + sub.recipeName">Undo skip ({{ skipped | date:'MMM d' }})</button>
+                } @else {
+                  <button class="btn-small" [disabled]="busySubscriptionId() === sub.id" (click)="skipNextWeek(sub)" [attr.aria-label]="'Skip next pickup for ' + sub.recipeName">Skip {{ sub.nextBakeDate | date:'MMM d' }}</button>
+                }
+                <button class="btn-small" [disabled]="busySubscriptionId() === sub.id" (click)="pauseSubscription(sub)" [attr.aria-label]="'Pause subscription for ' + sub.recipeName">Pause</button>
               } @else if (sub.status === 'PAUSED') {
-                <button class="btn-small btn-primary" (click)="resumeSubscription(sub.id)" [attr.aria-label]="'Resume subscription for ' + sub.recipeName">Resume</button>
+                <button class="btn-small btn-primary" [disabled]="busySubscriptionId() === sub.id" (click)="resumeSubscription(sub)" [attr.aria-label]="'Resume subscription for ' + sub.recipeName">Resume</button>
               }
               @if (sub.status !== 'CANCELLED') {
-                <button class="btn-small btn-danger" (click)="cancelSubscription(sub.id)" [attr.aria-label]="'Cancel subscription for ' + sub.recipeName">Cancel</button>
+                <button class="btn-small btn-danger" [disabled]="busySubscriptionId() === sub.id" (click)="cancelSubscription(sub)" [attr.aria-label]="'Cancel subscription for ' + sub.recipeName">Cancel</button>
               }
             </div>
           </div>
         } @empty {
           <p>You don't have any active subscriptions. Subscribe to your favorite loaves in the shopping bag!</p>
         }
+      </div>
+
+      <div class="subscription-section notifications-block">
+        <div class="header-with-action">
+          <h3>Notifications</h3>
+          <a routerLink="/notifications" class="btn-small btn-outline">Manage notifications</a>
+        </div>
+        <app-notification-settings [compact]="true"></app-notification-settings>
       </div>
     </div>
   </div>

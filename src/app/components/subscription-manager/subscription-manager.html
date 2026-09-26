@@ -34,28 +34,38 @@
                   <span class="status-badge" [attr.data-status]="sub.status">{{sub.status}}</span>
                 </div>
                 <div class="sub-meta">
-                  <p><strong>Frequency:</strong> {{sub.frequency}}</p>
-                  <p><strong>Quantity:</strong> {{sub.quantity}} loaf/loaves</p>
+                  <p><strong>Frequency:</strong> Weekly</p>
+                  <p><strong>Quantity:</strong> {{sub.quantity}} per week</p>
                   <p><strong>Price:</strong> {{sub.price | currency}} / week</p>
-                  <p><strong>Next Bake Day:</strong> {{sub.nextBakeDate | date:'fullDate'}}</p>
+                  <p><strong>Next pickup:</strong> {{ formatDay(sub.nextBakeDate) }}</p>
+                  @if (sub.skippedDates.length > 0) {
+                    <p class="skipped-list"><strong>Skipped:</strong>
+                      @for (day of sub.skippedDates; track day; let last = $last) {{{ day | date:'MMM d' }}@if (!last) {, }}
+                    </p>
+                  }
                 </div>
               </div>
               <div class="sub-actions">
                 @if (sub.status === 'ACTIVE') {
-                  <button class="btn-pause" (click)="pauseSubscription(sub.id)">Pause Subscription</button>
+                  @if (upcomingSkipped(sub); as skipped) {
+                    <button class="btn-skip" [disabled]="busyId() === sub.id" (click)="undoSkip(sub)">Undo skip ({{ skipped | date:'MMM d' }})</button>
+                  } @else {
+                    <button class="btn-skip" [disabled]="busyId() === sub.id" (click)="skipNextWeek(sub)">Skip {{ sub.nextBakeDate | date:'EEEE, MMM d' }}</button>
+                  }
+                  <button class="btn-pause" [disabled]="busyId() === sub.id" (click)="pauseSubscription(sub)">Pause Subscription</button>
                 } @else if (sub.status === 'PAUSED') {
-                  <button class="btn-resume" (click)="resumeSubscription(sub.id)">Resume Subscription</button>
+                  <button class="btn-resume" [disabled]="busyId() === sub.id" (click)="resumeSubscription(sub)">Resume Subscription</button>
                 }
 
                 @if (sub.status !== 'CANCELLED') {
-                  <button class="btn-cancel" (click)="cancelSubscription(sub.id)">Cancel</button>
+                  <button class="btn-cancel" [disabled]="busyId() === sub.id" (click)="cancelSubscription(sub)">Cancel</button>
                 }
               </div>
             </div>
 
             @if (sub.status === 'ACTIVE') {
               <div class="dispatch-alert">
-                <p>🚚 Scheduled for dispatch on the next <strong>Monday/Tuesday</strong>.</p>
+                <p>🥖 Next pickup <strong>{{ formatDay(sub.nextBakeDate) }}</strong>. We'll text or email you on Thursday to confirm or skip.</p>
               </div>
             }
           </div>
@@ -70,26 +80,33 @@
     </div>
 
     <div class="card info-sidebar">
-      <h3>About Our Subscriptions</h3>
+      <h3>How subscriptions work</h3>
       <div class="info-item">
         <span class="icon">🥖</span>
         <div>
-          <h4>Guaranteed Freshness</h4>
-          <p>Subscription loaves are baked fresh on the morning of dispatch to ensure peak quality.</p>
+          <h4>Baked for your day</h4>
+          <p>Subscription loaves are baked fresh the morning of your Monday or Tuesday pickup.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="icon">💬</span>
+        <div>
+          <h4>Thursday check-in</h4>
+          <p>Each Thursday we text or email you. Reply <strong>YES</strong> to confirm or <strong>SKIP</strong> to skip that week. No reply means we bake as usual.</p>
         </div>
       </div>
       <div class="info-item">
         <span class="icon">📅</span>
         <div>
-          <h4>Flexible Scheduling</h4>
-          <p>Pause or resume anytime. Changes made 48 hours before bake day will apply to the next cycle.</p>
+          <h4>Skip or pause anytime</h4>
+          <p>Skipping a week credits that week's price on your next payment. Pausing stops all future weeks until you resume.</p>
         </div>
       </div>
       <div class="info-item">
-        <span class="icon">💳</span>
+        <span class="icon">🔔</span>
         <div>
-          <h4>Automatic Payments</h4>
-          <p>Your card on file will be charged 48 hours before each scheduled bake.</p>
+          <h4>Your notifications</h4>
+          <p>Choose text or email for check-ins, order updates and promotions on your <a routerLink="/notifications">notification settings</a>.</p>
         </div>
       </div>
 

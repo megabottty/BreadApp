@@ -114,6 +114,11 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'notifications',
+    loadComponent: () => import('./components/notification-settings/notification-settings-page').then(m => m.NotificationSettingsPageComponent),
+    canActivate: [authGuard]
+  },
+  {
     path: '**',
     redirectTo: 'front'
     // redirectTo: 'under-construction'

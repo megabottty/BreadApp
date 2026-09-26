@@ -4,7 +4,7 @@ import { CalculatedRecipe } from '../logic/bakers-math';
 
 export interface ModalConfig {
   title: string;
-  message?: string;
+  message?: string | string[];
   type: 'info' | 'success' | 'warning' | 'error' | 'confirm' | 'customization';
   onConfirm?: () => void;
   onCancel?: () => void;
@@ -21,7 +21,7 @@ export interface ModalConfig {
 export class ModalService {
   activeModal = signal<ModalConfig | null>(null);
 
-  showAlert(message: string, title: string = 'Notice', type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+  showAlert(message: string | string[], title: string = 'Notice', type: 'info' | 'success' | 'warning' | 'error' = 'info') {
     this.activeModal.set({ title, message, type });
   }
 
