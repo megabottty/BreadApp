@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
 import { CartService, PackOption } from '../../services/cart.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-product-customization-modal',
@@ -15,6 +16,7 @@ import { CartService, PackOption } from '../../services/cart.service';
 export class ProductCustomizationModalComponent {
   modalService = inject(ModalService);
   cartService = inject(CartService);
+  private readonly toastService = inject(ToastService);
 
   notes = signal<string>('');
   quantity = signal<number>(1);
@@ -128,14 +130,19 @@ export class ProductCustomizationModalComponent {
         .map(a => ({ name: a.name, price: a.price }));
 
       const packOption = this.packOptions().find(option => option.id === this.selectedPackId()) || undefined;
+      const quantity = this.quantity();
       this.cartService.addToCart(
         modal.product,
-        this.quantity(),
+        quantity,
         this.notes(),
         selectedOptions,
         packOption
       );
       this.close();
+      // Stay on the storefront so they can keep browsing; the toast (and the
+      // nav badge) confirm it landed, with a one-tap route to the bag.
+      const what = quantity > 1 ? `${quantity} × ${modal.product.name}` : modal.product.name;
+      this.toastService.success(`Added ${what} to your bag.`, 4000, { label: 'View bag', route: '/cart' });
     }
   }
 

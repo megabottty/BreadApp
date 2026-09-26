@@ -324,6 +324,14 @@ export class StorefrontComponent implements OnInit {
     this.selectedProductDetails.set(null);
   }
 
+  /** From the details view: hand off to the bag dialog and close the
+   * details behind it, so once the item is added the shopper is back on
+   * the storefront rather than on a details card they'd already read. */
+  addToBagFromDetails(product: CalculatedRecipe): void {
+    this.closeProductDetails();
+    this.addToCart(product);
+  }
+
   /** "From $X" when the product has multiple pack sizes, otherwise its price. */
   priceLabel(product: CalculatedRecipe): { price: number; isFrom: boolean } {
     return getStartingPrice(product);

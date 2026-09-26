@@ -210,8 +210,45 @@
 
 .details-actions {
   margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
   display: flex;
+  justify-content: flex-end;
   gap: 1rem;
+}
+
+/* Same footer buttons as the customization ("Add to Bag") dialog, so the two
+ * steps of adding an item read as one flow. */
+.details-actions .btn-primary {
+  background: var(--accent-sage);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.details-actions .btn-primary:hover {
+  background: var(--accent-sage-dark);
+}
+
+.details-actions .btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.details-actions .btn-outline:hover {
+  background: var(--bg-color);
 }
 
 .btn-close-modal {

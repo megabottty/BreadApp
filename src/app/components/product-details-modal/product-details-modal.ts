@@ -128,8 +128,8 @@ import type { ProductNutritionDisplay } from '../storefront/storefront';
         }
 
         <div class="details-actions">
-          <button class="btn-primary" (click)="addToBag.emit(product)">Add to Bag</button>
           <button class="btn-outline" (click)="close.emit()">Close</button>
+          <button class="btn-primary" (click)="addToBag.emit(product)">Add to Bag</button>
         </div>
       </div>
     </div>

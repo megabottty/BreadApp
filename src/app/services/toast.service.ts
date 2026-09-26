@@ -1,10 +1,17 @@
 import { Injectable, signal } from '@angular/core';
 
+/** Optional link rendered inside a toast, e.g. "View bag" after adding an item. */
+export interface ToastAction {
+  label: string;
+  route: string;
+}
+
 export interface Toast {
   id: string;
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
   duration?: number;
+  action?: ToastAction;
 }
 
 @Injectable({
@@ -17,8 +24,8 @@ export class ToastService {
   /**
    * Show a success toast
    */
-  success(message: string, duration: number = 3000) {
-    this.show(message, 'success', duration);
+  success(message: string, duration: number = 3000, action?: ToastAction) {
+    this.show(message, 'success', duration, action);
   }
 
   /**
@@ -45,9 +52,9 @@ export class ToastService {
   /**
    * Show a toast with custom type and duration
    */
-  show(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 3000) {
+  show(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 3000, action?: ToastAction) {
     const id = `toast-${this.nextId++}`;
-    const toast: Toast = { id, message, type, duration };
+    const toast: Toast = { id, message, type, duration, action };
 
     this.toasts.update(toasts => [...toasts, toast]);
 

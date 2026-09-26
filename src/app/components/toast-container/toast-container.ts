@@ -1,11 +1,12 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-toast-container',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="toast-container">
@@ -23,7 +24,12 @@ import { ToastService } from '../../services/toast.service';
               @case ('info') { ℹ }
             }
           </div>
-          <div class="toast-message">{{ toast.message }}</div>
+          <div class="toast-message">
+            {{ toast.message }}
+            @if (toast.action; as action) {
+              <a class="toast-action" [routerLink]="action.route" (click)="toastService.dismiss(toast.id)">{{ action.label }}</a>
+            }
+          </div>
           <button
             class="toast-close"
             (click)="toastService.dismiss(toast.id)"
@@ -90,6 +96,22 @@ import { ToastService } from '../../services/toast.service';
       font-size: 14px;
       line-height: 1.4;
       color: #333;
+    }
+
+    .toast-action {
+      display: inline-block;
+      margin-left: 8px;
+      color: var(--accent-sage-dark, #5F6F52);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      white-space: nowrap;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .toast-action:hover {
+      color: var(--accent-sage, #7D8F69);
     }
 
     .toast-close {
