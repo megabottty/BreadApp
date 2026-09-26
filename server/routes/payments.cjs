@@ -17,14 +17,24 @@ const supabase = (supabaseUrl && supabaseKey)
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 const stripeKey = process.env.STRIPE_SECRET_KEY;
+// Why checkout can't run, in words a person can act on. Surfaced by
+// create-checkout-session so the storefront never has to guess.
+let stripeConfigProblem = null;
 if (!stripeKey) {
+  stripeConfigProblem = 'STRIPE_SECRET_KEY is not set on the server.';
   console.error('MISSING STRIPE_SECRET_KEY: Check your environment variables!');
+} else if (stripeKey.startsWith('pk_')) {
+  stripeConfigProblem = 'STRIPE_SECRET_KEY on the server is a publishable key (pk_...). It must be the secret key (sk_test_... or sk_live_...) from the Stripe dashboard; the publishable key belongs in STRIPE_PUBLIC_KEY.';
+  console.error(`[Stripe Init] ${stripeConfigProblem}`);
+} else if (!stripeKey.startsWith('sk_')) {
+  stripeConfigProblem = 'STRIPE_SECRET_KEY on the server does not look like a Stripe secret key (expected sk_test_... or sk_live_...).';
+  console.error(`[Stripe Init] ${stripeConfigProblem}`);
 } else if (stripeKey.startsWith('sk_live')) {
   console.warn('⚠️  WARNING: Using a LIVE Stripe key. Practice orders will use real money!');
 } else {
   console.log(`[Stripe Init] Initializing with key: ${stripeKey.substring(0, 7)}...`);
 }
-const stripe = stripeKey ? require('stripe')(stripeKey) : null;
+const stripe = stripeKey && !stripeConfigProblem ? require('stripe')(stripeKey) : null;
 const twilio = require('twilio');
 const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
 const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
@@ -38,7 +48,7 @@ const toIso = (unixTs) => (unixTs ? new Date(unixTs * 1000).toISOString() : null
 // POST: Create a Stripe Checkout Session
 router.post('/create-checkout-session', async (req, res) => {
   if (!stripe) {
-    return res.status(500).json({ error: 'Stripe is not configured on the server' });
+    return res.status(500).json({ error: `Card payments are not set up yet: ${stripeConfigProblem || 'Stripe is not configured on the server.'}` });
   }
 
   // FORCE TEST MODE CHECK

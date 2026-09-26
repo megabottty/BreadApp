@@ -188,8 +188,12 @@ export class AuthService {
     }
   }
 
-  async register(name: string, email: string, password: string, role: UserRole = 'CUSTOMER', bakeryName?: string, bakerySlug?: string) {
+  async register(name: string, email: string, password: string, role: UserRole = 'CUSTOMER', bakeryName?: string, bakerySlug?: string, returnUrl?: string) {
     logger.debug('[Auth Debug] Attempting to register:', email, role);
+    // The confirmation email's link lands on /login; carry returnUrl so a
+    // shopper who signed up mid-checkout comes back to their bag afterwards.
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const emailRedirectTo = origin + '/login' + (returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : '');
 
     // 1. Create the Auth User in Supabase
     const supabase = await this.ensureSupabase();
@@ -201,7 +205,7 @@ export class AuthService {
           full_name: name,
           role: role
         },
-        emailRedirectTo: (typeof window !== 'undefined' ? window.location.origin : '') + '/login'
+        emailRedirectTo
       }
     });
 

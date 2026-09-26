@@ -7,20 +7,22 @@
       <button class="btn-primary" routerLink="/front">Back to Store</button>
     </div>
   } @else {
+    @if (hasSubscription()) {
+      <!-- Sits at the top of the page so someone who just tapped Subscribe
+           sees what they've set up before the form; pulses once on arrival. -->
+      <div class="subscription-summary subscription-summary-hero" [class.attention]="highlightSubscription()" role="status" aria-live="polite">
+        <strong>🔄 You're setting up {{ subscriptionLines().length }} weekly {{ subscriptionLines().length === 1 ? 'subscription' : 'subscriptions' }}</strong>
+        <ul>
+          <li>Choose the Monday or Tuesday you'd like your first pickup below. It repeats on that day each week.</li>
+          <li>Charged weekly by card; anything else in your bag is charged once.</li>
+          <li>Pause, skip, or cancel anytime from your profile.</li>
+        </ul>
+      </div>
+    }
     <div class="cart-grid">
       <div class="cart-items">
         <div class="card fulfillment-options">
-          <h2>Fulfillment</h2>
-          <div class="toggle-group" role="radiogroup" aria-label="Select fulfillment method">
-            <button [class.active]="fulfillmentType() === 'PICKUP'"
-                    (click)="setFulfillment('PICKUP')"
-                    role="radio"
-                    [attr.aria-checked]="fulfillmentType() === 'PICKUP'">Local Pickup</button>
-            <button [class.active]="fulfillmentType() === 'SHIPPING'"
-                    (click)="setFulfillment('SHIPPING')"
-                    role="radio"
-                    [attr.aria-checked]="fulfillmentType() === 'SHIPPING'">Nationwide Shipping</button>
-          </div>
+          <h2>Local Pickup</h2>
 
           @if (fulfillmentType() === 'SHIPPING') {
             <div class="shipping-details">
@@ -173,7 +175,7 @@
         <div class="card subscription-promo">
           <h2>🔄 Artisan Subscriptions</h2>
           <p>Subscribing ensures your favorite loaves are baked and ready for you every week.</p>
-          <p class="dispatch-notice">We dispatch subscription orders every <strong>Monday and Tuesday</strong> to guarantee peak freshness.</p>
+          <p class="dispatch-notice">Subscription orders are baked for <strong>Monday and Tuesday</strong> pickup so they're at peak freshness.</p>
           @if (authService.isAuthenticated()) {
             <p class="section-hint">You can manage or cancel your subscriptions anytime in your profile.</p>
           } @else {
@@ -260,13 +262,32 @@
 
       <div class="cart-summary card">
         <h2>Order Summary</h2>
+        <ul class="summary-items" aria-label="Items in your bag">
+          @for (item of items(); track item.lineId) {
+            <li class="summary-item">
+              <div class="summary-item-main">
+                <span class="summary-item-name">
+                  {{ itemDisplayName(item) }}
+                  @if (item.isSubscription) { <span class="subscription-badge">🔄 weekly</span> }
+                </span>
+                <span class="summary-item-total">{{ lineTotal(item) | currency }}</span>
+              </div>
+              <div class="summary-item-detail">
+                {{ item.quantity }} × {{ (cartService.getItemUnitPrice(item) + cartService.getItemOptionsPrice(item)) | currency }}
+                @if (item.selectedOptions && item.selectedOptions.length > 0) {
+                  · {{ optionNames(item) }}
+                }
+              </div>
+            </li>
+          }
+        </ul>
         <div class="summary-row">
           <span>Subtotal</span>
-          <span>{{totalPrice() | currency}}</span>
+          <span>{{ itemsSubtotal() | currency }}</span>
         </div>
         <div class="summary-row">
-          <span>{{ fulfillmentType() === 'PICKUP' ? 'Pickup' : 'Shipping' }}</span>
-          <span>{{ shippingCost() === 0 ? 'Free' : (shippingCost() | currency) }}</span>
+          <span>Local pickup</span>
+          <span>Free</span>
         </div>
         @if (cartService.promoDiscount() > 0) {
           <div class="summary-row discount">
@@ -286,14 +307,7 @@
         </div>
 
         @if (hasSubscription()) {
-          <div class="subscription-summary" aria-live="polite">
-            <strong>🔄 {{ subscriptionLines().length }} weekly {{ subscriptionLines().length === 1 ? 'subscription' : 'subscriptions' }}</strong>
-            <ul>
-              <li>Charged weekly by card; one-time items are charged once.</li>
-              <li>Dispatched every Monday and Tuesday.</li>
-              <li>Pause, skip, or cancel anytime from your profile.</li>
-            </ul>
-          </div>
+          <p class="subscription-reminder">Includes {{ subscriptionLines().length }} weekly {{ subscriptionLines().length === 1 ? 'subscription' : 'subscriptions' }}, charged weekly by card.</p>
         }
 
         @if (checkoutBlockedReason(); as reason) {

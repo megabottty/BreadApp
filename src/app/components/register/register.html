@@ -6,7 +6,7 @@
         <h1>Verify your email</h1>
         <p>We've sent a verification link to <strong>{{email()}}</strong>.</p>
         <p class="verification-hint">Please check your inbox (and spam folder) to complete your registration and start baking!</p>
-        <button class="btn-register" routerLink="/login">Back to Login</button>
+        <button class="btn-register" [routerLink]="['/login']" [queryParams]="{ returnUrl: returnUrl }">Back to Login</button>
       </div>
     } @else {
       <header>
@@ -96,7 +96,7 @@
     </div>
 
     <footer>
-      <p>Already have an account? <a routerLink="/login">Login here</a></p>
+      <p>Already have an account? <a [routerLink]="['/login']" [queryParams]="{ returnUrl: returnUrl }">Login here</a></p>
     </footer>
     }
   </div>

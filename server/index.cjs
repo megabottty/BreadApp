@@ -162,6 +162,8 @@ app.get('/api/version', (req, res) => {
     stripeMode: stripeSecret.startsWith('sk_live') ? 'live' : 'test',
     integrations: {
       stripeConfigured: Boolean(stripeSecret),
+      // A pk_ key here is the classic mix-up; checkout fails with a Stripe error.
+      stripeSecretKeyLooksValid: stripeSecret.startsWith('sk_'),
       stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
       stripePublicKeyConfigured: Boolean(process.env.STRIPE_PUBLIC_KEY),
       twilioConfigured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),

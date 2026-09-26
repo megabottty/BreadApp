@@ -193,6 +193,75 @@ h1 {
   background: var(--card-bg);
 }
 
+.subscription-summary-hero {
+  margin: 0 0 1.25rem;
+  scroll-margin-top: 90px;
+}
+
+/* Draws the eye to the subscription box when it first appears: a soft
+ * yellow ring that pulses a few times, then settles. */
+.subscription-summary.attention {
+  animation: subscriptionPulse 1.4s ease-in-out 3;
+}
+
+@keyframes subscriptionPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.85); background: #FFF3CD; border-color: #FFC107; }
+  60%  { box-shadow: 0 0 0 14px rgba(255, 193, 7, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); background: #F1F3EB; border-color: #DCE3D1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subscription-summary.attention {
+    animation: none;
+    border: 2px solid #FFC107;
+    background: #FFF3CD;
+  }
+}
+
+.subscription-reminder {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: #5F6F52;
+}
+
+.summary-items {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0 0 0.5rem;
+  border-bottom: 1px solid #F0EDE5;
+}
+
+.summary-item {
+  padding: 0.6rem 0;
+  border-bottom: 1px dashed #F0EDE5;
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-item-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #4A4A4A;
+  font-weight: 600;
+}
+
+.summary-item-name {
+  min-width: 0;
+}
+
+.summary-item-total {
+  white-space: nowrap;
+}
+
+.summary-item-detail {
+  font-size: 0.85rem;
+  color: #8c8273;
+  margin-top: 0.15rem;
+}
+
 .subscription-summary {
   margin: 1rem 0 0.75rem;
   padding: 1rem 1.25rem;
@@ -575,21 +644,45 @@ h1 {
   margin-bottom: 0.75rem;
 }
 
-.checkbox-label {
+/* Specific enough to beat `.form-group label` (display:block, 0.85rem). */
+.form-group label.checkbox-label,
+label.checkbox-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: #6C7A5C;
+  gap: 0.85rem;
+  margin-bottom: 0;
+  font-weight: 500;
+  min-height: 48px;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #E9E5D9;
+  border-radius: 12px;
+  background: #FDFCF9;
+  font-size: 0.95rem;
+  color: #4A4A4A;
   cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+label.checkbox-label:hover {
+  border-color: #7D8F69;
+}
+
+label.checkbox-label:has(input:checked) {
+  border-color: #7D8F69;
+  background: #F1F3EB;
 }
 
 .checkbox-label input {
-  width: auto;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   accent-color: #7D8F69;
+  flex-shrink: 0;
 }
 
 .subscription-promo {

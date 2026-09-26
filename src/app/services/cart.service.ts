@@ -140,10 +140,15 @@ export class CartService {
   private subscriptionService = inject(SubscriptionService);
   private authService = inject(AuthService);
 
+  /** Chosen pickup day. Lives here (not in the cart page) so it is saved
+   * with the bag and survives creating an account mid-checkout. */
+  pickupDate = signal<string>('');
+
   constructor() {
-    // Local caching removed per user request
-    // this.loadCart();
-    // this.loadLoyalty();
+    // The bag is saved in this browser so it survives a reload, and more
+    // importantly the sign-up -> confirm-email -> log-in round-trip that a
+    // subscription requires. (Loyalty stays server/session only.)
+    this.loadCart();
     this.isInitialLoad = false;
 
     // Automatically load promos once tenant is identified
@@ -153,10 +158,10 @@ export class CartService {
       }
     });
 
-    // Automatically save cart whenever any relevant signal changes
-    // effect(() => {
-    //   this.saveCart();
-    // });
+    // Save the bag whenever any of its signals change.
+    effect(() => {
+      this.saveCart();
+    });
   }
 
   loadPromos() {
@@ -273,9 +278,10 @@ export class CartService {
           ? data.items.map((item: CartItem) => this.normalizeCartItem(item))
           : [];
         this.cartItems.set(items);
-        this.fulfillmentType.set(data.fulfillmentType || 'PICKUP');
+        this.fulfillmentType.set('PICKUP'); // pickup only; shipping is not offered
         this.zipCode.set(data.zipCode || '');
         this.notes.set(data.notes || '');
+        this.pickupDate.set(typeof data.pickupDate === 'string' ? data.pickupDate : '');
       } catch (e) {
         console.error('Error loading cart', e);
       }
@@ -288,7 +294,8 @@ export class CartService {
       items: this.cartItems().map(item => this.toPersistedItem(item)),
       fulfillmentType: this.fulfillmentType(),
       zipCode: this.zipCode(),
-      notes: this.notes()
+      notes: this.notes(),
+      pickupDate: this.pickupDate()
     };
     try {
       localStorage.setItem('bakery_cart', JSON.stringify(_data));

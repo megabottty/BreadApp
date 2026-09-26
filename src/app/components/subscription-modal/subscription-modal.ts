@@ -29,7 +29,7 @@ import { CommonModule } from '@angular/common';
             <span class="benefit-icon" aria-hidden="true">🌿</span>
             <div class="benefit-content">
               <h4>Peak Freshness</h4>
-              <p>Dispatched every Monday & Tuesday. Hand-delivered or shipped within hours of leaving the oven.</p>
+              <p>Ready for pickup every Monday & Tuesday, within hours of leaving the oven.</p>
             </div>
           </div>
 

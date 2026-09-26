@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, PercentPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -35,7 +35,7 @@ export class CartComponent implements OnInit {
   notes = this.cartService.notes;
 
   dispatchDate = signal<string>('');
-  pickupDate = signal<string>('');
+  pickupDate = this.cartService.pickupDate;
   payAtPickup = signal<boolean>(false);
 
   guestName = signal<string>('');
@@ -59,6 +59,37 @@ export class CartComponent implements OnInit {
   subscriptionLines = computed(() => this.items().filter(item => !!item.isSubscription));
   hasSubscription = computed(() => this.subscriptionLines().length > 0);
   readonly subscriptionAccountMessage = SUBSCRIPTION_ACCOUNT_MESSAGE;
+
+  /** Briefly pulses the subscription box whenever a subscription appears in
+   * the bag (arriving from Subscribe, or ticking the weekly checkbox). */
+  highlightSubscription = signal<boolean>(false);
+  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Per-line total: quantity × (unit price + add-ons). */
+  lineTotal(item: CartItem): number {
+    return item.quantity * (this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item));
+  }
+
+  optionNames(item: CartItem): string {
+    return (item.selectedOptions || []).map(option => option.name).join(', ');
+  }
+
+  itemsSubtotal = computed(() => this.items().reduce((sum, item) => sum + this.lineTotal(item), 0));
+
+  constructor() {
+    effect(() => {
+      if (!this.hasSubscription()) {
+        this.highlightSubscription.set(false);
+        return;
+      }
+      this.highlightSubscription.set(true);
+      if (this.highlightTimer) clearTimeout(this.highlightTimer);
+      this.highlightTimer = setTimeout(() => this.highlightSubscription.set(false), 4500);
+      if (typeof window !== 'undefined') {
+        setTimeout(() => document.querySelector('.subscription-summary-hero')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+      }
+    });
+  }
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
@@ -380,7 +411,11 @@ export class CartComponent implements OnInit {
       },
       error: (err) => {
         logger.error('Stripe session creation failed:', err);
-        this.modalService.showAlert('Failed to initiate payment. Please make sure your backend server is running on port 3000.', 'Payment Error', 'error');
+        const serverReason: string | undefined = err?.error?.error || err?.error?.message;
+        const message = err?.status === 0
+          ? 'We couldn\'t reach the bakery\'s server to start the payment. Please check your connection and try again.'
+          : `We couldn\'t start the card payment. ${serverReason || 'Please try again in a moment.'}`;
+        this.modalService.showAlert(message, 'Payment Error', 'error');
       }
     });
   }

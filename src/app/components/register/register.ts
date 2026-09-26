@@ -75,7 +75,8 @@ export class RegisterComponent implements OnInit {
         this.password(),
         this.selectedRole(),
         this.selectedRole() === 'BAKER' ? this.bakeryName() : undefined,
-        this.selectedRole() === 'BAKER' ? this.bakerySlug() : undefined
+        this.selectedRole() === 'BAKER' ? this.bakerySlug() : undefined,
+        this.returnUrl ?? undefined
       );
 
       if (result?.needsVerification) {
@@ -96,6 +97,9 @@ export class RegisterComponent implements OnInit {
   togglePassword() {
     this.showPassword.update(v => !v);
   }
+
+  /** Where to send them once they're signed in (e.g. back to the bag). */
+  readonly returnUrl: string | null = this.route.snapshot.queryParams['returnUrl'] || null;
 
   setRole(role: UserRole) {
     this.selectedRole.set(role);
