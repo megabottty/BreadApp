@@ -22,7 +22,7 @@ export class FooterComponent {
 
   /** Public bakery email shown in the footer (the tenant's saved email, else the bakery's default). */
   readonly bakeryEmail = computed(() => this.tenantService.tenant()?.email || 'megan@thedailydough.store');
-  readonly instagramUrl = 'https://instagram.com/thedailydough.store'; // TODO(megan): confirm handle
+  readonly instagramUrl = 'https://www.instagram.com/the.daily.dough/';
 
   contactName = signal('');
   contactEmail = signal('');
