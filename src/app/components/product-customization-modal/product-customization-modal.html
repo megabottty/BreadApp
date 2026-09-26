@@ -67,6 +67,24 @@
             ></textarea>
           </div>
 
+          <!-- One-time vs weekly subscription (Subscribe & Save pattern) -->
+          <div class="section purchase-type">
+            <h3>How often?</h3>
+            <div class="options-grid" role="radiogroup" aria-label="Purchase type">
+              <label class="option-item" [class.selected]="!isSubscription()">
+                <input type="radio" name="purchaseType" value="once" [checked]="!isSubscription()" (change)="isSubscription.set(false)">
+                <span class="option-name">One-time purchase</span>
+              </label>
+              <label class="option-item" [class.selected]="isSubscription()">
+                <input type="radio" name="purchaseType" value="weekly" [checked]="isSubscription()" (change)="isSubscription.set(true)">
+                <span class="option-name">
+                  Weekly subscription
+                  <small class="option-hint">Baked fresh and delivered every week. Pause, skip, or cancel anytime from your profile.</small>
+                </span>
+              </label>
+            </div>
+          </div>
+
           <!-- Quantity Section -->
           <div class="quantity-section">
             <span>Quantity</span>
@@ -81,7 +99,7 @@
         <div class="modal-footer">
           <button class="btn-outline" (click)="close()">Cancel</button>
           <button class="btn-primary" (click)="addToCart()">
-            Add to Bag
+            {{ isSubscription() ? 'Subscribe weekly' : 'Add to Bag' }}
           </button>
         </div>
       </div>

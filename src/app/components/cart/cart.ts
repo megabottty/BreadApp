@@ -8,13 +8,14 @@ import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
 import { Order, OrderItem } from '../../logic/bakers-math';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { SUBSCRIPTION_ACCOUNT_MESSAGE } from '../../services/subscription-gate.service';
 import { logger } from '../../utils/logger';
 
 @Component({
   selector: 'app-cart',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, PercentPipe, FormsModule, MatCheckboxModule],
+  imports: [CommonModule, CurrencyPipe, PercentPipe, FormsModule, MatCheckboxModule, RouterLink],
   templateUrl: './cart.html',
   styleUrls: ['./cart.css']
 })
@@ -53,6 +54,12 @@ export class CartComponent implements OnInit {
 
   promoCodeInput = signal<string>('');
 
+  /** Lines that recur weekly. Drives the summary above Checkout, the button
+   * label, and hides pay-at-pickup (a recurring charge needs a card). */
+  subscriptionLines = computed(() => this.items().filter(item => !!item.isSubscription));
+  hasSubscription = computed(() => this.subscriptionLines().length > 0);
+  readonly subscriptionAccountMessage = SUBSCRIPTION_ACCOUNT_MESSAGE;
+
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
       if (params['canceled'] === 'true') {
@@ -68,6 +75,9 @@ export class CartComponent implements OnInit {
   });
 
   checkoutBlockedReason = computed(() => {
+    if (this.hasSubscription() && !this.authService.isAuthenticated()) {
+      return 'Subscriptions need an account. Log in or create one to check out, or switch the item back to a one-time purchase.';
+    }
     if (this.fulfillmentType() === 'SHIPPING' && !this.dispatchDate()) {
       return 'Please select a dispatch date (Monday or Tuesday)';
     }
@@ -242,8 +252,9 @@ export class CartComponent implements OnInit {
     const customerPhone = this.guestPhone();
     const notificationPreference = this.getNotificationPreference();
 
-    // If paying at pickup, create order immediately (payment happens later at pickup)
-    if (this.payAtPickup() && this.fulfillmentType() === 'PICKUP') {
+    // If paying at pickup, create order immediately (payment happens later at
+    // pickup). Never for subscriptions: a recurring order needs a card on file.
+    if (this.payAtPickup() && this.fulfillmentType() === 'PICKUP' && !this.hasSubscription()) {
       const orderId = 'POS-' + Math.random().toString(36).substring(7).toUpperCase();
       logger.info('Pay at pickup selected - creating order without payment...');
 

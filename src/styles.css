@@ -117,7 +117,9 @@ body {
   background-color: var(--bg-color);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
-  overflow-x: hidden;
+  /* clip, not hidden: overflow-x:hidden on body (and html) makes body its own
+   * scroll container, which on iOS Safari causes sticky/jumpy page scrolling. */
+  overflow-x: clip;
   width: 100%;
   margin: 0;
   -webkit-font-smoothing: antialiased;
@@ -172,10 +174,11 @@ html {
   }
 }
 
-/* Prevent horizontal scroll on mobile */
-body, html {
+/* Prevent horizontal scroll on mobile (see the body rule above for why
+ * this is clip and only on body). */
+body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Improve form inputs on mobile */
@@ -266,9 +269,10 @@ button, .btn, a.btn {
 @media (max-width: 768px) {
   .modal-content {
     max-width: 95vw !important;
-    max-height: 90vh;
+    /* dvh = the space that's actually visible with Safari's toolbar showing;
+     * 90vh alone let the bottom of dialogs sit under the toolbar. */
+    max-height: min(90vh, calc(100dvh - 2rem));
     overflow-y: auto;
-    margin: 1rem;
   }
 }
 

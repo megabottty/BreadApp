@@ -16,6 +16,7 @@ import { ProductDetailsModalComponent } from '../product-details-modal/product-d
 import { TenantService } from '../../services/tenant.service';
 import { AppLoadService } from '../../services/app-load.service';
 import { RecipeService } from '../../services/recipe.service';
+import { SubscriptionGateService } from '../../services/subscription-gate.service';
 import { logger } from '../../utils/logger';
 
 export interface ProductNutritionDisplay {
@@ -46,6 +47,7 @@ export class StorefrontComponent implements OnInit {
   private http = inject(HttpClient);
   private helpService = inject(HelpService);
   private modalService = inject(ModalService);
+  private readonly subscriptionGate = inject(SubscriptionGateService);
   private recipeService = inject(RecipeService);
 
   products = this.recipeService.savedRecipes;
@@ -385,12 +387,15 @@ export class StorefrontComponent implements OnInit {
     };
   }
 
+  /** Same dialog as Add to Bag (pack, sliced/double-baked, notes, quantity)
+   * with "Weekly subscription" pre-selected. Guests are told why an account
+   * is needed and offered a way in that returns them here. */
   subscribe(product: CalculatedRecipe): void {
-    // Add to cart with subscription pre-toggled
-    this.cartService.addToCart(product);
-    const line = this.cartService.items().find(item => item.product.id === product.id);
-    if (line) this.cartService.toggleSubscription(line.lineId);
-    this.router.navigate(['/cart']);
+    if (!this.subscriptionGate.canSubscribe()) {
+      this.subscriptionGate.explain('/front');
+      return;
+    }
+    this.modalService.showCustomization(product, { subscription: true });
   }
 
   confirmDeleteProduct(product: CalculatedRecipe): void {

@@ -20,6 +20,10 @@ export class FooterComponent {
   private sanitizer = inject(DomSanitizer);
   private http = inject(HttpClient);
 
+  /** Public bakery email shown in the footer (the tenant's saved email, else the bakery's default). */
+  readonly bakeryEmail = computed(() => this.tenantService.tenant()?.email || 'megan@thedailydough.store');
+  readonly instagramUrl = 'https://instagram.com/thedailydough.store'; // TODO(megan): confirm handle
+
   contactName = signal('');
   contactEmail = signal('');
   contactMessage = signal('');

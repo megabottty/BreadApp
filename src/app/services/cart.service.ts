@@ -297,16 +297,18 @@ export class CartService {
     }
   }
 
-  addToCart(product: CalculatedRecipe, quantity: number = 1, notes?: string, selectedOptions?: { name: string; price: number }[], packOption?: PackOption) {
+  addToCart(product: CalculatedRecipe, quantity: number = 1, notes?: string, selectedOptions?: { name: string; price: number }[], packOption?: PackOption, isSubscription: boolean = false) {
     const resolvedPackOption = packOption || this.getPackOptions(product)[0];
     this.cartItems.update(prev => {
-      // For items with notes or specific options, we might want to treat them as unique line items
-      // but for now let's check if an identical item (same product + same notes + same options) exists.
+      // Merge into an identical line (same product, notes, options, pack and
+      // purchase type); a one-time loaf and a weekly subscription of the same
+      // loaf stay separate lines.
       const existing = prev.find(item =>
         ((item.product.id && item.product.id === product.id) || item.product.name === product.name) &&
         item.notes === notes &&
         JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions) &&
-        item.packOption?.id === resolvedPackOption?.id
+        item.packOption?.id === resolvedPackOption?.id &&
+        !!item.isSubscription === isSubscription
       );
 
       let updated: CartItem[];
@@ -327,7 +329,7 @@ export class CartService {
           packOptions: product.packOptions,
           itemWeightGrams: product.itemWeightGrams
         };
-        updated = [...prev, { lineId: this.newLineId(), product: productSnapshot, quantity, unitWeightGrams, notes, selectedOptions, packOption: resolvedPackOption }];
+        updated = [...prev, { lineId: this.newLineId(), product: productSnapshot, quantity, unitWeightGrams, notes, selectedOptions, packOption: resolvedPackOption, isSubscription }];
       }
       return updated;
     });

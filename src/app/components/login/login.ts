@@ -21,6 +21,8 @@ export class LoginComponent {
   email = signal('');
   password = signal('');
   selectedRole = signal<UserRole>('CUSTOMER');
+  /** Where to go after logging in (or after creating an account instead). */
+  readonly returnUrl: string | null = this.route.snapshot.queryParams['returnUrl'] || null;
   showPassword = signal(false);
 
   async login() {

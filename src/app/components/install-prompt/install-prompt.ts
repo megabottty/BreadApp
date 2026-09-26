@@ -39,7 +39,9 @@ import { PwaService } from '../../services/pwa.service';
       background: white;
       border-radius: 16px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-      z-index: 9999;
+      /* Below every dialog (details 1200, add-to-bag 9999): at 9999 this
+       * banner drew over the dialogs' footer buttons on iPhones. */
+      z-index: 900;
       padding: 1rem;
       border: 1px solid #E9E5D9;
       animation: slideUp 0.5s ease-out;

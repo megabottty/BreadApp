@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ModalService } from '../../services/modal.service';
 import { CartService, PackOption } from '../../services/cart.service';
 import { ToastService } from '../../services/toast.service';
+import { SubscriptionGateService } from '../../services/subscription-gate.service';
 
 @Component({
   selector: 'app-product-customization-modal',
@@ -17,8 +18,11 @@ export class ProductCustomizationModalComponent {
   modalService = inject(ModalService);
   cartService = inject(CartService);
   private readonly toastService = inject(ToastService);
+  private readonly subscriptionGate = inject(SubscriptionGateService);
 
   notes = signal<string>('');
+  /** One-time purchase (false) or weekly subscription (true). */
+  isSubscription = signal<boolean>(false);
   quantity = signal<number>(1);
   packOptions = signal<PackOption[]>([]);
   selectedPackId = signal<string>('');
@@ -100,6 +104,7 @@ export class ProductCustomizationModalComponent {
         this.selectedPackId.set(options[0]?.id || '');
         this.notes.set('');
         this.quantity.set(1);
+        this.isSubscription.set(!!modal.subscription);
       }
     });
   }
@@ -131,18 +136,29 @@ export class ProductCustomizationModalComponent {
 
       const packOption = this.packOptions().find(option => option.id === this.selectedPackId()) || undefined;
       const quantity = this.quantity();
+      const isSubscription = this.isSubscription();
+
+      // A subscription must belong to an account (see SubscriptionGateService).
+      if (isSubscription && !this.subscriptionGate.canSubscribe()) {
+        this.close();
+        this.subscriptionGate.explain('/front');
+        return;
+      }
+
       this.cartService.addToCart(
         modal.product,
         quantity,
         this.notes(),
         selectedOptions,
-        packOption
+        packOption,
+        isSubscription
       );
       this.close();
       // Stay on the storefront so they can keep browsing; the toast (and the
       // nav badge) confirm it landed, with a one-tap route to the bag.
       const what = quantity > 1 ? `${quantity} × ${modal.product.name}` : modal.product.name;
-      this.toastService.success(`Added ${what} to your bag.`, 4000, { label: 'View bag', route: '/cart' });
+      const message = isSubscription ? `Added a weekly subscription for ${what} to your bag.` : `Added ${what} to your bag.`;
+      this.toastService.success(message, 4000, { label: 'View bag', route: '/cart' });
     }
   }
 

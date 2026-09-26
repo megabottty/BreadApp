@@ -47,13 +47,17 @@
                   <small id="pickup-hint" class="error-text">We need at least 48 hours to prepare your handcrafted loaf.</small>
                 }
               </div>
-              <mat-checkbox
-                id="pay-at-pickup"
-                class="pay-at-pickup-checkbox"
-                [checked]="payAtPickup()"
-                (change)="payAtPickup.set($event.checked)">
-                Pay at Pickup
-              </mat-checkbox>
+              @if (!hasSubscription()) {
+                <mat-checkbox
+                  id="pay-at-pickup"
+                  class="pay-at-pickup-checkbox"
+                  [checked]="payAtPickup()"
+                  (change)="payAtPickup.set($event.checked)">
+                  Pay at Pickup
+                </mat-checkbox>
+              } @else {
+                <p class="section-hint">Subscriptions are charged weekly by card, so pay-at-pickup isn't available for this bag.</p>
+              }
             </div>
           }
           <div class="lead-time-notice">
@@ -150,7 +154,15 @@
           <h2>🔄 Artisan Subscriptions</h2>
           <p>Subscribing ensures your favorite loaves are baked and ready for you every week.</p>
           <p class="dispatch-notice">We dispatch subscription orders every <strong>Monday and Tuesday</strong> to guarantee peak freshness.</p>
-          <p class="section-hint">You can manage or cancel your subscriptions anytime in your profile.</p>
+          @if (authService.isAuthenticated()) {
+            <p class="section-hint">You can manage or cancel your subscriptions anytime in your profile.</p>
+          } @else {
+            <p class="section-hint">{{ subscriptionAccountMessage }}</p>
+            <div class="subscription-auth-actions">
+              <a class="btn-outline" [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in</a>
+              <a class="btn-outline" [routerLink]="['/register']" [queryParams]="{ role: 'CUSTOMER', returnUrl: '/cart' }">Create account</a>
+            </div>
+          }
         </div>
 
         <div class="card">
@@ -158,7 +170,12 @@
           @for (item of items(); track item.lineId) {
             <div class="cart-item">
               <div class="item-info">
-                <h3>{{itemDisplayName(item)}}</h3>
+                <h3>
+                  {{itemDisplayName(item)}}
+                  @if (item.isSubscription) {
+                    <span class="subscription-badge">🔄 Weekly subscription</span>
+                  }
+                </h3>
                 <p>{{item.product.trueHydration | percent:'1.0-0'}} Hydration Loaf</p>
 
                 @if (getPackOptions(item).length > 0) {
@@ -188,10 +205,22 @@
                   <p class="item-note"><em>Note: {{item.notes}}</em></p>
                 }
 
-                <label for="subscription-{{item.lineId}}" class="subscription-toggle">
-                  <input type="checkbox" id="subscription-{{item.lineId}}" [checked]="item.isSubscription" (change)="toggleSubscription(item)" [attr.aria-label]="'Enable weekly subscription for ' + item.product.name">
-                  Weekly Subscription
-                </label>
+                @if (authService.isAuthenticated()) {
+                  <label for="subscription-{{item.lineId}}" class="subscription-toggle">
+                    <input type="checkbox" id="subscription-{{item.lineId}}" [checked]="item.isSubscription" (change)="toggleSubscription(item)" [attr.aria-label]="'Enable weekly subscription for ' + item.product.name">
+                    Weekly Subscription
+                  </label>
+                } @else if (item.isSubscription) {
+                  <p class="subscription-guest-note">
+                    Subscriptions need an account.
+                    <a [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in to subscribe</a>
+                    or <button type="button" class="link-button" (click)="toggleSubscription(item)">make it a one-time purchase</button>.
+                  </p>
+                } @else {
+                  <p class="subscription-guest-note">
+                    Want this every week? <a [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in to subscribe</a>.
+                  </p>
+                }
               </div>
               <div class="item-actions">
                 <div class="quantity-controls" role="group" aria-label="Quantity controls">
@@ -236,6 +265,17 @@
           <span>{{totalPrice() | currency}}</span>
         </div>
 
+        @if (hasSubscription()) {
+          <div class="subscription-summary" aria-live="polite">
+            <strong>🔄 {{ subscriptionLines().length }} weekly {{ subscriptionLines().length === 1 ? 'subscription' : 'subscriptions' }}</strong>
+            <ul>
+              <li>Charged weekly by card; one-time items are charged once.</li>
+              <li>Dispatched every Monday and Tuesday.</li>
+              <li>Pause, skip, or cancel anytime from your profile.</li>
+            </ul>
+          </div>
+        }
+
         @if (checkoutBlockedReason(); as reason) {
           <div class="checkout-blocked-message" role="alert">
             <span class="icon">⚠️</span>
@@ -246,7 +286,7 @@
         <button class="btn-checkout"
                 [disabled]="checkoutBlockedReason() !== null"
                 (click)="checkout()">
-          Checkout
+          {{ hasSubscription() ? 'Start subscription & checkout' : 'Checkout' }}
         </button>
       </div>
     </div>

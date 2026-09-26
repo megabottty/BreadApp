@@ -13,6 +13,7 @@ import type { ProductNutritionDisplay } from '../storefront/storefront';
       <div class="product-details-modal card" (click)="$event.stopPropagation()">
         <button class="btn-close-modal" (click)="close.emit()" aria-label="Close details">×</button>
 
+        <div class="details-body">
         <div class="details-image-wrap">
           @if (product.images && product.images.length > 0) {
             @if (isInlineImage(product.images[0])) {
@@ -126,6 +127,8 @@ import type { ProductNutritionDisplay } from '../storefront/storefront';
             </p>
           </section>
         }
+
+        </div>
 
         <div class="details-actions">
           <button class="btn-outline" (click)="close.emit()">Close</button>

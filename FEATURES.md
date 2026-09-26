@@ -37,7 +37,7 @@ A unified dashboard for managing everything:
 
 ### 3. Loyalty & Reviews
 - **Recipe Reviews**: Customers can leave star ratings and comments on specific recipes.
-- **Subscription Model**: Weekly recurring orders for local customers who want their fresh bread "on repeat."
+- **Subscription Model**: Weekly recurring orders for local customers who want their fresh bread "on repeat." Subscribe uses the same dialog as Add to Bag (pack, add-ons, notes) with a one-time / weekly choice; subscriptions require an account so recurring orders can be linked to the customer and managed from their profile (guests are shown why and offered log in / sign up). Pay-at-pickup is unavailable for bags containing a subscription.
 
 ---
 
@@ -70,7 +70,7 @@ Legend: ✅ Implemented · ⚠️ Partial · ❌ Missing/Planned
 | Support pop-up events / farmers markets | ❌ Missing | — | Needs events/market calendar + order/channel tagging. |
 | Walk‑in orders | ✅ Implemented | POS terminal + order source tracking. | — |
 | Marketing campaigns | ⚠️ Partial | Promo code manager in **Ledger**. | Full campaign orchestration missing. |
-| Recurring customer orders | ✅ Implemented | Subscriptions in storefront + backend routes. | — |
+| Recurring customer orders | ⚠️ Partial | Subscribe & Save-style choice in the product dialog, cart badge + summary, account required (UI + `create-checkout-session` guard), Stripe subscription-mode checkout. | Weekly only (interval hard-coded in UI, Stripe and schema); Stripe subscription id not stored; webhook writes one aggregate `bakery_subscriptions` row with no `recipe_id`. |
 | Capacity planning / bottlenecks | ⚠️ Partial | Oven capacity setting + Smart Batching foundations. | No capacity/bottleneck visualization or staffing plan. |
 | Production planning / scheduling | ⚠️ Partial | Orders + prep timeline + recipe prep/bake time. | No schedule builder tied to forecast & constraints. |
 | Financial planning / profit | ⚠️ Partial | Ledger, COGS, profit, margins. | No scenario planning or forward modeling. |

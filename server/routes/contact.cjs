@@ -21,7 +21,7 @@ router.post(['/', '/submit'], async (req, res) => {
   console.log(`Message: ${message}`);
   console.log('-----------------------------------');
 
-  let recipientEmail = process.env.DEFAULT_CONTACT_EMAIL || 'admin@thedailydough.com';
+  let recipientEmail = process.env.DEFAULT_CONTACT_EMAIL || 'megan@thedailydough.store';
 
   // If a tenant slug is provided, try to find the baker's email
   if (tenantSlug && supabase) {

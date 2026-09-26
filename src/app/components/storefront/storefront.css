@@ -6,7 +6,7 @@
   background-color: var(--bg-color);
   min-height: 100vh;
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 @media (min-width: 768px) {
@@ -132,7 +132,7 @@ h1 {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
 }
 
 @media (min-width: 768px) {
@@ -214,8 +214,12 @@ h1 {
   position: relative; /* Add relative position to contain absolute badges and children */
 }
 
-.product-card:hover {
-  transform: translateY(-8px);
+/* Hover-only: on touch screens :hover sticks after a tap, so the card would
+ * jump under the finger mid-scroll. */
+@media (hover: hover) {
+  .product-card:hover {
+    transform: translateY(-8px);
+  }
 }
 
 .product-image {
@@ -236,6 +240,10 @@ h1 {
   width: 100%;
   height: 100%;
   scrollbar-width: none; /* Firefox */
+  /* Let a vertical swipe that starts on the photo scroll the page, and keep
+   * the carousel's own overscroll from bouncing the page sideways. */
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
 }
 
 .image-scroller::-webkit-scrollbar {
@@ -256,7 +264,7 @@ h1 {
   color: var(--accent-sage-dark);
   padding: 0.3rem 0.8rem;
   border-radius: 20px;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   z-index: 2;
@@ -277,7 +285,7 @@ h1 {
   right: 1rem;
   padding: 0.3rem 0.8rem;
   border-radius: 20px;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   color: white;
@@ -306,7 +314,7 @@ h1 {
   color: white;
   padding: 0.3rem 0.8rem;
   border-radius: 20px;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -369,7 +377,7 @@ h1 {
 }
 
 .view-reviews-hint {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--accent-sage);
   text-decoration: underline;
   margin-left: auto;
@@ -382,6 +390,7 @@ h1 {
   margin-bottom: 1rem;
   max-height: 200px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--border-color);
 }
 
@@ -415,7 +424,7 @@ h1 {
 
 .review-item p {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   line-height: 1.4;
 }
@@ -493,7 +502,7 @@ h1 {
 
 .baker-reply p {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-primary);
   font-style: italic;
 }
@@ -536,7 +545,7 @@ h1 {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 16px; /* under 16px makes iOS zoom in when the field is focused */
   margin-bottom: 0.5rem;
   resize: vertical;
 }
@@ -563,12 +572,12 @@ h1 {
 }
 
 .rating-count {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
 }
 
 .meta {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -579,23 +588,17 @@ h1 {
 
 .description {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.6;
   margin: 0.5rem 0 1rem 0;
-  min-height: 96px;
-  max-height: 120px;
-  overflow-y: auto;
-  padding-right: 0.25rem;
   flex: 1 1 auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
-}
-
-@media (max-width: 639px) {
-  .description {
-    min-height: 72px;
-    max-height: 96px;
-  }
+  /* Clamp instead of an inner scroll box: a swipe that started on a long
+   * description scrolled the paragraph and then dropped the gesture, so the
+   * page wouldn't move. The full text is one tap away in the details view. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .description::-webkit-scrollbar {
@@ -670,7 +673,7 @@ h1 {
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   box-shadow: 0 4px 6px rgba(125, 143, 105, 0.2);
   display: flex;
   align-items: center;

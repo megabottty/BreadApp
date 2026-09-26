@@ -5,7 +5,7 @@
   margin-top: 4rem;
   color: var(--text-primary);
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .footer-container {
@@ -32,7 +32,7 @@
   }
 }
 
-.footer-section h3 {
+.footer-section h2 {
   font-family: 'Serif', Georgia, serif;
   color: var(--accent-sage-dark);
   font-size: 1.4rem;
@@ -41,7 +41,7 @@
   padding-bottom: 0.5rem;
 }
 
-.footer-section h3::after {
+.footer-section h2::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -63,6 +63,16 @@
   font-size: 0.95rem;
 }
 
+.contact-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.contact-link:hover {
+  color: var(--accent-sage);
+}
+
 .social-links {
   display: flex;
   gap: 1rem;
@@ -73,7 +83,7 @@
   color: var(--accent-sage);
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   transition: color 0.2s;
 }
 
@@ -152,7 +162,7 @@
   padding-top: 2rem;
   border-top: 1px solid var(--border-color);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .legal-links {

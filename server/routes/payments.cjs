@@ -56,6 +56,15 @@ router.post('/create-checkout-session', async (req, res) => {
 
   const { items, customerEmail, orderId, metadata } = req.body;
 
+  // A subscription has to belong to a customer account so the recurring
+  // order can be linked, managed and cancelled; the UI never sends this for
+  // guests, but don't rely on the client.
+  const hasSubscriptionItem = Array.isArray(items) && items.some(item => item && item.isSubscription);
+  const customerId = metadata && metadata.customerId;
+  if (hasSubscriptionItem && (!customerId || customerId === 'guest' || customerId === 'unknown')) {
+    return res.status(400).json({ error: 'Subscriptions require an account. Please log in or create one, then try again.' });
+  }
+
   try {
     const lineItems = items.map(item => {
       // Robustly get the price, handling different nested objects if necessary

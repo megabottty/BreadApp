@@ -11,6 +11,8 @@ export interface ModalConfig {
   confirmLabel?: string;
   cancelLabel?: string;
   product?: CalculatedRecipe;
+  /** Customization dialog opened from a Subscribe button: pre-select weekly. */
+  subscription?: boolean;
 }
 
 @Injectable({
@@ -27,11 +29,12 @@ export class ModalService {
     this.activeModal.set({ title, message, type: 'confirm', onConfirm, onCancel, confirmLabel, cancelLabel });
   }
 
-  showCustomization(product: CalculatedRecipe) {
+  showCustomization(product: CalculatedRecipe, options: { subscription?: boolean } = {}) {
     this.activeModal.set({
       title: `Customize ${product.name}`,
       type: 'customization',
-      product
+      product,
+      subscription: !!options.subscription
     });
   }
 
