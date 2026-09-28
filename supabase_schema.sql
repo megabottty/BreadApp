@@ -26,6 +26,13 @@ CREATE TABLE IF NOT EXISTS bakery_tenants (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- How the baker wants to be alerted (new orders, orders due, low stock) by
+-- text and/or email. Shape: { phone, email, events: { newOrder: {sms,email},
+-- ordersDue: {sms,email}, lowStock: {sms,email} } }. Managed in the
+-- dashboard's Business Settings; see server/utils/baker-notify.cjs.
+ALTER TABLE IF EXISTS bakery_tenants
+  ADD COLUMN IF NOT EXISTS notification_settings JSONB;
+
 -- 2. Recipes Table
 CREATE TABLE IF NOT EXISTS bakery_recipes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

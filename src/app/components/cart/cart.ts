@@ -349,7 +349,6 @@ export class CartComponent implements OnInit {
         next: (response) => {
           logger.info('Order synced to cloud successfully:', response);
           this.notificationService.sendOrderConfirmation(customerName, customerPhone, customerEmail, orderId, notificationPreference);
-          this.notificationService.sendBakerOrderAlert(orderId, customerName);
           this.modalService.showAlert(
             `Thank you for your order, ${customerName}!\n\nConfirmation #${orderId}\n\nPickup Date: ${this.pickupDate()}\n\nYou can pay when you pick up your order. We'll send updates based on your notification preferences.`,
             'Order Confirmed',

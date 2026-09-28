@@ -5,7 +5,8 @@ const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 const { searchFoods } = require('../utils/usda.cjs');
 const pantry = require('../utils/pantry.cjs');
 const ssrCache = require('../utils/ssr-cache.cjs');
-const { requireCustomer } = require('../utils/auth.cjs');
+const { requireCustomer, requireBaker } = require('../utils/auth.cjs');
+const bakerNotify = require('../utils/baker-notify.cjs');
 const subscriptions = require('../utils/subscriptions.cjs');
 const notificationPrefs = require('../utils/notification-prefs.cjs');
 
@@ -197,6 +198,19 @@ router.post('/', async (req, res) => {
       throw error;
     }
     console.log('[Supabase Debug] Order saved successfully:', data[0].id);
+
+    // Tell the baker (text/email per her settings); never blocks the order.
+    bakerNotify.notifyBaker(supabase, req.tenantId, 'newOrder', {
+      subject: `New order #${orderData.id} from ${orderData.customerName || 'a customer'}`,
+      text: bakerNotify.newOrderText({
+        orderId: orderData.id,
+        customerName: orderData.customerName,
+        items: orderData.items,
+        pickupDate: orderData.pickupDate,
+        total: orderData.totalPrice,
+        paid: orderData.paymentStatus === 'PAID'
+      })
+    }).catch(err => console.warn('[BakerNotify] newOrder failed:', err.message));
 
     // Remember how a signed-in customer wants order updates (never for guests).
     await notificationPrefs.seedFromCheckout(supabase, req.tenantId, orderData.customerId, {
@@ -1349,6 +1363,40 @@ router.patch('/reviews/:id/reply', async (req, res) => {
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to reply to review' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Baker alert settings: which events reach the baker by text and/or email.
+// ---------------------------------------------------------------------------
+router.get('/baker-notifications', requireBaker(supabase), async (req, res) => {
+  try {
+    const { settings } = await bakerNotify.getSettings(supabase, req.tenantId);
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load notification settings' });
+  }
+});
+
+router.put('/baker-notifications', requireBaker(supabase), async (req, res) => {
+  try {
+    const settings = await bakerNotify.saveSettings(supabase, req.tenantId, req.body || {});
+    res.json(settings);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || 'Failed to save notification settings' });
+  }
+});
+
+// POST: send a test alert so the baker can confirm her number/email work.
+router.post('/baker-notifications/test', requireBaker(supabase), async (req, res) => {
+  try {
+    const result = await bakerNotify.notifyBaker(supabase, req.tenantId, 'newOrder', {
+      subject: 'Test alert from The Daily Dough',
+      text: '🍞 This is a test alert from your bakery dashboard. If you can read this, new-order alerts are set up.'
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to send test alert' });
   }
 });
 

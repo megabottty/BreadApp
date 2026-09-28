@@ -3,6 +3,7 @@ const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { sendEmail } = require('../utils/email.cjs');
+const bakerNotify = require('../utils/baker-notify.cjs');
 const { normalizePhone } = require('../utils/phone.cjs');
 const notificationPrefs = require('../utils/notification-prefs.cjs');
 const subscriptions = require('../utils/subscriptions.cjs');
@@ -106,8 +107,7 @@ async function runPrepAlerts({ dryRun = false } = {}) {
     const starterNeeded = itemCount * 150; // Rough estimate: 150g per item
 
     const notificationSent = await sendPrepNotification({
-      tenantEmail: tenant.email,
-      tenantPhone: tenant.phone,
+      tenantId: tenant.id,
       orderId: order.order_id || order.id,
       customerName: order.customer_name,
       readyDate: order.pickup_date,
@@ -136,10 +136,10 @@ async function runPrepAlerts({ dryRun = false } = {}) {
 }
 
 /**
- * Send prep notification to the baker via SMS (if Twilio) and email (if SMTP).
+ * Prep notification to the baker, by text/email per her "orders due" switches.
  */
 async function sendPrepNotification(data) {
-  const { tenantEmail, tenantPhone, orderId, customerName, readyDate, starterNeeded, items, dryRun } = data;
+  const { tenantId, orderId, customerName, readyDate, starterNeeded, items, dryRun } = data;
 
   const message = `
 🥖 PREP ALERT: Order #${orderId}
@@ -157,28 +157,63 @@ This order needs to be ready in 2 days.
   `.trim();
 
   console.log('[Prep Alert] Notification:', message);
-  if (dryRun) return true;
+  const result = await bakerNotify.notifyBaker(supabase, tenantId, 'ordersDue', {
+    subject: `Prep alert: order #${orderId} is ready in 2 days`,
+    text: message,
+    dryRun
+  });
+  return Boolean(result.sms || result.email || result.dryRun);
+}
 
-  let sent = false;
-  const phone = normalizePhone(tenantPhone);
-  if (twilioClient && twilioPhoneNumber && phone) {
-    try {
-      await twilioClient.messages.create({ body: message, from: twilioPhoneNumber, to: phone });
-      sent = true;
-    } catch (err) {
-      console.warn('[Prep Alert] SMS failed:', err.message);
-    }
+/**
+ * Morning digest of everything due for pickup today, per bakery.
+ */
+async function runTodayPickups({ today, dryRun }) {
+  const { data: orders, error } = await supabase
+    .from('bakery_orders')
+    .select('tenant_id, order_id, id, customer_name, items, pickup_date, status')
+    .eq('pickup_date', today)
+    .in('status', ['PENDING', 'READY']);
+  if (error) throw error;
+  const byTenant = new Map();
+  for (const order of orders || []) {
+    if (!byTenant.has(order.tenant_id)) byTenant.set(order.tenant_id, []);
+    byTenant.get(order.tenant_id).push(order);
   }
-  if (tenantEmail) {
-    const result = await sendEmail({
-      to: tenantEmail,
-      subject: `Prep alert: order #${orderId} is ready in 2 days`,
-      text: message,
-      html: `<pre style="font-family:sans-serif;white-space:pre-wrap;">${message}</pre>`
-    });
-    if (result && result.success && !result.mocked) sent = true;
+  const sent = [];
+  for (const [tenantId, list] of byTenant) {
+    const lines = list.map(o => `- #${o.order_id || o.id} ${o.customer_name}: ${(o.items || []).map(i => `${i.quantity}× ${i.name}`).join(', ')}`).join('\n');
+    const text = `🍞 ${list.length} pickup${list.length === 1 ? '' : 's'} today (${today}):\n${lines}`;
+    const result = await bakerNotify.notifyBaker(supabase, tenantId, 'ordersDue', { subject: `${list.length} pickup(s) today`, text, dryRun });
+    sent.push({ tenantId, orders: list.length, ...result });
   }
-  return sent || !twilioClient;
+  return { tenants: byTenant.size, sent };
+}
+
+/**
+ * Low-stock digest: any inventory item under its threshold, per bakery.
+ * Sent daily while something is low (a fresh reminder until it's restocked).
+ */
+async function runLowStock({ dryRun }) {
+  const { data: items, error } = await supabase
+    .from('bakery_inventory')
+    .select('tenant_id, ingredient_name, current_stock, unit, min_stock_threshold')
+    .gt('min_stock_threshold', 0);
+  if (error) throw error;
+  const low = (items || []).filter(i => Number(i.current_stock) < Number(i.min_stock_threshold));
+  const byTenant = new Map();
+  for (const item of low) {
+    if (!byTenant.has(item.tenant_id)) byTenant.set(item.tenant_id, []);
+    byTenant.get(item.tenant_id).push(item);
+  }
+  const sent = [];
+  for (const [tenantId, list] of byTenant) {
+    const lines = list.map(i => `- ${i.ingredient_name}: ${Number(i.current_stock)}${i.unit || 'g'} left (min ${Number(i.min_stock_threshold)}${i.unit || 'g'})`).join('\n');
+    const text = `📦 Running low on ${list.length} ingredient${list.length === 1 ? '' : 's'}:\n${lines}\n\nRestock before the next bake.`;
+    const result = await bakerNotify.notifyBaker(supabase, tenantId, 'lowStock', { subject: `Low stock: ${list.map(i => i.ingredient_name).join(', ')}`, text, dryRun });
+    sent.push({ tenantId, items: list.length, ...result });
+  }
+  return { lowItems: low.length, sent };
 }
 
 /**
@@ -351,7 +386,9 @@ router.post('/run', async (req, res) => {
   const jobs = [
     ['rollDates', () => rollDatesForward({ today, dryRun })],
     ['weeklyCheckin', () => sendWeeklyCheckins({ today, dryRun, force })],
-    ['prepAlerts', () => runPrepAlerts({ dryRun })]
+    ['prepAlerts', () => runPrepAlerts({ dryRun })],
+    ['todayPickups', () => runTodayPickups({ today, dryRun })],
+    ['lowStock', () => runLowStock({ dryRun })]
   ];
   for (const [name, job] of jobs) {
     try {

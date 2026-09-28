@@ -6,6 +6,7 @@ import { OrdersManagerComponent } from '../orders-manager/orders-manager';
 import { BakeryLedgerComponent } from '../bakery-ledger/bakery-ledger';
 import { RecipeCalculatorComponent } from '../recipe-calculator/recipe-calculator';
 import { PosTerminalComponent } from '../pos-terminal/pos-terminal';
+import { BakerNotificationSettingsComponent } from '../baker-notification-settings/baker-notification-settings';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
 import { InventoryService } from '../../services/inventory.service';
@@ -18,6 +19,7 @@ import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '
   selector: 'app-baker-dashboard',
   standalone: true,
   imports: [
+    BakerNotificationSettingsComponent,
     CommonModule,
     FormsModule,
     OrdersManagerComponent,

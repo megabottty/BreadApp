@@ -148,11 +148,11 @@ export class NotificationService {
     }
   }
 
-  async sendBakerOrderAlert(orderId: string, customerName: string) {
-    const message = `[BAKER ALERT] New order #${orderId} received from ${customerName}! Get the ovens ready. 🍞`;
-    // Replace with a real phone number for the baker in a real production scenario
-    const bakerPhone = '+15550123456';
-    return this.sendSMS(bakerPhone, message);
+  /** @deprecated The server alerts the baker when an order is saved (see
+   * server/utils/baker-notify.cjs), using her text/email switches. Kept as a
+   * no-op so older call sites compile. */
+  async sendBakerOrderAlert(_orderId: string, _customerName: string): Promise<void> {
+    return;
   }
 
   /**

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { normalizePhone } = require('../utils/phone.cjs');
+const bakerNotify = require('../utils/baker-notify.cjs');
 const { formatBakeDate, weekdayOf, addDays } = require('../utils/subscriptions.cjs');
 const notificationPrefs = require('../utils/notification-prefs.cjs');
 
@@ -385,6 +386,18 @@ router.post('/webhook', async (req, res) => {
         console.error('[Stripe Webhook] Failed to save order to database:', error.message, error.details);
       } else {
         console.log('[Stripe Webhook] Order saved successfully:', data?.[0]?.id);
+
+        bakerNotify.notifyBaker(supabase, tenantId, 'newOrder', {
+          subject: `New order #${newOrder.id} from ${newOrder.customerName}`,
+          text: bakerNotify.newOrderText({
+            orderId: newOrder.id,
+            customerName: newOrder.customerName,
+            items: parsedItems,
+            pickupDate: newOrder.pickupDate,
+            total: newOrder.totalPrice,
+            paid: true
+          })
+        }).catch(err => console.warn('[BakerNotify] newOrder (webhook) failed:', err.message));
 
         // Send customer confirmation SMS
         const shouldSendSms = (newOrder.notificationPreference === 'SMS' || newOrder.notificationPreference === 'BOTH');

@@ -1,0 +1,58 @@
+<div class="notification-settings">
+  <p class="intro">Choose which bakery events reach you, and whether each comes by text, email, or both.</p>
+
+  @if (loadFailed()) {
+    <p class="load-failed">We couldn't load your saved settings, so these are the defaults. Saving will still work.</p>
+  }
+
+  <div class="contact-fields">
+    <div class="field">
+      <label for="baker-phone">Mobile number <span class="hint">(for texts)</span></label>
+      <input id="baker-phone" type="tel" autocomplete="tel" placeholder="(801) 555-0123"
+             [ngModel]="draft().phone || ''" (ngModelChange)="setPhone($event)" [class.invalid]="phoneMissing()">
+      @if (phoneMissing()) {
+        <small class="error-text">Add a number to receive texts, or turn the Text switches off.</small>
+      }
+    </div>
+    <div class="field">
+      <label for="baker-email">Email <span class="hint">(for email alerts)</span></label>
+      <input id="baker-email" type="email" autocomplete="email" placeholder="you@example.com"
+             [ngModel]="draft().email || ''" (ngModelChange)="setEmail($event)" [class.invalid]="emailMissing()">
+      @if (emailMissing()) {
+        <small class="error-text">Add an email address, or turn the Email switches off.</small>
+      }
+    </div>
+  </div>
+
+  <div class="rows">
+    @for (row of rows; track row.event) {
+      <div class="row">
+        <div class="row-text">
+          <strong>{{ row.title }}</strong>
+          <span>{{ row.description }}</span>
+        </div>
+        <div class="row-switches">
+          <label class="switch">
+            <input type="checkbox" [checked]="draft().events[row.event].sms" (change)="toggle(row.event, 'sms', $any($event.target).checked)" [attr.aria-label]="row.title + ' by text'">
+            <span class="track"><span class="knob"></span></span>
+            <span class="switch-label">Text</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" [checked]="draft().events[row.event].email" (change)="toggle(row.event, 'email', $any($event.target).checked)" [attr.aria-label]="row.title + ' by email'">
+            <span class="track"><span class="knob"></span></span>
+            <span class="switch-label">Email</span>
+          </label>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn-test" [disabled]="isTesting() || isSaving()" (click)="sendTest()">
+      {{ isTesting() ? 'Sending…' : 'Send me a test' }}
+    </button>
+    <button type="button" class="btn-save" [disabled]="isSaving() || isLoading()" (click)="save()">
+      {{ isSaving() ? 'Saving…' : 'Save alert settings' }}
+    </button>
+  </div>
+</div>
