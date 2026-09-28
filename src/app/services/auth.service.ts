@@ -168,7 +168,10 @@ export class AuthService {
     }
   }
 
-  async login(email: string, password: string) {
+  /** Signs in and returns the route the user should land on. The caller
+   * performs the navigation so it can verify it happened (a stale app
+   * shell right after a deploy can fail to load a lazy route). */
+  async login(email: string, password: string): Promise<string> {
     logger.debug('[Auth Debug] Attempting login:', email);
     const supabase = await this.ensureSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -190,15 +193,11 @@ export class AuthService {
 
       if (role === 'BAKER') {
         const onboardingCompleted = data.user.user_metadata['onboarding_completed'];
-        if (onboardingCompleted) {
-          this.router.navigate(['/dashboard']);
-        } else {
-          this.router.navigate(['/setup-wizard']);
-        }
-      } else {
-        this.router.navigate(['/front']);
+        return onboardingCompleted ? '/dashboard' : '/setup-wizard';
       }
+      return '/front';
     }
+    return '/front';
   }
 
   async register(name: string, email: string, password: string, role: UserRole = 'CUSTOMER', bakeryName?: string, bakerySlug?: string, returnUrl?: string) {

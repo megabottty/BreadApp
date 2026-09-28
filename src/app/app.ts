@@ -1,5 +1,5 @@
 import { Component, signal, inject } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd, NavigationError } from '@angular/router';
 import { TitleCasePipe } from '@angular/common';
 import { filter } from 'rxjs';
 import { CartService } from './services/cart.service';
@@ -51,6 +51,20 @@ export class App {
       .subscribe(event => {
         this.currentUrl.set(event.urlAfterRedirects);
         this.syncSearchFromUrl(event.urlAfterRedirects);
+      });
+
+    // After a deploy, a browser that still has the previous app shell can't
+    // fetch the new lazy-route chunks, so navigating (e.g. login -> dashboard)
+    // silently fails and the page appears stuck. A full load fixes it.
+    this.router.events
+      .pipe(filter((event): event is NavigationError => event instanceof NavigationError))
+      .subscribe(event => {
+        const message = String((event.error as { message?: string } | undefined)?.message || event.error || '');
+        const staleChunk = /dynamically imported module|ChunkLoadError|Importing a module script failed|Loading chunk/i.test(message);
+        if (staleChunk && typeof window !== 'undefined') {
+          console.warn('[Router] Stale app shell detected, reloading', event.url);
+          window.location.assign(event.url);
+        }
       });
   }
 

@@ -26,16 +26,26 @@ export class LoginComponent {
   showPassword = signal(false);
 
   async login() {
+    let destination = '/front';
     try {
-      await this.authService.login(this.email(), this.password());
-
-      // If the login was successful, check for a returnUrl
-      const returnUrl = this.route.snapshot.queryParams['returnUrl'];
-      if (returnUrl) {
-        this.router.navigateByUrl(returnUrl);
-      }
+      destination = await this.authService.login(this.email(), this.password());
     } catch (error: any) {
       this.modalService.showAlert(error.message || 'Login failed', 'Login Error', 'error');
+      return;
+    }
+
+    const target = this.returnUrl || destination;
+    // Leave the sign-in page no matter what: if the in-app navigation is
+    // refused or fails (e.g. the lazy chunk can't load after a deploy), fall
+    // back to a full page load of the destination.
+    let navigated = false;
+    try {
+      navigated = await this.router.navigateByUrl(target);
+    } catch (err) {
+      console.warn('[Login] In-app navigation failed, reloading:', err);
+    }
+    if (!navigated && typeof window !== 'undefined') {
+      window.location.assign(target);
     }
   }
 
