@@ -22,82 +22,94 @@
     <div class="cart-grid">
       <div class="cart-items">
 
-        <!-- 1 · Your bag -->
-        <div class="card bag-section">
-          <div class="step-header">
-            <h2><span class="step-number">1</span> Your bag</h2>
-            <a routerLink="/front" class="link-button">Add more</a>
-          </div>
-          @for (item of items(); track item.lineId) {
-            <div class="cart-item">
-              <div class="item-info">
-                <h3>
-                  {{itemDisplayName(item)}}
-                  @if (item.isSubscription) {
-                    <span class="subscription-badge">🔄 Weekly subscription</span>
-                  }
-                </h3>
-                <p>{{item.product.trueHydration | percent:'1.0-0'}} Hydration Loaf</p>
-
-                @if (getPackOptions(item).length > 0) {
-                  <div class="form-group pack-option-group">
-                    <label for="pack-{{item.lineId}}">Pack Option</label>
-                    <select
-                      id="pack-{{item.lineId}}"
-                      [ngModel]="item.packOption?.id || getPackOptions(item)[0]?.id"
-                      (ngModelChange)="onPackChange(item, $event)"
-                    >
-                      @for (option of getPackOptions(item); track option.id) {
-                        <option [value]="option.id">{{option.label}} ({{option.price | currency}})</option>
+        <!-- Your bag: one row, expand to edit -->
+        <section class="card checkout-section" [class.open]="bagExpanded()" id="section-bag">
+          <button type="button" class="section-row" (click)="bagExpanded.set(!bagExpanded())" [attr.aria-expanded]="bagExpanded()" aria-controls="bag-items">
+            <span class="row-title">Your bag</span>
+            <span class="row-value">{{ itemCount() }} {{ itemCount() === 1 ? 'item' : 'items' }} · {{ itemsSubtotal() | currency }}</span>
+            <span class="row-action">{{ bagExpanded() ? 'Done' : 'Edit' }} <span class="chevron" aria-hidden="true">›</span></span>
+          </button>
+          @if (bagExpanded()) {
+            <div class="section-body" id="bag-items">
+              @for (item of items(); track item.lineId) {
+                <div class="cart-item">
+                  <div class="item-info">
+                    <h3>
+                      {{itemDisplayName(item)}}
+                      @if (item.isSubscription) {
+                        <span class="subscription-badge">🔄 Weekly subscription</span>
                       }
-                    </select>
-                  </div>
-                }
+                    </h3>
+                    <p>{{item.product.trueHydration | percent:'1.0-0'}} Hydration Loaf</p>
 
-                @if (item.selectedOptions && item.selectedOptions.length > 0) {
-                  <div class="item-options">
-                    @for (opt of item.selectedOptions; track opt.name) {
-                      <span class="option-tag">{{opt.name}} (+{{opt.price | currency}})</span>
+                    @if (getPackOptions(item).length > 0) {
+                      <div class="form-group pack-option-group">
+                        <label for="pack-{{item.lineId}}">Pack Option</label>
+                        <select
+                          id="pack-{{item.lineId}}"
+                          [ngModel]="item.packOption?.id || getPackOptions(item)[0]?.id"
+                          (ngModelChange)="onPackChange(item, $event)"
+                        >
+                          @for (option of getPackOptions(item); track option.id) {
+                            <option [value]="option.id">{{option.label}} ({{option.price | currency}})</option>
+                          }
+                        </select>
+                      </div>
+                    }
+
+                    @if (item.selectedOptions && item.selectedOptions.length > 0) {
+                      <div class="item-options">
+                        @for (opt of item.selectedOptions; track opt.name) {
+                          <span class="option-tag">{{opt.name}} (+{{opt.price | currency}})</span>
+                        }
+                      </div>
+                    }
+
+                    @if (item.notes) {
+                      <p class="item-note"><em>Note: {{item.notes}}</em></p>
+                    }
+
+                    @if (authService.isAuthenticated()) {
+                      <label for="subscription-{{item.lineId}}" class="subscription-toggle">
+                        <input type="checkbox" id="subscription-{{item.lineId}}" [checked]="item.isSubscription" (change)="toggleSubscription(item)" [attr.aria-label]="'Enable weekly subscription for ' + item.product.name">
+                        Weekly Subscription
+                      </label>
+                    } @else if (item.isSubscription) {
+                      <p class="subscription-guest-note">
+                        Subscriptions need an account.
+                        <a [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in to subscribe</a>
+                        or <button type="button" class="link-button" (click)="toggleSubscription(item)">make it a one-time purchase</button>.
+                      </p>
+                    } @else {
+                      <p class="subscription-guest-note">
+                        Want this every week? <a [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in to subscribe</a>.
+                      </p>
                     }
                   </div>
-                }
-
-                @if (item.notes) {
-                  <p class="item-note"><em>Note: {{item.notes}}</em></p>
-                }
-
-                @if (authService.isAuthenticated()) {
-                  <label for="subscription-{{item.lineId}}" class="subscription-toggle">
-                    <input type="checkbox" id="subscription-{{item.lineId}}" [checked]="item.isSubscription" (change)="toggleSubscription(item)" [attr.aria-label]="'Enable weekly subscription for ' + item.product.name">
-                    Weekly Subscription
-                  </label>
-                } @else if (item.isSubscription) {
-                  <p class="subscription-guest-note">
-                    Subscriptions need an account.
-                    <a [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in to subscribe</a>
-                    or <button type="button" class="link-button" (click)="toggleSubscription(item)">make it a one-time purchase</button>.
-                  </p>
-                } @else {
-                  <p class="subscription-guest-note">
-                    Want this every week? <a [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in to subscribe</a>.
-                  </p>
-                }
-              </div>
-              <div class="item-actions">
-                <div class="quantity-controls" role="group" aria-label="Quantity controls">
-                  <button (click)="updateQuantity(item, -1)" [attr.aria-label]="'Decrease quantity of ' + item.product.name">-</button>
-                  <span aria-live="polite" aria-atomic="true">{{item.quantity}}</span>
-                  <button (click)="updateQuantity(item, 1)" [attr.aria-label]="'Increase quantity of ' + item.product.name">+</button>
+                  <div class="item-actions">
+                    <div class="quantity-controls" role="group" aria-label="Quantity controls">
+                      <button (click)="updateQuantity(item, -1)" [attr.aria-label]="'Decrease quantity of ' + item.product.name">-</button>
+                      <span aria-live="polite" aria-atomic="true">{{item.quantity}}</span>
+                      <button (click)="updateQuantity(item, 1)" [attr.aria-label]="'Increase quantity of ' + item.product.name">+</button>
+                    </div>
+                    <span class="price">
+                      {{itemUnitPrice(item) | currency}}
+                    </span>
+                    <button class="btn-remove" (click)="removeItem(item)" [attr.aria-label]="'Remove ' + item.product.name + ' from cart'">×</button>
+                  </div>
                 </div>
-                <span class="price">
-                  {{itemUnitPrice(item) | currency}}
-                </span>
-                <button class="btn-remove" (click)="removeItem(item)" [attr.aria-label]="'Remove ' + item.product.name + ' from cart'">×</button>
-              </div>
+              }
+              <a routerLink="/front" class="inline-add">+ Add more from the bakery</a>
             </div>
+          } @else {
+            <ul class="bag-preview" aria-label="Items in your bag">
+              @for (item of items(); track item.lineId) {
+                <li>{{ item.quantity }} × {{ itemDisplayName(item) }}@if (item.isSubscription) { <span class="subscription-badge">🔄 weekly</span> }</li>
+              }
+            </ul>
           }
           @if (hasSubscription() && !authService.isAuthenticated()) {
-            <div class="subscription-auth-note">
+            <div class="section-body subscription-auth-note" id="section-subscription">
               <p class="section-hint">{{ subscriptionAccountMessage }}</p>
               <div class="subscription-auth-actions">
                 <a class="btn-outline" [routerLink]="['/login']" [queryParams]="{ returnUrl: '/cart' }">Log in</a>
@@ -105,136 +117,149 @@
               </div>
             </div>
           }
-        </div>
+        </section>
 
-        <!-- 2 · Pickup -->
-        <div class="card fulfillment-options">
-          <h2><span class="step-number">2</span> Pickup</h2>
-          <p class="section-hint pickup-where">🏡 Pickup is from Megan's home kitchen in Salt Lake City. The exact address is in your order confirmation.</p>
-          <div class="pickup-details">
-            <div class="form-group">
-              <label for="pickup-date">{{ hasSubscription() ? 'Pickup day (Mondays and Tuesdays)' : 'Pickup date' }}</label>
-              @if (hasSubscription()) {
-                <p class="helper-text">🔄 Subscriptions are baked in the Monday/Tuesday batch. Choose the day your first order will be ready; each following week repeats on that day.</p>
-                <select id="pickup-date" [(ngModel)]="pickupDate" aria-describedby="pickup-hint">
-                  <option value="">Choose a Monday or Tuesday</option>
-                  @for (option of subscriptionDateOptions(); track option.value) {
-                    <option [value]="option.value">{{ option.label }}</option>
-                  }
-                </select>
+        <!-- Pickup day: tappable chips -->
+        <section class="card checkout-section open" id="section-pickup" [class.invalid]="showValidation() && checkoutBlockedSection() === 'pickup'">
+          <div class="section-row static">
+            <span class="row-title">Pickup day</span>
+            <span class="row-value">{{ pickupDate() ? formatChipDate(pickupDate()) : (hasSubscription() ? 'Mondays & Tuesdays' : 'Choose a day') }}</span>
+          </div>
+          <div class="section-body">
+            <p class="section-hint pickup-where">🏡 From Megan's home kitchen in Salt Lake City; the exact address is in your confirmation. {{ hasSubscription() ? 'Subscriptions repeat on the day you pick.' : 'We need two days for the slow rise.' }}</p>
+            <div class="date-chips" role="radiogroup" aria-label="Pickup day">
+              @for (chip of dateChips(); track chip.value) {
+                <button type="button" class="date-chip" [class.selected]="pickupDate() === chip.value" role="radio" [attr.aria-checked]="pickupDate() === chip.value" (click)="selectDate(chip.value)">
+                  <span class="chip-weekday">{{ chip.weekday }}</span>
+                  <span class="chip-day">{{ chip.day }}</span>
+                  <span class="chip-month">{{ chip.month }}</span>
+                </button>
+              }
+            </div>
+            @if (!hasSubscription()) {
+              @if (showOtherDate()) {
+                <div class="form-group other-date">
+                  <label for="pickup-date">Another date</label>
+                  <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())">
+                </div>
               } @else {
-                <p class="helper-text">💡 Pick a day at least 2 days out so the dough gets its full, slow rise.</p>
-                <input type="date" id="pickup-date" [(ngModel)]="pickupDate" [min]="minDate()" [class.invalid]="pickupDate() && !isPickupDateValid(pickupDate())" aria-describedby="pickup-hint">
+                <button type="button" class="inline-add" (click)="showOtherDate.set(true)">Need a later date?</button>
               }
-              @if (pickupDate() && !isPickupDateValid(pickupDate())) {
-                <small id="pickup-hint" class="error-text">{{ hasSubscription() ? 'Subscription pickups are Mondays and Tuesdays, with a 48-hour lead time.' : 'We need at least 48 hours to prepare your handcrafted loaf.' }}</small>
-              }
-            </div>
-          </div>
-          <div class="lead-time-notice">
-            <p>🥐 <strong>Artisan takes time:</strong> most bakes go through a slow, 48-hour cold fermentation for the best flavor and texture. Thank you for your patience!</p>
-          </div>
-        </div>
-
-        <!-- 3 · Your details -->
-        <div class="card details-section">
-          <h2><span class="step-number">3</span> Your details</h2>
-          @if (!authService.isAuthenticated()) {
-            <p class="section-hint">No account needed for a one-time order. Just let us know who's picking up.</p>
-            <div class="form-group">
-              <label for="guest-name">Name</label>
-              <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Your full name" autocomplete="name">
-            </div>
-          } @else {
-            <p class="section-hint">Ordering as <strong>{{ authService.user()?.name }}</strong>.</p>
-          }
-
-          <div class="form-group">
-            <label for="order-email">Email</label>
-            @if (authService.isAuthenticated()) {
-              <input type="email" id="order-email" [ngModel]="orderEmail()" readonly placeholder="you@example.com">
-            } @else {
-              <input type="email" id="order-email" [ngModel]="orderEmail()" (ngModelChange)="onOrderEmailChange($event)" placeholder="you@example.com" autocomplete="email">
+            }
+            @if (showValidation() && checkoutBlockedSection() === 'pickup') {
+              <p class="inline-error" role="alert">{{ checkoutBlockedReason() }}</p>
             }
           </div>
+        </section>
 
-          <div class="form-group">
-            <label for="guest-phone">Phone <span class="label-hint">(for text updates)</span></label>
-            <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="(801) 555-0123" autocomplete="tel">
+        <!-- Your details: one line when complete -->
+        <section class="card checkout-section" [class.open]="detailsExpanded()" id="section-details" [class.invalid]="showValidation() && checkoutBlockedSection() === 'details'">
+          <button type="button" class="section-row" (click)="detailsExpanded.set(!detailsExpanded())" [attr.aria-expanded]="detailsExpanded()" aria-controls="details-form">
+            <span class="row-title">Your details</span>
+            <span class="row-value">{{ detailsSummary() || 'Name, email, phone' }}</span>
+            <span class="row-action">{{ detailsExpanded() ? 'Done' : 'Edit' }} <span class="chevron" aria-hidden="true">›</span></span>
+          </button>
+          @if (detailsExpanded()) {
+            <div class="section-body" id="details-form">
+              @if (!authService.isAuthenticated()) {
+                <div class="form-group">
+                  <label for="guest-name">Name</label>
+                  <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Who's picking up?" autocomplete="name">
+                </div>
+              }
+              <div class="form-group">
+                <label for="order-email">Email</label>
+                @if (authService.isAuthenticated()) {
+                  <input type="email" id="order-email" [ngModel]="orderEmail()" readonly>
+                } @else {
+                  <input type="email" id="order-email" [ngModel]="orderEmail()" (ngModelChange)="onOrderEmailChange($event)" placeholder="you@example.com" autocomplete="email">
+                }
+              </div>
+              <div class="form-group">
+                <label for="guest-phone">Phone <span class="label-hint">(for text updates)</span></label>
+                <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="(801) 555-0123" autocomplete="tel">
+              </div>
+              <fieldset class="update-choice">
+                <legend>Order updates by</legend>
+                <div class="pill-toggles">
+                  <label class="pill-toggle" [class.on]="notifyByEmail()">
+                    <input type="checkbox" id="notify-email" [checked]="notifyByEmail()" (change)="notifyByEmail.set($any($event.target).checked)">
+                    ✉️ Email
+                  </label>
+                  <label class="pill-toggle" [class.on]="notifyBySms()">
+                    <input type="checkbox" id="notify-sms" [checked]="notifyBySms()" (change)="notifyBySms.set($any($event.target).checked)">
+                    💬 Text
+                  </label>
+                </div>
+                <p class="section-hint sms-consent">Texts are only about your order. Msg &amp; data rates may apply; reply STOP to opt out.</p>
+              </fieldset>
+              @if (showValidation() && checkoutBlockedSection() === 'details') {
+                <p class="inline-error" role="alert">{{ checkoutBlockedReason() }}</p>
+              }
+            </div>
+          }
+        </section>
+
+        <!-- Payment -->
+        <section class="card checkout-section open" id="section-payment">
+          <div class="section-row static">
+            <span class="row-title">Payment</span>
           </div>
-
-          <fieldset class="update-choice">
-            <legend>How should we update you about this order?</legend>
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label" for="notify-email">
-                <input type="checkbox" id="notify-email" [checked]="notifyByEmail()" (change)="notifyByEmail.set($any($event.target).checked)">
-                <span>Email</span>
-              </label>
-            </div>
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label" for="notify-sms">
-                <input type="checkbox" id="notify-sms" [checked]="notifyBySms()" (change)="notifyBySms.set($any($event.target).checked)">
-                <span>Text message</span>
-              </label>
-            </div>
-            <p class="section-hint sms-consent">Texts are only about your order. Msg &amp; data rates may apply; reply STOP to opt out.</p>
-          </fieldset>
-        </div>
-
-        <!-- 4 · Payment -->
-        <div class="card payment-section">
-          <h2><span class="step-number">4</span> Payment</h2>
-          <div class="payment-choices" role="radiogroup" aria-label="Payment method">
-            <label class="payment-choice" [class.selected]="!payAtPickup()">
-              <input type="radio" name="paymentMethod" value="card" [checked]="!payAtPickup()" (change)="payAtPickup.set(false)">
-              <span class="choice-text">
-                <strong>Pay by card now</strong>
-                <small>Secure checkout with Stripe. Subscriptions are charged weekly.</small>
-              </span>
-            </label>
-            @if (!hasSubscription()) {
-              <label class="payment-choice" [class.selected]="payAtPickup()">
-                <input type="radio" name="paymentMethod" value="pickup" [checked]="payAtPickup()" (change)="payAtPickup.set(true)">
+          <div class="section-body">
+            <div class="payment-choices" role="radiogroup" aria-label="Payment method">
+              <label class="payment-choice" [class.selected]="!payAtPickup()">
+                <input type="radio" name="paymentMethod" value="card" [checked]="!payAtPickup()" (change)="payAtPickup.set(false)">
                 <span class="choice-text">
-                  <strong>Pay at pickup</strong>
-                  <small>Cash or card when you collect your bread.</small>
+                  <strong>💳 Card now</strong>
+                  <small>Secure checkout with Stripe</small>
                 </span>
               </label>
-            } @else {
+              @if (!hasSubscription()) {
+                <label class="payment-choice" [class.selected]="payAtPickup()">
+                  <input type="radio" name="paymentMethod" value="pickup" [checked]="payAtPickup()" (change)="payAtPickup.set(true)">
+                  <span class="choice-text">
+                    <strong>🏡 At pickup</strong>
+                    <small>Cash or card when you collect</small>
+                  </span>
+                </label>
+              }
+            </div>
+            @if (hasSubscription()) {
               <p class="section-hint">Subscriptions are charged weekly by card, so pay-at-pickup isn't available for this bag.</p>
             }
           </div>
-        </div>
+        </section>
 
-        <!-- Notes & promo -->
-        <div class="card extras-section">
-          <h2>Notes &amp; promo code</h2>
-          <div class="form-group">
-            <label for="order-notes">Anything we should know?</label>
-            <textarea
-              id="order-notes"
-              class="notes-textarea"
-              [ngModel]="notes()"
-              (ngModelChange)="cartService.setNotes($event)"
-              placeholder="Allergies, pickup timing, or a note for Megan"></textarea>
-          </div>
-          <div class="form-group">
-            <label for="promo-code">Promo code</label>
-            <div class="promo-input-group">
-              @if (cartService.appliedPromo(); as promo) {
-                <div class="applied-promo" role="status">
-                  <span class="promo-info">
-                    <strong>{{promo.code}}</strong> - {{promo.description}}
-                  </span>
-                  <button class="btn-remove-promo" (click)="removePromo()" aria-label="Remove promo code">×</button>
+        <!-- Note & promo, tucked away until needed -->
+        <section class="card checkout-section open extras-section" id="section-extras">
+          <div class="section-body extras-body">
+            @if (noteOpen() || notes()) {
+              <div class="form-group">
+                <label for="order-notes">Note for Megan</label>
+                <textarea id="order-notes" class="notes-textarea" [ngModel]="notes()" (ngModelChange)="cartService.setNotes($event)" placeholder="Allergies, pickup timing, anything we should know" rows="2"></textarea>
+              </div>
+            } @else {
+              <button type="button" class="inline-add" (click)="noteOpen.set(true)">+ Add a note</button>
+            }
+
+            @if (cartService.appliedPromo(); as promo) {
+              <div class="applied-promo" role="status">
+                <span class="promo-info"><strong>{{promo.code}}</strong> · {{promo.description}}</span>
+                <button class="btn-remove-promo" (click)="removePromo()" aria-label="Remove promo code">×</button>
+              </div>
+            } @else if (promoOpen()) {
+              <div class="form-group">
+                <label for="promo-code">Promo code</label>
+                <div class="promo-input-group">
+                  <input type="text" id="promo-code" [(ngModel)]="promoCodeInput" placeholder="Enter code" (keydown.enter)="applyPromo()">
+                  <button class="btn-small" (click)="applyPromo()">Apply</button>
                 </div>
-              } @else {
-                <input type="text" id="promo-code" [(ngModel)]="promoCodeInput" placeholder="Enter code">
-                <button class="btn-small" (click)="applyPromo()">Apply</button>
-              }
-            </div>
+              </div>
+            } @else {
+              <button type="button" class="inline-add" (click)="promoOpen.set(true)">+ Promo code</button>
+            }
           </div>
-        </div>
+        </section>
       </div>
 
       <div class="cart-summary card">
@@ -287,30 +312,26 @@
           <p class="subscription-reminder">Includes {{ subscriptionLines().length }} weekly {{ subscriptionLines().length === 1 ? 'subscription' : 'subscriptions' }}, charged weekly by card.</p>
         }
 
-        @if (checkoutBlockedReason(); as reason) {
+        @if (showValidation() && checkoutBlockedReason(); as reason) {
           <div class="checkout-blocked-message" role="alert">
             <span class="icon">⚠️</span>
             <span>{{ reason }}</span>
           </div>
         }
 
-        <button class="btn-checkout"
-                [disabled]="checkoutBlockedReason() !== null"
-                (click)="checkout()">
+        <button class="btn-checkout" (click)="checkout()">
           {{ checkoutLabel() }}
         </button>
       </div>
     </div>
 
     <!-- Phones: the total and the one button stay in reach while scrolling -->
-    <div class="checkout-bar" [class.blocked]="checkoutBlockedReason() !== null">
+    <div class="checkout-bar">
       <div class="checkout-bar-total">
         <span>Total</span>
         <strong>{{ totalPrice() | currency }}</strong>
       </div>
-      <button class="btn-checkout btn-checkout-bar"
-              [disabled]="checkoutBlockedReason() !== null"
-              (click)="checkout()">
+      <button class="btn-checkout btn-checkout-bar" (click)="checkout()">
         {{ checkoutLabel() }}
       </button>
     </div>

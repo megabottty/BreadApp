@@ -54,6 +54,20 @@ export class CartComponent implements OnInit {
 
   promoCodeInput = signal<string>('');
 
+  // --- Compact one-screen layout state (DoorDash-style): sections collapse
+  // to a summary row on phones and open on demand; on wider screens the
+  // bag and details start open because there's room.
+  private readonly wideScreen = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+  bagExpanded = signal<boolean>(this.wideScreen);
+  detailsExpanded = signal<boolean>(this.wideScreen);
+  noteOpen = signal<boolean>(false);
+  promoOpen = signal<boolean>(false);
+  showOtherDate = signal<boolean>(false);
+  /** Inline validation only appears after the first Place order attempt. */
+  showValidation = signal<boolean>(false);
+
+  itemCount = computed(() => this.items().reduce((sum, item) => sum + item.quantity, 0));
+
   /** Lines that recur weekly. Drives the summary above Checkout, the button
    * label, and hides pay-at-pickup (a recurring charge needs a card). */
   subscriptionLines = computed(() => this.items().filter(item => !!item.isSubscription));
@@ -132,6 +146,68 @@ export class CartComponent implements OnInit {
     }
     return options;
   });
+
+  /** Tappable pickup days: the next 14 eligible days for one-time orders, or
+   * the Monday/Tuesday choices for subscriptions. */
+  dateChips = computed<{ value: string; weekday: string; day: string; month: string }[]>(() => {
+    const values = this.hasSubscription()
+      ? this.subscriptionDateOptions().map(option => option.value)
+      : (() => {
+          const start = new Date(`${this.minDate()}T00:00:00Z`);
+          return Array.from({ length: 14 }, (_, offset) => {
+            const day = new Date(start);
+            day.setUTCDate(start.getUTCDate() + offset);
+            return day.toISOString().slice(0, 10);
+          });
+        })();
+    return values.map(value => {
+      const date = new Date(`${value}T00:00:00Z`);
+      return {
+        value,
+        weekday: date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+        day: String(date.getUTCDate()),
+        month: date.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+      };
+    });
+  });
+
+  selectDate(value: string): void {
+    this.pickupDate.set(value);
+    this.showOtherDate.set(false);
+  }
+
+  formatChipDate(value: string): string {
+    if (!value) return '';
+    return new Date(`${value}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  /** "Megan · megan@… · (801) 555-0123" for the collapsed details row. */
+  detailsSummary = computed<string>(() => {
+    const name = this.authService.isAuthenticated() ? (this.authService.user()?.name || '') : this.guestName();
+    return [name, this.getCustomerEmail(), this.guestPhone()].map(part => (part || '').trim()).filter(Boolean).join(' · ');
+  });
+
+  /** Which section is holding up checkout, so Place order can open it. */
+  checkoutBlockedSection = computed<'subscription' | 'pickup' | 'details' | null>(() => {
+    if (this.hasSubscription() && !this.authService.isAuthenticated()) return 'subscription';
+    if (!this.pickupDate() || !this.isPickupDateValid(this.pickupDate())) return 'pickup';
+    if (!this.authService.isAuthenticated() && !this.guestName()) return 'details';
+    if (!this.notifyBySms() && !this.notifyByEmail()) return 'details';
+    if (this.notifyBySms() && !this.guestPhone()) return 'details';
+    if (this.notifyByEmail() && !this.getCustomerEmail()) return 'details';
+    return null;
+  });
+
+  /** Opens the incomplete section, scrolls to it, and shows the message
+   * inline (instead of a greyed-out button). */
+  private revealBlockedSection(section: 'subscription' | 'pickup' | 'details'): void {
+    this.showValidation.set(true);
+    if (section === 'details') this.detailsExpanded.set(true);
+    if (section === 'subscription') this.bagExpanded.set(true);
+    if (typeof window !== 'undefined') {
+      setTimeout(() => document.getElementById(`section-${section}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30);
+    }
+  }
 
   checkoutBlockedReason = computed(() => {
     if (this.hasSubscription() && !this.authService.isAuthenticated()) {
@@ -279,6 +355,13 @@ export class CartComponent implements OnInit {
   }
 
   checkout() {
+    const blockedSection = this.checkoutBlockedSection();
+    if (blockedSection) {
+      this.revealBlockedSection(blockedSection);
+      return;
+    }
+    this.showValidation.set(false);
+
     if (this.fulfillmentType() === 'SHIPPING' && !this.isDispatchDateValid(this.dispatchDate())) {
       this.modalService.showAlert('For shipping, please select a Monday or Tuesday dispatch date at least 48 hours from now.', 'Invalid Date', 'warning');
       return;
