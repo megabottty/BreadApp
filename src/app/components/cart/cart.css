@@ -1248,3 +1248,70 @@ label.checkbox-label:has(input:checked) {
 .date-chips {
   max-width: 100%;
 }
+
+
+/* --- Needs-attention states ---------------------------------------------- */
+.checkout-section.needs-attention {
+  border-color: #D88569;
+  box-shadow: 0 0 0 3px rgba(216, 133, 105, 0.18);
+}
+
+.attention-tag {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: #FDECE6;
+  color: #A65D45;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.form-group input.invalid,
+.form-group input[aria-invalid="true"] {
+  border-color: #D88569;
+  background: #FFF8F5;
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.35rem;
+  color: #A65D45;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.missing-list {
+  margin: 1rem 0 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #FDECE6;
+  border: 1px solid #F1C9B8;
+  color: #A65D45;
+  font-size: 0.9rem;
+}
+
+.missing-list ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.missing-list .link-button {
+  color: #A65D45;
+  text-align: left;
+}
+
+.btn-checkout:disabled {
+  background: #E5DFD5;
+  color: #8c8273;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.checkout-bar.blocked {
+  cursor: pointer;
+}
+
+.checkout-bar.blocked .checkout-bar-total span {
+  color: #A65D45;
+  font-weight: 700;
+}

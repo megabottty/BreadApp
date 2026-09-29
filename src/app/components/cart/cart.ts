@@ -99,6 +99,12 @@ export class CartComponent implements OnInit {
   });
 
   constructor() {
+    // Keep the details section open while something in it is still needed,
+    // so the red fields are visible rather than hidden behind "Edit".
+    effect(() => {
+      if (this.sectionNeedsAttention('details')) this.detailsExpanded.set(true);
+    });
+
     effect(() => {
       if (!this.hasSubscription()) {
         this.highlightSubscription.set(false);
@@ -187,6 +193,44 @@ export class CartComponent implements OnInit {
     return [name, this.getCustomerEmail(), this.guestPhone()].map(part => (part || '').trim()).filter(Boolean).join(' · ');
   });
 
+  /** Everything still needed before the order can go through, in page order.
+   * Drives the red "needs attention" sections, the per-field hints, the
+   * checklist by the button, and the disabled state of the button itself. */
+  missingItems = computed<{ section: 'subscription' | 'pickup' | 'details'; field: string; message: string }[]>(() => {
+    const missing: { section: 'subscription' | 'pickup' | 'details'; field: string; message: string }[] = [];
+    if (this.hasSubscription() && !this.authService.isAuthenticated()) {
+      missing.push({ section: 'subscription', field: 'account', message: 'Log in or create an account for the subscription' });
+    }
+    if (!this.pickupDate()) {
+      missing.push({ section: 'pickup', field: 'date', message: this.hasSubscription() ? 'Choose a Monday or Tuesday for pickup' : 'Choose a pickup day' });
+    } else if (!this.isPickupDateValid(this.pickupDate())) {
+      missing.push({ section: 'pickup', field: 'date', message: this.hasSubscription() ? 'Pickup must be a Monday or Tuesday, at least 48 hours out' : 'Pickup must be at least 48 hours from now' });
+    }
+    if (!this.authService.isAuthenticated() && !this.guestName().trim()) {
+      missing.push({ section: 'details', field: 'name', message: 'Add your name' });
+    }
+    if (!this.notifyBySms() && !this.notifyByEmail()) {
+      missing.push({ section: 'details', field: 'updates', message: 'Pick email or text for order updates' });
+    }
+    if (this.notifyByEmail() && !this.getCustomerEmail().trim()) {
+      missing.push({ section: 'details', field: 'email', message: 'Add your email address' });
+    }
+    if (this.notifyBySms() && !this.guestPhone().trim()) {
+      missing.push({ section: 'details', field: 'phone', message: 'Add your phone number for texts' });
+    }
+    return missing;
+  });
+
+  isComplete = computed<boolean>(() => this.missingItems().length === 0);
+
+  sectionNeedsAttention(section: 'subscription' | 'pickup' | 'details'): boolean {
+    return this.missingItems().some(item => item.section === section);
+  }
+
+  fieldError(field: string): string | null {
+    return this.missingItems().find(item => item.field === field)?.message ?? null;
+  }
+
   /** Which section is holding up checkout, so Place order can open it. */
   checkoutBlockedSection = computed<'subscription' | 'pickup' | 'details' | null>(() => {
     if (this.hasSubscription() && !this.authService.isAuthenticated()) return 'subscription';
@@ -200,7 +244,7 @@ export class CartComponent implements OnInit {
 
   /** Opens the incomplete section, scrolls to it, and shows the message
    * inline (instead of a greyed-out button). */
-  private revealBlockedSection(section: 'subscription' | 'pickup' | 'details'): void {
+  revealBlockedSection(section: 'subscription' | 'pickup' | 'details'): void {
     this.showValidation.set(true);
     if (section === 'details') this.detailsExpanded.set(true);
     if (section === 'subscription') this.bagExpanded.set(true);

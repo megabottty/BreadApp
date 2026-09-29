@@ -23,7 +23,7 @@
       <div class="cart-items">
 
         <!-- Your bag: one row, expand to edit -->
-        <section class="card checkout-section" [class.open]="bagExpanded()" id="section-bag">
+        <section class="card checkout-section" [class.open]="bagExpanded()" id="section-bag" [class.needs-attention]="sectionNeedsAttention('subscription')">
           <button type="button" class="section-row" (click)="bagExpanded.set(!bagExpanded())" [attr.aria-expanded]="bagExpanded()" aria-controls="bag-items">
             <span class="row-title">Your bag</span>
             <span class="row-value">{{ itemCount() }} {{ itemCount() === 1 ? 'item' : 'items' }} · {{ itemsSubtotal() | currency }}</span>
@@ -120,10 +120,16 @@
         </section>
 
         <!-- Pickup day: tappable chips -->
-        <section class="card checkout-section open" id="section-pickup" [class.invalid]="showValidation() && checkoutBlockedSection() === 'pickup'">
+        <section class="card checkout-section open" id="section-pickup" [class.needs-attention]="sectionNeedsAttention('pickup')">
           <div class="section-row static">
             <span class="row-title">Pickup day</span>
-            <span class="row-value">{{ pickupDate() ? formatChipDate(pickupDate()) : (hasSubscription() ? 'Mondays & Tuesdays' : 'Choose a day') }}</span>
+            <span class="row-value">
+              @if (sectionNeedsAttention('pickup')) {
+                <span class="attention-tag">Needs attention</span>
+              } @else {
+                {{ formatChipDate(pickupDate()) }}
+              }
+            </span>
           </div>
           <div class="section-body">
             <p class="section-hint pickup-where">🏡 From Megan's home kitchen in Salt Lake City; the exact address is in your confirmation. {{ hasSubscription() ? 'Subscriptions repeat on the day you pick.' : 'We need two days for the slow rise.' }}</p>
@@ -146,17 +152,23 @@
                 <button type="button" class="inline-add" (click)="showOtherDate.set(true)">Need a later date?</button>
               }
             }
-            @if (showValidation() && checkoutBlockedSection() === 'pickup') {
-              <p class="inline-error" role="alert">{{ checkoutBlockedReason() }}</p>
+            @if (fieldError('date'); as error) {
+              <p class="field-error" role="alert">{{ error }}</p>
             }
           </div>
         </section>
 
         <!-- Your details: one line when complete -->
-        <section class="card checkout-section" [class.open]="detailsExpanded()" id="section-details" [class.invalid]="showValidation() && checkoutBlockedSection() === 'details'">
+        <section class="card checkout-section" [class.open]="detailsExpanded()" id="section-details" [class.needs-attention]="sectionNeedsAttention('details')">
           <button type="button" class="section-row" (click)="detailsExpanded.set(!detailsExpanded())" [attr.aria-expanded]="detailsExpanded()" aria-controls="details-form">
             <span class="row-title">Your details</span>
-            <span class="row-value">{{ detailsSummary() || 'Name, email, phone' }}</span>
+            <span class="row-value">
+              @if (sectionNeedsAttention('details')) {
+                <span class="attention-tag">Needs attention</span>
+              } @else {
+                {{ detailsSummary() }}
+              }
+            </span>
             <span class="row-action">{{ detailsExpanded() ? 'Done' : 'Edit' }} <span class="chevron" aria-hidden="true">›</span></span>
           </button>
           @if (detailsExpanded()) {
@@ -164,7 +176,8 @@
               @if (!authService.isAuthenticated()) {
                 <div class="form-group">
                   <label for="guest-name">Name</label>
-                  <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Who's picking up?" autocomplete="name">
+                  <input type="text" id="guest-name" [(ngModel)]="guestName" placeholder="Who's picking up?" autocomplete="name" [class.invalid]="fieldError('name')" [attr.aria-invalid]="fieldError('name') ? 'true' : null">
+                  @if (fieldError('name'); as error) { <small class="field-error">{{ error }}</small> }
                 </div>
               }
               <div class="form-group">
@@ -172,12 +185,14 @@
                 @if (authService.isAuthenticated()) {
                   <input type="email" id="order-email" [ngModel]="orderEmail()" readonly>
                 } @else {
-                  <input type="email" id="order-email" [ngModel]="orderEmail()" (ngModelChange)="onOrderEmailChange($event)" placeholder="you@example.com" autocomplete="email">
+                  <input type="email" id="order-email" [ngModel]="orderEmail()" (ngModelChange)="onOrderEmailChange($event)" placeholder="you@example.com" autocomplete="email" [class.invalid]="fieldError('email')" [attr.aria-invalid]="fieldError('email') ? 'true' : null">
                 }
+                @if (fieldError('email'); as error) { <small class="field-error">{{ error }}</small> }
               </div>
               <div class="form-group">
                 <label for="guest-phone">Phone <span class="label-hint">(for text updates)</span></label>
-                <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="(801) 555-0123" autocomplete="tel">
+                <input type="tel" id="guest-phone" [(ngModel)]="guestPhone" placeholder="(801) 555-0123" autocomplete="tel" [class.invalid]="fieldError('phone')" [attr.aria-invalid]="fieldError('phone') ? 'true' : null">
+                @if (fieldError('phone'); as error) { <small class="field-error">{{ error }}</small> }
               </div>
               <fieldset class="update-choice">
                 <legend>Order updates by</legend>
@@ -191,11 +206,9 @@
                     💬 Text
                   </label>
                 </div>
+                @if (fieldError('updates'); as error) { <small class="field-error">{{ error }}</small> }
                 <p class="section-hint sms-consent">Texts are only about your order. Msg &amp; data rates may apply; reply STOP to opt out.</p>
               </fieldset>
-              @if (showValidation() && checkoutBlockedSection() === 'details') {
-                <p class="inline-error" role="alert">{{ checkoutBlockedReason() }}</p>
-              }
             </div>
           }
         </section>
@@ -312,27 +325,31 @@
           <p class="subscription-reminder">Includes {{ subscriptionLines().length }} weekly {{ subscriptionLines().length === 1 ? 'subscription' : 'subscriptions' }}, charged weekly by card.</p>
         }
 
-        @if (showValidation() && checkoutBlockedReason(); as reason) {
-          <div class="checkout-blocked-message" role="alert">
-            <span class="icon">⚠️</span>
-            <span>{{ reason }}</span>
+        @if (!isComplete()) {
+          <div class="missing-list" role="status" aria-live="polite">
+            <strong>Before you can place the order:</strong>
+            <ul>
+              @for (item of missingItems(); track item.field) {
+                <li><button type="button" class="link-button" (click)="revealBlockedSection(item.section)">{{ item.message }}</button></li>
+              }
+            </ul>
           </div>
         }
 
-        <button class="btn-checkout" (click)="checkout()">
+        <button class="btn-checkout" [disabled]="!isComplete()" (click)="checkout()">
           {{ checkoutLabel() }}
         </button>
       </div>
     </div>
 
     <!-- Phones: the total and the one button stay in reach while scrolling -->
-    <div class="checkout-bar">
+    <div class="checkout-bar" [class.blocked]="!isComplete()" (click)="!isComplete() && revealBlockedSection(missingItems()[0].section)">
       <div class="checkout-bar-total">
-        <span>Total</span>
+        <span>{{ isComplete() ? 'Total' : (missingItems().length + ' to do') }}</span>
         <strong>{{ totalPrice() | currency }}</strong>
       </div>
-      <button class="btn-checkout btn-checkout-bar" (click)="checkout()">
-        {{ checkoutLabel() }}
+      <button class="btn-checkout btn-checkout-bar" [disabled]="!isComplete()" (click)="checkout()">
+        {{ isComplete() ? checkoutLabel() : missingItems()[0].message }}
       </button>
     </div>
   }
