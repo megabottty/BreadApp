@@ -114,7 +114,7 @@ export class CartComponent implements OnInit {
       if (this.highlightTimer) clearTimeout(this.highlightTimer);
       this.highlightTimer = setTimeout(() => this.highlightSubscription.set(false), 4500);
       if (typeof window !== 'undefined') {
-        setTimeout(() => document.querySelector('.subscription-summary-hero')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        setTimeout(() => document.querySelector('.subscription-summary-hero')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       }
     });
   }
