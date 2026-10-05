@@ -14,7 +14,7 @@ This list tracks the critical tasks required to move BreadApp from a development
     - [ ] Verify Stripe signatures in `server/routes/payments.js`.
 
 ## 💳 Payments & Billing (Phase 2)
-- [ ] **Switch to Stripe Live Mode**
+- [x] **Switch to Stripe Live Mode** (live keys on Render since 2026-10-05; confirm the live webhook signing secret)
     - [ ] Update `STRIPE_PUBLISHABLE_KEY` in `src/environments/environment.prod.ts`.
     - [ ] Update `STRIPE_SECRET_KEY` in server environment variables.
 - [x] **Clean Up Development Bypasses**
