@@ -314,8 +314,37 @@ app.use((req, res, next) => {
   }
 });
 
+/**
+ * Render's free tier spins the service down after ~15 idle minutes and takes
+ * up to a minute to wake, which looks like "the site is down". A GitHub
+ * Actions cron pings us, but when GitHub Actions has an outage the pings
+ * stop and we fall asleep. So the server also pings its own public URL
+ * (through Render's proxy, which counts as inbound traffic) every 10
+ * minutes. Render sets RENDER_EXTERNAL_URL automatically; KEEP_ALIVE_URL
+ * overrides it, KEEP_ALIVE=off disables it.
+ */
+function startKeepAlive() {
+  if (process.env.KEEP_ALIVE === 'off') return;
+  const base = process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL;
+  if (!base || typeof fetch !== 'function') return;
+  const url = `${base.replace(/\/$/, '')}/api/ping`;
+  const intervalMs = 10 * 60 * 1000;
+  const ping = async () => {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (!res.ok) console.warn(`[KeepAlive] ${url} responded ${res.status}`);
+    } catch (err) {
+      console.warn('[KeepAlive] self-ping failed:', err.message);
+    }
+  };
+  const timer = setInterval(ping, intervalMs);
+  timer.unref();
+  console.log(`[KeepAlive] Self-ping every ${intervalMs / 60000} min -> ${url}`);
+}
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  startKeepAlive();
   const key = process.env.STRIPE_SECRET_KEY || '';
   if (key.startsWith('sk_live')) {
     console.log('⚠️  SERVER STATUS: Running in LIVE mode (sk_live)');
