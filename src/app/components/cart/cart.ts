@@ -475,7 +475,6 @@ export class CartComponent implements OnInit {
       this.cartService.saveOrderToDatabase(newOrder).subscribe({
         next: (response) => {
           logger.info('Order synced to cloud successfully:', response);
-          this.notificationService.sendOrderConfirmation(customerName, customerPhone, customerEmail, orderId, notificationPreference);
           this.modalService.showAlert(
             `Thank you for your order, ${customerName}!\n\nConfirmation #${orderId}\n\nPickup Date: ${this.pickupDate()}\n\nYou can pay when you pick up your order. We'll send updates based on your notification preferences.`,
             'Order Confirmed',
@@ -489,7 +488,7 @@ export class CartComponent implements OnInit {
         },
         error: (err) => {
           logger.error('Cloud sync failed. Check if backend is running:', err);
-          this.modalService.showAlert('Could not connect to the backend server. Make sure it is running (npm run server).', 'Connection Error', 'error');
+          this.modalService.showAlert('We couldn\'t place your order just now. Please try again in a moment, or give us a call.', 'Something went wrong', 'error');
         }
       });
       return;

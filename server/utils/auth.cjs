@@ -53,4 +53,17 @@ const requireBaker = (supabase) => async (req, res, next) => {
   next();
 };
 
-module.exports = { requireCustomer, requireBaker, readBearer };
+/**
+ * Non-blocking check: is the caller the signed-in baker of tenantId?
+ * Used by routes that serve both customers and the baker (e.g. POST /orders,
+ * where only the baker's till may record a payment).
+ */
+const isBakerOf = async (supabase, req, tenantId) => {
+  if (!readBearer(req)) return false;
+  const result = await resolveUser(supabase, req);
+  if (result.error) return false;
+  const meta = result.user.user_metadata || {};
+  return meta.role === 'BAKER' && (!meta.tenant_id || !tenantId || meta.tenant_id === tenantId);
+};
+
+module.exports = { requireCustomer, requireBaker, readBearer, isBakerOf };

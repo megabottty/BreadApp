@@ -5,10 +5,11 @@ const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 const { searchFoods } = require('../utils/usda.cjs');
 const pantry = require('../utils/pantry.cjs');
 const ssrCache = require('../utils/ssr-cache.cjs');
-const { requireCustomer, requireBaker } = require('../utils/auth.cjs');
+const { requireCustomer, requireBaker, isBakerOf } = require('../utils/auth.cjs');
 const bakerNotify = require('../utils/baker-notify.cjs');
 const subscriptions = require('../utils/subscriptions.cjs');
 const notificationPrefs = require('../utils/notification-prefs.cjs');
+const orderNotify = require('../utils/order-notify.cjs');
 
 // Stripe is only needed here to credit a skipped subscription week.
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
@@ -98,6 +99,18 @@ const allocateItemRevenue = (order, item, totalUnits) => {
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+// Tenant columns anyone may read (the storefront needs these).
+const PUBLIC_TENANT_COLUMNS = 'id, name, slug, business_type, description, logo_url, primary_color, secondary_color, '
+  + 'oven_capacity, default_bake_temp, default_bake_time, default_steam_time, address, phone, email, onboarding_completed';
+// Extra columns the bakery's own baker sees in the dashboard. Never twilio_config.
+const BAKER_TENANT_COLUMNS = PUBLIC_TENANT_COLUMNS
+  + ', stripe_account_id, subscription_status, subscription_plan, subscription_id, notification_settings, created_at';
+// What the dashboard/setup wizard may change through PATCH /info. stripe_account_id
+// is set only by the server after Stripe confirms; notification_settings has its own route.
+const EDITABLE_TENANT_COLUMNS = ['name', 'business_type', 'description', 'logo_url', 'primary_color', 'secondary_color',
+  'oven_capacity', 'default_bake_temp', 'default_bake_time', 'default_steam_time', 'address', 'phone', 'email',
+  'onboarding_completed', 'subscription_plan', 'subscription_id', 'subscription_status'];
+
 // Middleware to extract tenant_id from headers
 const tenantMiddleware = async (req, res, next) => {
   if (req.url === '/register-bakery' || req.method === 'OPTIONS') {
@@ -151,10 +164,20 @@ router.post('/', async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
-  const orderData = req.body;
+  const orderData = req.body || {};
 
   try {
-    console.log('[Supabase Debug] Attempting to save order:', orderData.id, 'for tenant:', req.tenantId);
+    // Only the baker's own till/dashboard may record a payment, a status or
+    // an in-person order source. Storefront orders are always unpaid + pending.
+    const fromBaker = await isBakerOf(supabase, req, req.tenantId);
+    if (!fromBaker) {
+      orderData.paymentStatus = 'PENDING';
+      orderData.status = 'PENDING';
+      orderData.orderSource = 'ONLINE';
+      orderData.paymentMethod = null;
+      orderData.tableNumber = null;
+    }
+    console.log('[Orders] Saving order', orderData.id, fromBaker ? '(baker)' : '(storefront)');
     const buildOrderInsert = (includeNotificationFields = true) => ({
       tenant_id: req.tenantId,
       order_id: orderData.id,
@@ -219,68 +242,15 @@ router.post('/', async (req, res) => {
       notificationPreference: orderData.notificationPreference
     });
 
-    try {
-      const { data: tenant } = await supabase
-        .from('bakery_tenants')
-        .select('name, email')
-        .eq('id', req.tenantId)
-        .single();
-
-      const recipient = process.env.ORDER_NOTIFICATION_EMAIL
-        || tenant?.email
-        || process.env.DEFAULT_CONTACT_EMAIL
-        || 'meganmuirhead@gmail.com';
-
-        console.log('[Order Email] Debug config:', {
-          smtpHost: process.env.SMTP_HOST ? 'set' : 'missing',
-          smtpUser: process.env.SMTP_USER ? 'set' : 'missing',
-          smtpPass: process.env.SMTP_PASS ? 'set' : 'missing',
-          smtpPort: process.env.SMTP_PORT || '587',
-          smtpSecure: process.env.SMTP_SECURE === 'true',
-          from: process.env.CONTACT_EMAIL_FROM || 'default',
-          recipient
-        });
-
-        const { sendEmail } = require('../utils/email.cjs');
-        const itemsHtml = (orderData.items || []).map(item => `
-          <tr>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.quantity || 0}</td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">$${(item.price || 0).toFixed(2)}</td>
-          </tr>
-        `).join('');
-
-        await sendEmail({
-          to: recipient,
-          subject: `New Order: ${orderData.id}`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
-              <h2 style="color: #7D8F69;">New Order Received</h2>
-              <p><strong>Bakery:</strong> ${tenant?.name || 'Your Bakery'}</p>
-              <p><strong>Order ID:</strong> ${orderData.id}</p>
-              <p><strong>Customer:</strong> ${orderData.customerName || 'Guest'}</p>
-              <p><strong>Fulfillment:</strong> ${orderData.type || 'Pickup'}</p>
-              <p><strong>Pickup Date:</strong> ${orderData.pickupDate || 'N/A'}</p>
-              <hr>
-              <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                  <tr style="background: #f9f9f9;">
-                    <th style="text-align: left; padding: 6px 8px;">Item</th>
-                    <th style="text-align: left; padding: 6px 8px;">Qty</th>
-                    <th style="text-align: left; padding: 6px 8px;">Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${itemsHtml || '<tr><td colspan="3" style="padding: 6px 8px;">No items</td></tr>'}
-                </tbody>
-              </table>
-              <p style="margin-top: 16px;"><strong>Total:</strong> $${(orderData.totalPrice || 0).toFixed(2)}</p>
-            </div>
-          `
-        });
-    } catch (emailError) {
-      console.error('[Order Email] Failed to send notification:', emailError);
+    // Customer confirmation (text/email per their choice) and the baker's
+    // order email. Failures are logged, never fail the order.
+    const notifyOrder = { ...orderData };
+    if (!fromBaker) {
+      orderNotify.sendCustomerConfirmation(notifyOrder)
+        .catch(err => console.error('[OrderNotify] customer confirmation failed:', err.message));
     }
+    orderNotify.sendBakerOrderEmail(supabase, req.tenantId, notifyOrder)
+      .catch(err => console.error('[OrderNotify] baker email failed:', err.message));
 
     res.status(201).json({
       message: 'Order saved to the cloud! ☁️🥖',
@@ -519,13 +489,17 @@ router.get('/info', async (req, res) => {
   }
 
   try {
+    // Everyone gets the storefront profile; only the signed-in baker of this
+    // bakery also gets billing/notification settings. Twilio config never leaves the server.
+    const fromBaker = await isBakerOf(supabase, req, req.tenantId);
     const { data, error } = await supabase
       .from('bakery_tenants')
-      .select('*')
+      .select(fromBaker ? BAKER_TENANT_COLUMNS : PUBLIC_TENANT_COLUMNS)
       .eq('id', req.tenantId)
       .single();
 
     if (error) throw error;
+    res.set('Cache-Control', fromBaker ? 'private, no-store' : 'public, max-age=60');
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch bakery info' });
@@ -533,19 +507,21 @@ router.get('/info', async (req, res) => {
 });
 
 // PATCH: Update Bakery Info (Branding, Oven, Subscription, etc)
-router.patch('/info', async (req, res) => {
-  console.log('[Tenant Debug] PATCH /api/orders/info hit');
+router.patch('/info', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
-  const updates = req.body;
-  const tenantId = req.headers['x-tenant-id'];
-
-  console.log('[Tenant Debug] Updating tenant ID:', tenantId, 'with data:', updates);
-
-  if (!tenantId) {
-    console.warn('[Tenant Warning] Missing x-tenant-id header');
-    return res.status(400).json({ error: 'Tenant ID is required for updates' });
+  // The bakery being edited is the signed-in baker's own, never a header value.
+  const tenantId = req.authUser.user_metadata?.tenant_id;
+  if (!tenantId || (req.headers['x-tenant-id'] && req.headers['x-tenant-id'] !== tenantId)) {
+    return res.status(403).json({ error: 'Only the baker can do that' });
+  }
+  const updates = {};
+  for (const key of EDITABLE_TENANT_COLUMNS) {
+    if (req.body && req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'Nothing to update' });
   }
 
   try {
@@ -553,7 +529,7 @@ router.patch('/info', async (req, res) => {
       .from('bakery_tenants')
       .update(updates)
       .eq('id', tenantId)
-      .select()
+      .select(BAKER_TENANT_COLUMNS)
       .single();
 
     if (error) {
@@ -568,11 +544,10 @@ router.patch('/info', async (req, res) => {
       throw error;
     }
 
-    console.log('[Tenant Debug] Update successful for:', data.slug);
     res.json(data);
   } catch (error) {
-    console.error('Error updating bakery info:', error);
-    res.status(500).json({ error: 'Failed to update bakery info', details: error.message });
+    console.error('Error updating bakery info:', error.message);
+    res.status(500).json({ error: 'Failed to update bakery info' });
   }
 });
 

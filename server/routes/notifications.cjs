@@ -47,7 +47,7 @@ const resolveTenant = async (req, res, next) => {
   }
 };
 
-router.post('/send-sms', async (req, res) => {
+router.post('/send-sms', requireBaker(supabase), async (req, res) => {
   const { to, message, customerId } = req.body;
   const normalizedTo = normalizePhone(to);
 
@@ -97,7 +97,7 @@ router.post('/send-sms', async (req, res) => {
   }
 });
 
-router.post('/send-email', async (req, res) => {
+router.post('/send-email', requireBaker(supabase), async (req, res) => {
   const { to, subject, html } = req.body;
 
   try {

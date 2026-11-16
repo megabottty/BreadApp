@@ -20,6 +20,14 @@ const twilioClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_
 
 const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://thedailydough.store').replace(/\/$/, '');
 
+/** Every route here sends real messages; only the scheduler (or the owner with the secret) may call them. */
+const requireSchedulerSecret = (req, res, next) => {
+  const secret = process.env.SCHEDULER_SECRET;
+  if (!secret) return res.status(503).json({ error: 'SCHEDULER_SECRET is not configured on the server' });
+  if (req.header('x-scheduler-secret') !== secret) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+};
+
 const WEEKDAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 /** Weekday (0-6) in the bakery's timezone. */
@@ -42,7 +50,7 @@ const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'there'
  * GET /api/notifications/check-prep-alerts
  * Check for orders that need prep in 2 days and send notifications
  */
-router.get('/check-prep-alerts', async (req, res) => {
+router.get('/check-prep-alerts', requireSchedulerSecret, async (req, res) => {
   try {
     const result = await runPrepAlerts({ dryRun: req.query.dryRun === '1' });
     res.json(result);
@@ -220,7 +228,7 @@ async function runLowStock({ dryRun }) {
  * POST /api/notifications/test-prep-alert
  * Test endpoint to manually trigger a prep alert
  */
-router.post('/test-prep-alert', async (req, res) => {
+router.post('/test-prep-alert', requireSchedulerSecret, async (req, res) => {
   const { orderId } = req.body;
 
   if (!orderId) {
@@ -373,10 +381,7 @@ async function sendWeeklyCheckins({ today, dryRun, force }) {
  * Guarded by the x-scheduler-secret header. ?dryRun=1 reports without sending.
  * ?forceCheckin=1 runs the weekly check-in regardless of the weekday.
  */
-router.post('/run', async (req, res) => {
-  const secret = process.env.SCHEDULER_SECRET;
-  if (!secret) return res.status(503).json({ error: 'SCHEDULER_SECRET is not configured on the server' });
-  if (req.header('x-scheduler-secret') !== secret) return res.status(401).json({ error: 'Unauthorized' });
+router.post('/run', requireSchedulerSecret, async (req, res) => {
 
   const dryRun = req.query.dryRun === '1';
   const force = req.query.forceCheckin === '1';

@@ -168,6 +168,8 @@ app.get('/api/version', (req, res) => {
       stripePublicKeyConfigured: Boolean(process.env.STRIPE_PUBLIC_KEY),
       twilioConfigured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
       smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
+      // Must be true: the server relies on the service key, and the DB rules give the anon key no access.
+      supabaseServiceKeyConfigured: Boolean(process.env.SUPABASE_SERVICE_KEY),
     }
   });
 });

@@ -255,7 +255,9 @@
               <button type="button" class="inline-add" (click)="noteOpen.set(true)">+ Add a note</button>
             }
 
-            @if (cartService.appliedPromo(); as promo) {
+            @if (!cartService.discountsEnabled) {
+              <!-- Promo codes are paused until the server applies them to the charge. -->
+            } @else if (cartService.appliedPromo(); as promo) {
               <div class="applied-promo" role="status">
                 <span class="promo-info"><strong>{{promo.code}}</strong> · {{promo.description}}</span>
                 <button class="btn-remove-promo" (click)="removePromo()" aria-label="Remove promo code">×</button>

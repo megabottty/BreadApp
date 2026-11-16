@@ -393,18 +393,6 @@ ALTER TABLE bakery_expenses ENABLE ROW LEVEL SECURITY;
 DO $$
 BEGIN
     -- 9.1 bakery_tenants Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public profiles are viewable by everyone' AND tablename = 'bakery_tenants') THEN
-        CREATE POLICY "Public profiles are viewable by everyone" ON bakery_tenants FOR SELECT USING (true);
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update their own bakery profile' AND tablename = 'bakery_tenants') THEN
-        CREATE POLICY "Users can update their own bakery profile" ON bakery_tenants FOR UPDATE USING ((auth.jwt()->>'sub')::uuid = id OR (auth.jwt()->'user_metadata'->>'tenant_id')::uuid = id);
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow bakery registration' AND tablename = 'bakery_tenants') THEN
-        CREATE POLICY "Allow bakery registration" ON bakery_tenants FOR INSERT WITH CHECK (true);
-    END IF;
-
     -- 9.2 bakery_recipes Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Recipes are viewable by everyone' AND tablename = 'bakery_recipes') THEN
         CREATE POLICY "Recipes are viewable by everyone" ON bakery_recipes FOR SELECT USING (true);
@@ -431,17 +419,9 @@ BEGIN
         CREATE POLICY "Customers can see their own orders" ON bakery_orders FOR SELECT USING (auth.uid()::text = customer_id);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow anonymous order placement' AND tablename = 'bakery_orders') THEN
-        CREATE POLICY "Allow anonymous order placement" ON bakery_orders FOR INSERT WITH CHECK (true);
-    END IF;
-
     -- 9.4 bakery_reviews Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Reviews are viewable by everyone' AND tablename = 'bakery_reviews') THEN
         CREATE POLICY "Reviews are viewable by everyone" ON bakery_reviews FOR SELECT USING (true);
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can create reviews' AND tablename = 'bakery_reviews') THEN
-        CREATE POLICY "Authenticated users can create reviews" ON bakery_reviews FOR INSERT WITH CHECK (auth.role() = 'authenticated');
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can manage their own reviews' AND tablename = 'bakery_reviews') THEN
@@ -479,10 +459,6 @@ BEGIN
     END IF;
 
     -- 9.6 bakery_promos Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Promos are viewable by everyone' AND tablename = 'bakery_promos') THEN
-        CREATE POLICY "Promos are viewable by everyone" ON bakery_promos FOR SELECT USING (true);
-    END IF;
-
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own promos' AND tablename = 'bakery_promos') THEN
         CREATE POLICY "Bakers can manage their own promos" ON bakery_promos FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
@@ -542,3 +518,16 @@ BEGIN
         CREATE POLICY "Bakers can manage their own expenses" ON bakery_expenses FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 END $$;
+
+-- Launch hardening (2026-11): the browser never reads or writes these tables
+-- directly; everything goes through the Express server with the service key.
+-- These policies let anyone read private bakery fields (incl. twilio_config),
+-- register bakeries, insert orders marked PAID, list every promo code, or post
+-- reviews as someone else, so they are removed. Safe to re-run.
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON bakery_tenants;
+DROP POLICY IF EXISTS "Users can update their own bakery profile" ON bakery_tenants;
+DROP POLICY IF EXISTS "Allow bakery registration" ON bakery_tenants;
+DROP POLICY IF EXISTS "Allow anonymous order placement" ON bakery_orders;
+DROP POLICY IF EXISTS "Promos are viewable by everyone" ON bakery_promos;
+DROP POLICY IF EXISTS "Authenticated users can create reviews" ON bakery_reviews;
+

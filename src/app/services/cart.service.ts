@@ -84,9 +84,16 @@ export class CartService {
     this.cartItems().reduce((acc, item) => acc + (item.quantity * this.getPackSize(item)), 0)
   );
 
-  promoDiscount = computed(() => {
+  /**
+   * Off until the server applies discounts to the actual charge (launch plan,
+   * Phase 1). While off, the bag never shows a price lower than what Stripe
+   * or the pay-at-pickup order records.
+   */
+  readonly discountsEnabled: boolean = false;
+
+  promoDiscount = computed((): number => {
     const promo = this.appliedPromo();
-    if (!promo) return 0;
+    if (!this.discountsEnabled || !promo) return 0;
 
     const subtotal = this.cartItems().reduce((acc, item) => acc + (item.quantity * this.getItemUnitPrice(item)), 0);
 
@@ -103,7 +110,8 @@ export class CartService {
     return 0;
   });
 
-  loyaltyDiscount = computed(() => {
+  loyaltyDiscount = computed((): number => {
+    if (!this.discountsEnabled) return 0;
     const qualifiesForLoaves = this.totalLoavesPurchased() >= 10;
     const qualifiesForOrders = this.totalOrders() >= 10 && this.qualifyingOrders() >= 10;
     if (qualifiesForLoaves || qualifiesForOrders) {
