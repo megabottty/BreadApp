@@ -140,6 +140,9 @@ export class CartComponent implements OnInit {
   /** Earliest pickup day: 2 days after today at the bakery. */
   minDate = computed((): string => addDaysToDate(this.bakeryToday(), 2));
 
+  /** Days the bakery is closed (set in Business Settings). */
+  closedDates = computed((): Set<string> => new Set(this.tenantService.tenant()?.closed_dates ?? []));
+
   /** Subscriptions are baked in the Monday/Tuesday batch, so instead of a free
    * date picker they choose from the next four weeks of Mondays and Tuesdays
    * (respecting the 48-hour lead time). Each following week repeats on the
@@ -152,6 +155,7 @@ export class CartComponent implements OnInit {
       day.setUTCDate(start.getUTCDate() + offset);
       const weekday = day.getUTCDay();
       if (weekday !== 1 && weekday !== 2) continue;
+      if (this.closedDates().has(day.toISOString().slice(0, 10))) continue;
       options.push({
         value: day.toISOString().slice(0, 10),
         label: day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
@@ -166,12 +170,13 @@ export class CartComponent implements OnInit {
     const values = this.hasSubscription()
       ? this.subscriptionDateOptions().map(option => option.value)
       : (() => {
-          const start = new Date(`${this.minDate()}T00:00:00Z`);
-          return Array.from({ length: 14 }, (_, offset) => {
-            const day = new Date(start);
-            day.setUTCDate(start.getUTCDate() + offset);
-            return day.toISOString().slice(0, 10);
-          });
+          // The next 14 days the bakery is open (looking up to 60 days ahead).
+          const open: string[] = [];
+          for (let offset = 0; offset < 60 && open.length < 14; offset++) {
+            const day = addDaysToDate(this.minDate(), offset);
+            if (!this.closedDates().has(day)) open.push(day);
+          }
+          return open;
         })();
     return values.map(value => {
       const date = new Date(`${value}T00:00:00Z`);
@@ -210,6 +215,8 @@ export class CartComponent implements OnInit {
     }
     if (!this.pickupDate()) {
       missing.push({ section: 'pickup', field: 'date', message: this.hasSubscription() ? 'Choose a Monday or Tuesday for pickup' : 'Choose a pickup day' });
+    } else if (this.closedDates().has(this.pickupDate())) {
+      missing.push({ section: 'pickup', field: 'date', message: 'We\'re closed that day. Choose another pickup day' });
     } else if (!this.isPickupDateValid(this.pickupDate())) {
       missing.push({ section: 'pickup', field: 'date', message: this.hasSubscription() ? 'Pickup must be a Monday or Tuesday, at least 48 hours out' : 'Pickup must be at least 48 hours from now' });
     }
@@ -271,6 +278,7 @@ export class CartComponent implements OnInit {
   isPickupDateValid = (date: string): boolean => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return false;
     if (date < this.minDate()) return false;
+    if (this.closedDates().has(date)) return false;
     if (!this.hasSubscription()) return true;
     const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
     return weekday === 1 || weekday === 2;

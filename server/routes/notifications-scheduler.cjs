@@ -13,6 +13,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY
 );
 
+const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
+const stripe = stripeSecret.startsWith('sk_') ? require('stripe')(stripeSecret) : null;
+
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 const twilioClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
@@ -312,6 +315,68 @@ const checkinEmailHtml = (sub) => `
     <p style="color:#888;font-size:12px;">You're getting this because you have a weekly bread subscription. Change how you hear from me at ${PUBLIC_URL}/profile.</p>
   </div>`;
 
+/**
+ * Closed days: a weekly subscription due on a day the bakery is closed is
+ * skipped (same as the customer replying SKIP: not charged, Stripe credit),
+ * and the customer gets one text saying so. Runs before the check-in so
+ * nobody is asked to confirm a closed day.
+ */
+async function skipClosedDays({ today, dryRun }) {
+  const { data: tenants, error: tErr } = await supabase.from('bakery_tenants').select('id, closed_dates');
+  if (tErr) {
+    if (tErr.code === '42703') return { skipped: 'closed_dates column not added yet' };
+    throw tErr;
+  }
+  const closedByTenant = new Map((tenants || [])
+    .filter(t => Array.isArray(t.closed_dates) && t.closed_dates.length > 0)
+    .map(t => [t.id, new Set(t.closed_dates)]));
+  if (closedByTenant.size === 0) return { skippedWeeks: 0 };
+
+  const { data: subs, error } = await supabase
+    .from('bakery_subscriptions')
+    .select('*')
+    .eq('status', 'ACTIVE')
+    .gte('next_bake_date', today)
+    .in('tenant_id', [...closedByTenant.keys()]);
+  if (error) throw error;
+
+  const details = [];
+  for (const original of subs || []) {
+    const closed = closedByTenant.get(original.tenant_id);
+    if (!closed || !closed.has(original.next_bake_date)) continue;
+    const closedDay = original.next_bake_date;
+    if (dryRun) {
+      details.push({ id: original.id, closedDay, dryRun: true });
+      continue;
+    }
+    // Skip until the next open week (a long closure can cover several).
+    let sub = original;
+    let guard = 0;
+    while (closed.has(sub.next_bake_date) && guard < 12) {
+      sub = await subscriptions.skipWeek(supabase, stripe, sub);
+      guard++;
+    }
+    let texted = false;
+    try {
+      const prefs = await notificationPrefs.getEffectivePreferences(supabase, sub.tenant_id, sub.customer_id);
+      const phone = normalizePhone((prefs && prefs.phone) || sub.customer_phone);
+      if (twilioClient && twilioPhoneNumber && phone && !(prefs && prefs.sms_opted_out)) {
+        await twilioClient.messages.create({
+          from: twilioPhoneNumber,
+          to: phone,
+          body: `Hi ${firstName(sub.customer_name)}, it's Megan at The Daily Dough 🍞 I'm closed ${subscriptions.formatBakeDate(closedDay)}, ` +
+            `so I've skipped that week for you. You won't be charged for it. Your next pickup is ${subscriptions.formatBakeDate(sub.next_bake_date)}.`
+        });
+        texted = true;
+      }
+    } catch (err) {
+      console.error('[Scheduler] closed-day text failed:', err.message);
+    }
+    details.push({ id: sub.id, closedDay, nextBakeDate: sub.next_bake_date, texted });
+  }
+  return { skippedWeeks: details.length, details };
+}
+
 /** (b) Thursday check-in: one text/email per subscription per bake date. */
 async function sendWeeklyCheckins({ today, dryRun, force }) {
   const weekday = denverWeekday();
@@ -390,6 +455,7 @@ router.post('/run', requireSchedulerSecret, async (req, res) => {
 
   const jobs = [
     ['rollDates', () => rollDatesForward({ today, dryRun })],
+    ['closedDays', () => skipClosedDays({ today, dryRun })],
     ['weeklyCheckin', () => sendWeeklyCheckins({ today, dryRun, force })],
     ['prepAlerts', () => runPrepAlerts({ dryRun })],
     ['todayPickups', () => runTodayPickups({ today, dryRun })],

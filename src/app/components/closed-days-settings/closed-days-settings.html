@@ -1,0 +1,36 @@
+<div class="closed-days">
+  <p class="intro">
+    Customers can't choose these days for pickup. If a weekly subscription falls on one,
+    that week is skipped automatically (they aren't charged) and they get a text.
+  </p>
+
+  <div class="add-row">
+    <div class="form-group">
+      <label for="closed-from">First day closed</label>
+      <input type="date" id="closed-from" class="form-control" [min]="today"
+             [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)">
+    </div>
+    <div class="form-group">
+      <label for="closed-to">Last day <span class="optional">(optional)</span></label>
+      <input type="date" id="closed-to" class="form-control" [min]="fromDate() || today"
+             [ngModel]="toDate()" (ngModelChange)="toDate.set($event)">
+    </div>
+    <button type="button" class="btn-primary" [disabled]="saving() || !fromDate()" (click)="addDays()">
+      {{ saving() ? 'Saving…' : 'Add' }}
+    </button>
+  </div>
+
+  @if (ranges().length > 0) {
+    <ul class="closed-list" aria-label="Upcoming closed days">
+      @for (range of ranges(); track range.start) {
+        <li>
+          <span>{{ formatRange(range) }}</span>
+          <button type="button" class="btn-remove" [disabled]="saving()" (click)="removeRange(range)"
+                  [attr.aria-label]="'Reopen ' + formatRange(range)">Remove</button>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="empty">No closed days coming up.</p>
+  }
+</div>

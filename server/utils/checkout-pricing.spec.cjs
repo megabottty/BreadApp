@@ -105,6 +105,12 @@ describe('checkPickupDate', () => {
     expect(checkPickupDate('2026-11-24', { today, hasSubscription: true })).toBeNull();
   });
 
+  it('refuses days the bakery is closed', () => {
+    const closedDates = ['2026-11-26'];
+    expect(checkPickupDate('2026-11-26', { today, closedDates })).toMatch(/closed/);
+    expect(checkPickupDate('2026-11-27', { today, closedDates })).toBeNull();
+  });
+
   it('rejects junk and far-off dates', () => {
     expect(checkPickupDate('tomorrow', { today })).toBeTruthy();
     expect(checkPickupDate('2027-06-01', { today })).toMatch(/next few months/);

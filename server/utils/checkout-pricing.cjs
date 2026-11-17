@@ -150,13 +150,16 @@ const computeDiscount = ({ promo, lines, subtotal, loyaltyEligible }) => {
  * Monday/Tuesday when the bag has a weekly subscription. Returns an error
  * message or null.
  */
-const checkPickupDate = (dateStr, { hasSubscription, today = todayInDenver() } = {}) => {
+const checkPickupDate = (dateStr, { hasSubscription, today = todayInDenver(), closedDates = [] } = {}) => {
   if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'Please choose a pickup day.';
   if (dateStr < addDays(today, LEAD_DAYS)) return 'Pickup must be at least 48 hours from now. Please choose a later day.';
   if (dateStr > addDays(today, 120)) return 'Please choose a pickup day within the next few months.';
   if (hasSubscription) {
     const wd = weekdayOf(dateStr);
     if (wd !== 1 && wd !== 2) return 'Weekly subscriptions are picked up on a Monday or Tuesday.';
+  }
+  if (Array.isArray(closedDates) && closedDates.includes(dateStr)) {
+    return 'We\'re closed that day. Please choose another pickup day.';
   }
   return null;
 };
@@ -216,6 +219,13 @@ const loadRecipes = async (supabase, tenantId, requested) => {
   return new Map((data || []).map(r => [String(r.id), r]));
 };
 
+/** The bakery's closed days ([] if none, or if the column doesn't exist yet). */
+const loadClosedDates = async (supabase, tenantId) => {
+  const { data, error } = await supabase.from('bakery_tenants').select('closed_dates').eq('id', tenantId).maybeSingle();
+  if (error || !data || !Array.isArray(data.closed_dates)) return [];
+  return data.closed_dates;
+};
+
 const loadPromo = async (supabase, tenantId, code) => {
   const normalized = String(code || '').trim().toUpperCase();
   if (!normalized) return null;
@@ -252,7 +262,8 @@ const quoteCheckout = async (supabase, tenantId, body, { customerId, normalizePh
   const priced = priceLines(body.lines, recipes);
   let customer = null;
   if (!priceOnly) {
-    const dateProblem = checkPickupDate(body.pickupDate, { hasSubscription: priced.hasSubscription, today });
+    const closedDates = await loadClosedDates(supabase, tenantId);
+    const dateProblem = checkPickupDate(body.pickupDate, { hasSubscription: priced.hasSubscription, today, closedDates });
     if (dateProblem) throw new CheckoutError(dateProblem);
     if (priced.hasSubscription && !customerId) {
       throw new CheckoutError('Subscriptions need an account. Please log in or create one, then try again.', 401);
@@ -288,6 +299,7 @@ module.exports = {
   cleanCustomer,
   newOrderId,
   loadPromo,
+  loadClosedDates,
   isLoyaltyEligible,
   quoteCheckout,
   roundMoney,

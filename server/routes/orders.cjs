@@ -103,7 +103,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 // Tenant columns anyone may read (the storefront needs these).
 const PUBLIC_TENANT_COLUMNS = 'id, name, slug, business_type, description, logo_url, primary_color, secondary_color, '
-  + 'oven_capacity, default_bake_temp, default_bake_time, default_steam_time, address, phone, email, onboarding_completed';
+  + 'oven_capacity, default_bake_temp, default_bake_time, default_steam_time, address, phone, email, onboarding_completed, closed_dates';
 // Extra columns the bakery's own baker sees in the dashboard. Never twilio_config.
 const BAKER_TENANT_COLUMNS = PUBLIC_TENANT_COLUMNS
   + ', stripe_account_id, subscription_status, subscription_plan, subscription_id, notification_settings, created_at';
@@ -111,7 +111,20 @@ const BAKER_TENANT_COLUMNS = PUBLIC_TENANT_COLUMNS
 // is set only by the server after Stripe confirms; notification_settings has its own route.
 const EDITABLE_TENANT_COLUMNS = ['name', 'business_type', 'description', 'logo_url', 'primary_color', 'secondary_color',
   'oven_capacity', 'default_bake_temp', 'default_bake_time', 'default_steam_time', 'address', 'phone', 'email',
-  'onboarding_completed', 'subscription_plan', 'subscription_id', 'subscription_status'];
+  'onboarding_completed', 'subscription_plan', 'subscription_id', 'subscription_status', 'closed_dates'];
+
+/** Closed days: unique 'YYYY-MM-DD' strings from today on, sorted, at most two years' worth. */
+const sanitizeClosedDates = (input) => {
+  if (!Array.isArray(input)) return [];
+  const today = subscriptions.todayInDenver();
+  const valid = input.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= today);
+  return [...new Set(valid)].sort().slice(0, 730);
+};
+
+// Until closed_dates is added to the database (supabase_schema.sql), read without it.
+const withoutClosedDates = (columns) => columns.replace(', closed_dates', '');
+// Postgres (select) and PostgREST (update) codes for "no such column".
+const MISSING_COLUMN = new Set(['42703', 'PGRST204']);
 
 // Middleware to extract tenant_id from headers
 const tenantMiddleware = async (req, res, next) => {
@@ -527,11 +540,11 @@ router.get('/info', async (req, res) => {
     // Everyone gets the storefront profile; only the signed-in baker of this
     // bakery also gets billing/notification settings. Twilio config never leaves the server.
     const fromBaker = await isBakerOf(supabase, req, req.tenantId);
-    const { data, error } = await supabase
-      .from('bakery_tenants')
-      .select(fromBaker ? BAKER_TENANT_COLUMNS : PUBLIC_TENANT_COLUMNS)
-      .eq('id', req.tenantId)
-      .single();
+    const columns = fromBaker ? BAKER_TENANT_COLUMNS : PUBLIC_TENANT_COLUMNS;
+    let { data, error } = await supabase.from('bakery_tenants').select(columns).eq('id', req.tenantId).single();
+    if (error && MISSING_COLUMN.has(error.code)) {
+      ({ data, error } = await supabase.from('bakery_tenants').select(withoutClosedDates(columns)).eq('id', req.tenantId).single());
+    }
 
     if (error) throw error;
     res.set('Cache-Control', fromBaker ? 'private, no-store' : 'public, max-age=60');
@@ -555,17 +568,25 @@ router.patch('/info', requireBaker(supabase), async (req, res) => {
   for (const key of EDITABLE_TENANT_COLUMNS) {
     if (req.body && req.body[key] !== undefined) updates[key] = req.body[key];
   }
+  if (updates.closed_dates !== undefined) updates.closed_dates = sanitizeClosedDates(updates.closed_dates);
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: 'Nothing to update' });
   }
 
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('bakery_tenants')
       .update(updates)
       .eq('id', tenantId)
       .select(BAKER_TENANT_COLUMNS)
       .single();
+    if (error && MISSING_COLUMN.has(error.code) && updates.closed_dates === undefined) {
+      ({ data, error } = await supabase.from('bakery_tenants').update(updates).eq('id', tenantId)
+        .select(withoutClosedDates(BAKER_TENANT_COLUMNS)).single());
+    }
+    if (error && MISSING_COLUMN.has(error.code) && updates.closed_dates !== undefined) {
+      return res.status(400).json({ error: 'Closed days need a one-time database update first (closed_dates column in supabase_schema.sql).' });
+    }
 
     if (error) {
       console.error('[Supabase Error] Bakery Update Failed:', error.message, 'Code:', error.code);

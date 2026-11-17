@@ -7,6 +7,7 @@ import { BakeryLedgerComponent } from '../bakery-ledger/bakery-ledger';
 import { RecipeCalculatorComponent } from '../recipe-calculator/recipe-calculator';
 import { PosTerminalComponent } from '../pos-terminal/pos-terminal';
 import { BakerNotificationSettingsComponent } from '../baker-notification-settings/baker-notification-settings';
+import { ClosedDaysSettingsComponent } from '../closed-days-settings/closed-days-settings';
 import { TenantService } from '../../services/tenant.service';
 import { ModalService } from '../../services/modal.service';
 import { InventoryService } from '../../services/inventory.service';
@@ -20,6 +21,7 @@ import { CalculatedRecipe, Order, aggregateOrders, calculateMasterDough } from '
   standalone: true,
   imports: [
     BakerNotificationSettingsComponent,
+    ClosedDaysSettingsComponent,
     CommonModule,
     FormsModule,
     OrdersManagerComponent,

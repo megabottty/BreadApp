@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS bakery_tenants (
 ALTER TABLE IF EXISTS bakery_tenants
   ADD COLUMN IF NOT EXISTS notification_settings JSONB;
 
+-- Days the bakery is closed ('YYYY-MM-DD' strings). Customers can't pick
+-- them for pickup, and weekly subscriptions due that day are skipped
+-- automatically by the scheduler. Edited in Business Settings.
+ALTER TABLE IF EXISTS bakery_tenants
+  ADD COLUMN IF NOT EXISTS closed_dates JSONB DEFAULT '[]'::jsonb;
+
 -- 2. Recipes Table
 CREATE TABLE IF NOT EXISTS bakery_recipes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

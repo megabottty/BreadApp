@@ -1,5 +1,6 @@
 import { Injectable, signal, computed, inject, REQUEST } from '@angular/core';
 import { HttpClient, HttpContext, HttpContextToken } from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { logger } from '../utils/logger';
 
@@ -26,6 +27,8 @@ export interface Tenant {
   subscription_plan?: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
   subscription_id?: string;
   onboarding_completed?: boolean;
+  /** Days the bakery is closed ('YYYY-MM-DD'); not offered for pickup. */
+  closed_dates?: string[];
 }
 
 @Injectable({
@@ -93,7 +96,9 @@ export class TenantService {
       }
     } else if (host !== 'localhost') {
       // thedailydough.store is the main landing/app domain, but it's also a valid tenant slug
-      if (host === 'thedailydough.store') {
+      // thedailydough.store and the Render hostname (bread-app-backend.onrender.com)
+      // both serve the main bakery; neither first label is a bakery slug.
+      if (host === 'thedailydough.store' || host.endsWith('.onrender.com')) {
         slug = 'thedailydough';
       } else {
         // Subdomain logic: slug.daily-dough.com or slug.thedailydough.store
@@ -212,6 +217,16 @@ export class TenantService {
       },
       error: (err) => logger.error('[TenantService] Failed to update tenant:', err)
     });
+  }
+
+  /** Saves the bakery's closed days; the returned stream errors if the save fails. */
+  saveClosedDates(id: string, closedDates: string[]): Observable<Tenant> {
+    const url = this.isAngularDevServer()
+      ? `http://localhost:3000/api/orders/info`
+      : `${this.apiUrl}/orders/info`;
+    return this.http.patch<Tenant>(url, { closed_dates: closedDates }, { headers: { 'x-tenant-id': id } }).pipe(
+      tap((updated: Tenant) => this.currentTenant.set(updated))
+    );
   }
 
   private applyBranding(tenant: Tenant) {
