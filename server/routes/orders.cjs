@@ -134,7 +134,9 @@ const tenantMiddleware = async (req, res, next) => {
 
   const tenantSlug = req.headers['x-tenant-slug'];
   if (!tenantSlug) {
-    if (req.url === '/info') {
+    // Reading the storefront profile needs to know which bakery; saving
+    // (PATCH /info) uses the signed-in baker's own bakery instead.
+    if (req.url === '/info' && req.method === 'GET') {
       return res.status(400).json({ error: 'x-tenant-slug header is required for /info' });
     }
     console.warn(`[Tenant Middleware] Missing x-tenant-slug header for ${req.method} ${req.originalUrl}`);
@@ -559,8 +561,10 @@ router.patch('/info', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
-  // The bakery being edited is the signed-in baker's own, never a header value.
-  const tenantId = req.authUser.user_metadata?.tenant_id;
+  // The bakery being edited is the signed-in baker's own. requireBaker has
+  // already checked it matches the bakery named by x-tenant-slug (req.tenantId),
+  // so fall back to that for baker accounts without a tenant_id recorded.
+  const tenantId = req.authUser.user_metadata?.tenant_id || req.tenantId;
   if (!tenantId || (req.headers['x-tenant-id'] && req.headers['x-tenant-id'] !== tenantId)) {
     return res.status(403).json({ error: 'Only the baker can do that' });
   }

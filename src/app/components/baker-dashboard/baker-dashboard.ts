@@ -245,20 +245,21 @@ export class BakerDashboardComponent {
     this.modalService.showAlert(hint.content, hint.title, 'info');
   }
 
-  saveSettings(primary: string, secondary: string, ovenCapacity: string, address: string, phone: string, email: string) {
+  saveSettings(primary: string, secondary: string, ovenCapacity: string, address: string, phone: string, email: string): void {
     const tenant = this.currentTenant();
-    if (tenant) {
-      this.tenantService.updateTenantBranding(
-        tenant.id,
-        primary,
-        secondary,
-        parseInt(ovenCapacity) || 6,
-        address,
-        phone,
-        email
-      );
-      this.modalService.showAlert('Your shop settings have been updated.', 'Settings Saved', 'success');
-    }
+    if (!tenant) return;
+    this.tenantService.patchTenant(tenant.id, {
+      primary_color: primary,
+      secondary_color: secondary,
+      oven_capacity: parseInt(ovenCapacity, 10) || 6,
+      address,
+      phone,
+      email
+    }).subscribe({
+      next: () => this.modalService.showAlert('Your shop settings have been updated.', 'Settings Saved', 'success'),
+      error: (err: { error?: { error?: string } }) => this.modalService.showAlert(
+        err?.error?.error || 'Your settings couldn\'t be saved. Please try again.', 'Not Saved', 'error')
+    });
   }
 
   showToastDocs() {

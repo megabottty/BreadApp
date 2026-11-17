@@ -201,32 +201,32 @@ export class TenantService {
   }
 
   updateTenant(id: string, updates: Partial<Tenant>) {
-    // Only the `ng serve` dev server (port 4200) needs the absolute backend
-    // URL; when Express serves the app itself, the relative URL works — and
-    // matches the SSR transfer-cache key so hydration reuses the SSR data.
-    const url = this.isAngularDevServer()
-      ? `http://localhost:3000/api/orders/info`
-      : `${this.apiUrl}/orders/info`;
-
-    return this.http.patch<Tenant>(url, updates, {
-      headers: { 'x-tenant-id': id }
-    }).subscribe({
-      next: (updated) => {
-        this.currentTenant.set(updated);
-        this.applyBranding(updated);
-      },
+    return this.patchTenant(id, updates).subscribe({
       error: (err) => logger.error('[TenantService] Failed to update tenant:', err)
     });
   }
 
-  /** Saves the bakery's closed days; the returned stream errors if the save fails. */
-  saveClosedDates(id: string, closedDates: string[]): Observable<Tenant> {
+  /** PATCH the bakery profile; the stream errors if the save fails, and the
+   * local copy (and branding) updates when it succeeds. */
+  patchTenant(id: string, updates: Partial<Tenant>): Observable<Tenant> {
+    // Only the `ng serve` dev server (port 4200) needs the absolute backend URL.
     const url = this.isAngularDevServer()
       ? `http://localhost:3000/api/orders/info`
       : `${this.apiUrl}/orders/info`;
-    return this.http.patch<Tenant>(url, { closed_dates: closedDates }, { headers: { 'x-tenant-id': id } }).pipe(
-      tap((updated: Tenant) => this.currentTenant.set(updated))
+    const headers: Record<string, string> = { 'x-tenant-id': id };
+    const slug = this.currentTenant()?.slug;
+    if (slug) headers['x-tenant-slug'] = slug;
+    return this.http.patch<Tenant>(url, updates, { headers }).pipe(
+      tap((updated: Tenant) => {
+        this.currentTenant.set(updated);
+        this.applyBranding(updated);
+      })
     );
+  }
+
+  /** Saves the bakery's closed days; the returned stream errors if the save fails. */
+  saveClosedDates(id: string, closedDates: string[]): Observable<Tenant> {
+    return this.patchTenant(id, { closed_dates: closedDates });
   }
 
   private applyBranding(tenant: Tenant) {
