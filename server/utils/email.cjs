@@ -16,7 +16,11 @@ const createTransporter = () => {
   });
 };
 
-const sendEmail = async ({ to, subject, html, text }) => {
+/**
+ * replyTo: where a reply goes. Defaults to EMAIL_REPLY_TO, so customers who
+ * hit Reply reach a real inbox even when the From address can't receive mail.
+ */
+const sendEmail = async ({ to, subject, html, text, replyTo }) => {
     const transporter = createTransporter();
 
     if (!transporter) {
@@ -31,7 +35,8 @@ const sendEmail = async ({ to, subject, html, text }) => {
         to,
         subject,
         html,
-        text
+        text,
+        ...((replyTo || process.env.EMAIL_REPLY_TO) ? { replyTo: replyTo || process.env.EMAIL_REPLY_TO } : {})
       });
       console.log(`[Email Utility] Email sent successfully: ${info.messageId}`);
       return { success: true, messageId: info.messageId };
