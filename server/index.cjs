@@ -33,7 +33,14 @@ const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
-const allowedOrigins = new Set([...defaultAllowedOrigins, ...configuredCorsOrigins]);
+const allowedOrigins = new Set([
+  ...defaultAllowedOrigins,
+  ...configuredCorsOrigins,
+  // The server's own addresses (Render hostname, FRONTEND_URL) are always allowed.
+  ...[process.env.FRONTEND_URL, process.env.RENDER_EXTERNAL_URL, 'https://bread-app-backend.onrender.com']
+    .filter(Boolean)
+    .map(url => url.replace(/\/$/, ''))
+]);
 
 // Environment validation (fail fast in production for critical secrets)
 if (process.env.NODE_ENV === 'production') {
@@ -98,7 +105,10 @@ const corsOptions = {
     // Allow same-origin/non-browser requests (no Origin header)
     if (!origin) return callback(null, true);
     if (allowedOrigins.has(origin)) return callback(null, true);
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
+    // Unknown origin: send no CORS headers (the browser blocks cross-site
+    // reads) instead of throwing, which turned every request -- including
+    // the page's own scripts -- into a 500.
+    return callback(null, false);
   },
   optionsSuccessStatus: 200
 };
@@ -106,6 +116,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 app.use(compression());
+
+// Render puts one proxy in front of the app; trust it so rate limits are per
+// visitor (X-Forwarded-For) rather than one bucket for everyone.
+app.set('trust proxy', 1);
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

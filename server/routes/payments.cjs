@@ -214,6 +214,7 @@ router.get('/checkout-status', async (req, res) => {
       } : null
     });
   } catch (error) {
+    if (error && error.code === 'resource_missing') return res.status(404).json({ error: 'Order not found' });
     console.error('[Checkout] Status check failed:', error.message);
     res.status(500).json({ error: 'Could not confirm the order yet' });
   }
@@ -247,8 +248,24 @@ router.post('/webhook', async (req, res) => {
 
   console.log(`[Stripe Webhook] ${event.type} ${event.id}`);
 
+  // payment_intent.succeeded is a backup for accounts whose webhook isn't
+  // subscribed to checkout.session.completed: find the card checkout it
+  // belongs to and save that (idempotent, so getting both events is fine).
+  let completedSession = null;
   if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
-    const session = event.data.object;
+    completedSession = event.data.object;
+  } else if (event.type === 'payment_intent.succeeded' && event.data.object?.metadata?.orderId) {
+    try {
+      const found = await stripe.checkout.sessions.list({ payment_intent: event.data.object.id, limit: 1 });
+      completedSession = found.data[0] || null;
+    } catch (err) {
+      console.error('[Stripe Webhook] Could not find the checkout for', event.data.object.id, err.message);
+      return res.status(500).json({ error: 'Lookup failed; please retry' });
+    }
+  }
+
+  if (completedSession) {
+    const session = completedSession;
     if (!supabase) return res.status(500).json({ error: 'Database connection not configured' });
     try {
       const result = await stripeCheckout.fulfillCheckoutSession({ stripe, supabase, notify: checkoutNotify }, session);
