@@ -48,8 +48,18 @@ const toIso = (unixTs) => (unixTs ? new Date(unixTs * 1000).toISOString() : null
 
 // Where Stripe sends customers back to. Never fall back to localhost in production.
 const frontendUrlOrNull = () => {
-  const url = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4200');
-  return url ? url.replace(/\/$/, '') : null;
+  const raw = (process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4200')).trim();
+  if (!raw) return null;
+  try {
+    // "https://thedailydough.store./" -> "https://thedailydough.store": a
+    // trailing dot is a different host to Render and every page 404s there.
+    const url = new URL(raw);
+    url.hostname = url.hostname.replace(/\.+$/, '');
+    return url.origin;
+  } catch {
+    console.error('[Checkout] FRONTEND_URL is not a valid URL:', raw);
+    return null;
+  }
 };
 
 const DEFAULT_TENANT_SLUG = process.env.DEFAULT_TENANT_SLUG || 'thedailydough';
