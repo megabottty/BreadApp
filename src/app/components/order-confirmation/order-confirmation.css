@@ -133,3 +133,8 @@ footer p {
 .btn-primary:hover {
   background: #6B7C5A;
 }
+
+.item-price {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}

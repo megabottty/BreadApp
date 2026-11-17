@@ -66,4 +66,11 @@ const isBakerOf = async (supabase, req, tenantId) => {
   return meta.role === 'BAKER' && (!meta.tenant_id || !tenantId || meta.tenant_id === tenantId);
 };
 
-module.exports = { requireCustomer, requireBaker, readBearer, isBakerOf };
+/** The verified signed-in user, or null for a guest (never throws). */
+const optionalUser = async (supabase, req) => {
+  if (!readBearer(req)) return null;
+  const result = await resolveUser(supabase, req);
+  return result.error ? null : result.user;
+};
+
+module.exports = { requireCustomer, requireBaker, readBearer, isBakerOf, optionalUser };

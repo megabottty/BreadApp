@@ -1,9 +1,8 @@
-import { Component, OnInit, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CartService } from '../../services/cart.service';
 import { Order } from '../../logic/bakers-math';
-import { TenantService } from '../../services/tenant.service';
 import { logger } from '../../utils/logger';
 
 @Component({
@@ -17,57 +16,62 @@ import { logger } from '../../utils/logger';
 export class OrderConfirmationComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private cartService = inject(CartService);
-  private tenantService = inject(TenantService);
 
   orderId = signal<string | null>(null);
   order = signal<Order | null>(null);
   loading = signal(true);
   error = signal<string | null>(null);
 
-  constructor() {
-    // Wait for tenant to be identified before fetching order
-    effect(() => {
-      const tenant = this.tenantService.tenant();
-      const id = this.orderId();
-      if (tenant && id && !this.order()) {
-        this.fetchOrder(id);
-      }
-    });
-  }
-
-  ngOnInit() {
-    const id = this.route.snapshot.paramMap.get('orderId');
-    this.orderId.set(id);
-
-    if (!id) {
-      this.loading.set(false);
-      this.error.set('No order ID found.');
-    }
-  }
-
+  private sessionId: string | null = null;
   private retryCount = 0;
   private readonly maxRetries = 6;
   private readonly retryDelayMs = 3000;
 
-  fetchOrder(id: string) {
-    this.cartService.getOrderById(id).subscribe({
-      next: (data) => {
-        logger.debug('[Confirmation Debug] Received Order Data:', data);
-        this.order.set(data);
-        this.loading.set(false);
-        this.cartService.clearCart();
-      },
-      error: (err) => {
-        logger.warn(`[Confirmation] Order fetch attempt ${this.retryCount + 1} failed:`, err?.status);
-        if (this.retryCount < this.maxRetries) {
-          this.retryCount++;
-          setTimeout(() => this.fetchOrder(id), this.retryDelayMs);
-        } else {
-          console.error('Error fetching order after retries:', err);
-          this.loading.set(false);
-          this.error.set('We couldn\'t find your order details, but don\'t worry—if you saw the Stripe success page, your order is being processed!');
+  ngOnInit(): void {
+    const id = this.route.snapshot.paramMap.get('orderId');
+    this.sessionId = this.route.snapshot.queryParamMap.get('session_id');
+    this.orderId.set(id);
+
+    if (!id || !this.sessionId) {
+      this.loading.set(false);
+      this.error.set('We couldn\'t find that order. If you were charged, check your email for a receipt from Stripe, or contact us.');
+      return;
+    }
+    this.checkStatus(id, this.sessionId);
+  }
+
+  /** Asks the server whether Stripe has the payment. The server saves the
+   * order itself if the webhook hasn't yet, so this rarely needs a retry. */
+  private checkStatus(id: string, sessionId: string): void {
+    this.cartService.getCheckoutStatus(id, sessionId).subscribe({
+      next: (status) => {
+        if (status.paid) {
+          // Paid: the bag is done with, whether or not the order details load.
+          this.cartService.clearCart();
+          if (status.order) {
+            this.order.set(status.order);
+            this.loading.set(false);
+            return;
+          }
         }
+        this.retryOrGiveUp(id, sessionId, status.paid);
+      },
+      error: (err: { status?: number }) => {
+        logger.warn(`[Confirmation] Status check ${this.retryCount + 1} failed:`, err?.status);
+        this.retryOrGiveUp(id, sessionId, false);
       }
     });
+  }
+
+  private retryOrGiveUp(id: string, sessionId: string, paid: boolean): void {
+    if (this.retryCount < this.maxRetries) {
+      this.retryCount++;
+      setTimeout(() => this.checkStatus(id, sessionId), this.retryDelayMs);
+      return;
+    }
+    this.loading.set(false);
+    this.error.set(paid
+      ? `Your payment went through (order #${id}), but we couldn't load the details just now. You'll get a confirmation shortly.`
+      : 'We haven\'t received the payment confirmation yet. If you were charged, you\'ll get a confirmation shortly. Otherwise, your bag is still saved.');
   }
 }

@@ -1,13 +1,12 @@
-import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit, DestroyRef } from '@angular/core';
 import { CommonModule, CurrencyPipe, PercentPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { CartService, CartItem, FulfillmentType, PackOption } from '../../services/cart.service';
-import { NotificationService } from '../../services/notification.service';
+import { CartService, CartItem, PackOption, CheckoutRequest } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
 import { TenantService } from '../../services/tenant.service';
-import { Order, OrderItem } from '../../logic/bakers-math';
+import { Order } from '../../logic/bakers-math';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SUBSCRIPTION_ACCOUNT_MESSAGE } from '../../services/subscription-gate.service';
 import { logger } from '../../utils/logger';
@@ -21,20 +20,17 @@ import { logger } from '../../utils/logger';
 })
 export class CartComponent implements OnInit {
   cartService = inject(CartService);
-  notificationService = inject(NotificationService);
   authService = inject(AuthService);
   modalService = inject(ModalService);
   tenantService = inject(TenantService);
   route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
 
   items = this.cartService.items;
   totalPrice = this.cartService.totalPrice;
-  shippingCost = this.cartService.shippingCost;
   fulfillmentType = this.cartService.fulfillmentType;
-  zipCode = this.cartService.zipCode;
   notes = this.cartService.notes;
 
-  dispatchDate = signal<string>('');
   pickupDate = this.cartService.pickupDate;
   payAtPickup = signal<boolean>(false);
 
@@ -66,6 +62,11 @@ export class CartComponent implements OnInit {
   /** Inline validation only appears after the first Place order attempt. */
   showValidation = signal<boolean>(false);
 
+  /** True while an order or payment is being created; blocks a second tap. */
+  submitting = signal<boolean>(false);
+  /** Sent with the order so a retried request can't create a second one. New after each placed order. */
+  private attemptKey: string = this.newAttemptKey();
+
   itemCount = computed(() => this.items().reduce((sum, item) => sum + item.quantity, 0));
 
   /** Lines that recur weekly. Drives the summary above Checkout, the button
@@ -88,7 +89,7 @@ export class CartComponent implements OnInit {
     return (item.selectedOptions || []).map(option => option.name).join(', ');
   }
 
-  itemsSubtotal = computed(() => this.items().reduce((sum, item) => sum + this.lineTotal(item), 0));
+  itemsSubtotal = computed((): number => this.items().reduce((sum, item) => sum + this.lineTotal(item), 0));
 
   /** One clear button, like food-ordering checkouts: what happens, and for how much. */
   checkoutLabel = computed(() => {
@@ -120,6 +121,10 @@ export class CartComponent implements OnInit {
   }
 
   ngOnInit() {
+    if (typeof window !== 'undefined') {
+      const timer = setInterval(() => this.bakeryToday.set(denverToday()), 60_000);
+      this.destroyRef.onDestroy(() => clearInterval(timer));
+    }
     this.route.queryParams.subscribe(params => {
       if (params['canceled'] === 'true') {
         this.modalService.showAlert('Payment was canceled. You can review your cart and try again.', 'Payment Canceled', 'info');
@@ -127,11 +132,13 @@ export class CartComponent implements OnInit {
     });
   }
 
-  minDate = computed(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 2); // 48 hour buffer
-    return d.toISOString().split('T')[0];
-  });
+  /** Today's date at the bakery (Denver), refreshed every minute so a page
+   * left open past midnight still offers the right days. Matches the
+   * server's checkPickupDate rule. */
+  private bakeryToday = signal<string>(denverToday());
+
+  /** Earliest pickup day: 2 days after today at the bakery. */
+  minDate = computed((): string => addDaysToDate(this.bakeryToday(), 2));
 
   /** Subscriptions are baked in the Monday/Tuesday batch, so instead of a free
    * date picker they choose from the next four weeks of Mondays and Tuesdays
@@ -212,16 +219,34 @@ export class CartComponent implements OnInit {
     if (!this.notifyBySms() && !this.notifyByEmail()) {
       missing.push({ section: 'details', field: 'updates', message: 'Pick email or text for order updates' });
     }
-    if (this.notifyByEmail() && !this.getCustomerEmail().trim()) {
+    const email = this.getCustomerEmail().trim();
+    if (this.notifyByEmail() && !email) {
       missing.push({ section: 'details', field: 'email', message: 'Add your email address' });
+    } else if (email && !EMAIL_PATTERN.test(email)) {
+      missing.push({ section: 'details', field: 'email', message: 'Check your email address' });
     }
-    if (this.notifyBySms() && !this.guestPhone().trim()) {
+    const phone = this.guestPhone().trim();
+    if (this.notifyBySms() && !phone) {
       missing.push({ section: 'details', field: 'phone', message: 'Add your phone number for texts' });
+    } else if (phone && !isUsPhone(phone)) {
+      missing.push({ section: 'details', field: 'phone', message: 'Phone number needs 10 digits' });
     }
     return missing;
   });
 
   isComplete = computed<boolean>(() => this.missingItems().length === 0);
+
+  firstMissing = computed(() => this.missingItems()[0] ?? null);
+
+  /** Phone bar: when something is missing, take them to it; otherwise place the order. */
+  onCheckoutBarTap(): void {
+    const missing = this.firstMissing();
+    if (missing) {
+      this.revealBlockedSection(missing.section);
+      return;
+    }
+    this.checkout();
+  }
 
   sectionNeedsAttention(section: 'subscription' | 'pickup' | 'details'): boolean {
     return this.missingItems().some(item => item.section === section);
@@ -230,17 +255,6 @@ export class CartComponent implements OnInit {
   fieldError(field: string): string | null {
     return this.missingItems().find(item => item.field === field)?.message ?? null;
   }
-
-  /** Which section is holding up checkout, so Place order can open it. */
-  checkoutBlockedSection = computed<'subscription' | 'pickup' | 'details' | null>(() => {
-    if (this.hasSubscription() && !this.authService.isAuthenticated()) return 'subscription';
-    if (!this.pickupDate() || !this.isPickupDateValid(this.pickupDate())) return 'pickup';
-    if (!this.authService.isAuthenticated() && !this.guestName()) return 'details';
-    if (!this.notifyBySms() && !this.notifyByEmail()) return 'details';
-    if (this.notifyBySms() && !this.guestPhone()) return 'details';
-    if (this.notifyByEmail() && !this.getCustomerEmail()) return 'details';
-    return null;
-  });
 
   /** Opens the incomplete section, scrolls to it, and shows the message
    * inline (instead of a greyed-out button). */
@@ -253,59 +267,13 @@ export class CartComponent implements OnInit {
     }
   }
 
-  checkoutBlockedReason = computed(() => {
-    if (this.hasSubscription() && !this.authService.isAuthenticated()) {
-      return 'Subscriptions need an account. Log in or create one to check out, or switch the item back to a one-time purchase.';
-    }
-    if (this.fulfillmentType() === 'SHIPPING' && !this.dispatchDate()) {
-      return 'Please select a dispatch date (Monday or Tuesday)';
-    }
-    if (this.fulfillmentType() === 'SHIPPING' && !this.isDispatchDateValid(this.dispatchDate())) {
-      return 'Dispatch date must be a Monday or Tuesday, at least 48 hours from now';
-    }
-    if (this.fulfillmentType() === 'PICKUP' && !this.pickupDate()) {
-      return this.hasSubscription() ? 'Please choose a Monday or Tuesday for your pickup' : 'Please select a pickup date';
-    }
-    if (this.fulfillmentType() === 'PICKUP' && !this.isPickupDateValid(this.pickupDate())) {
-      return this.hasSubscription()
-        ? 'Subscriptions are baked for Monday or Tuesday pickup, at least 48 hours from now'
-        : 'Pickup date must be at least 48 hours from now';
-    }
-    if (!this.authService.isAuthenticated() && !this.guestName()) {
-      return 'Please enter your name for guest checkout';
-    }
-    if (!this.notifyBySms() && !this.notifyByEmail()) {
-      return 'Please select at least one notification method';
-    }
-    if (this.notifyBySms() && !this.guestPhone()) {
-      return 'Please enter your phone number for SMS updates';
-    }
-    const customerEmail = this.getCustomerEmail();
-    if (this.notifyByEmail() && !customerEmail) {
-      return 'Please enter your email address for order updates';
-    }
-    return null;
-  });
-
-  // Monday = 1, Tuesday = 2
-  isDispatchDateValid = (date: string) => {
-    if (!date) return false;
-
-    const selected = new Date(date);
-    const min = new Date(this.minDate());
-    if (selected < min) return false;
-
-    const day = selected.getUTCDay();
-    return day === 1 || day === 2;
-  };
-
-  isPickupDateValid = (date: string) => {
-    if (!date) return false;
-    // A bag with a subscription is on the Monday/Tuesday bake schedule.
-    if (this.hasSubscription()) return this.isDispatchDateValid(date);
-    const selected = new Date(date);
-    const min = new Date(this.minDate());
-    return selected >= min;
+  /** Same rules as the server: on or after minDate, and Monday/Tuesday for subscriptions. */
+  isPickupDateValid = (date: string): boolean => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return false;
+    if (date < this.minDate()) return false;
+    if (!this.hasSubscription()) return true;
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+    return weekday === 1 || weekday === 2;
   };
 
   updateQuantity(item: CartItem, change: number) {
@@ -329,32 +297,6 @@ export class CartComponent implements OnInit {
     return this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item);
   }
 
-  private buildOrderItems(): OrderItem[] {
-    return this.items().map(item => {
-      const packSize = this.cartService.getPackSize(item);
-      const unitCount = item.quantity * packSize;
-      const unitWeight = item.unitWeightGrams ?? item.product.ingredients?.reduce((sum, ing) => sum + ing.weight, 0) ?? 0;
-      return {
-        recipeId: item.product.id || '',
-        name: this.cartService.getItemDisplayName(item),
-        quantity: unitCount,
-        weightGrams: unitWeight * unitCount
-      };
-    });
-  }
-
-  setFulfillment(type: FulfillmentType) {
-    this.cartService.setFulfillment(type);
-    if (type === 'SHIPPING') {
-      this.payAtPickup.set(false);
-    }
-  }
-
-  onZipChange(event: Event) {
-    const val = (event.target as HTMLInputElement).value;
-    this.cartService.setZipCode(val);
-  }
-
   removeItem(item: CartItem) {
     this.cartService.removeFromCart(item.lineId);
   }
@@ -363,15 +305,15 @@ export class CartComponent implements OnInit {
     this.cartService.toggleSubscription(item.lineId);
   }
 
-  applyPromo() {
-    if (!this.promoCodeInput()) return;
-    const success = this.cartService.applyPromoCode(this.promoCodeInput());
-    if (success) {
-      this.modalService.showAlert(`Promo code "${this.promoCodeInput()}" applied!`, 'Success', 'success');
-      this.promoCodeInput.set('');
-    } else {
-      this.modalService.showAlert('Invalid promo code. Please try again.', 'Invalid Code', 'warning');
+  async applyPromo(): Promise<void> {
+    const code = this.promoCodeInput().trim();
+    if (!code) return;
+    const problem = await this.cartService.applyPromoCode(code);
+    if (problem) {
+      this.modalService.showAlert(problem, 'Promo code', 'warning');
+      return;
     }
+    this.promoCodeInput.set('');
   }
 
   removePromo() {
@@ -398,85 +340,56 @@ export class CartComponent implements OnInit {
     return 'NONE';
   }
 
-  checkout() {
-    const blockedSection = this.checkoutBlockedSection();
-    if (blockedSection) {
-      this.revealBlockedSection(blockedSection);
+  private buildCheckoutRequest(): CheckoutRequest {
+    const isGuest = !this.authService.isAuthenticated();
+    const preference = this.getNotificationPreference();
+    return {
+      lines: this.cartService.checkoutLines(),
+      pickupDate: this.pickupDate(),
+      promoCode: this.cartService.appliedPromo()?.code,
+      attemptKey: this.attemptKey,
+      customer: {
+        name: (isGuest ? this.guestName() : (this.authService.user()?.name || this.guestName() || 'Customer')).trim(),
+        phone: this.guestPhone().trim(),
+        email: this.getCustomerEmail().trim(),
+        notes: this.notes(),
+        notificationPreference: preference === 'NONE' || !preference ? 'EMAIL' : preference
+      }
+    };
+  }
+
+  private serverMessage(err: { status?: number; error?: { error?: string } }, fallback: string): string {
+    if (err?.status === 0) return 'We couldn\'t reach the bakery just now. Please check your connection and try again.';
+    return err?.error?.error || fallback;
+  }
+
+  checkout(): void {
+    if (this.submitting()) return;
+    const missing = this.firstMissing();
+    if (missing) {
+      this.revealBlockedSection(missing.section);
+      return;
+    }
+    if (this.cartService.checkoutLines().length !== this.items().length) {
+      this.modalService.showAlert('Something in your bag is no longer on the menu. Please remove it and try again.', 'Check your bag', 'warning');
       return;
     }
     this.showValidation.set(false);
+    this.submitting.set(true);
+    const request = this.buildCheckoutRequest();
 
-    if (this.fulfillmentType() === 'SHIPPING' && !this.isDispatchDateValid(this.dispatchDate())) {
-      this.modalService.showAlert('For shipping, please select a Monday or Tuesday dispatch date at least 48 hours from now.', 'Invalid Date', 'warning');
-      return;
-    }
-
-    if (this.fulfillmentType() === 'PICKUP' && !this.isPickupDateValid(this.pickupDate())) {
-      this.modalService.showAlert(
-        this.hasSubscription()
-          ? 'Subscriptions are baked for Monday or Tuesday pickup. Please choose one of those days, at least 48 hours from now.'
-          : 'Please select a pickup date at least 48 hours from now.',
-        'Invalid Date', 'warning');
-      return;
-    }
-
-    const isGuest = !this.authService.isAuthenticated();
-    if (isGuest && !this.guestName()) {
-      this.modalService.showAlert('Please provide your name for guest checkout.', 'Missing Information', 'warning');
-      return;
-    }
-
-    if (!this.notifyBySms() && !this.notifyByEmail()) {
-      this.modalService.showAlert('Please select at least one notification method.', 'Missing Information', 'warning');
-      return;
-    }
-
-    if (this.notifyBySms() && !this.guestPhone()) {
-      this.modalService.showAlert('Please provide a phone number to receive SMS updates.', 'Missing Information', 'warning');
-      return;
-    }
-
-    const customerEmail = this.getCustomerEmail();
-    if (this.notifyByEmail() && !customerEmail) {
-      this.modalService.showAlert('Please provide an email address to receive order updates.', 'Missing Information', 'warning');
-      return;
-    }
-
-    const customerName = isGuest ? this.guestName() : (this.authService.user()?.name || 'Valued Customer');
-    const customerPhone = this.guestPhone();
-    const notificationPreference = this.getNotificationPreference();
-
-    // If paying at pickup, create order immediately (payment happens later at
-    // pickup). Never for subscriptions: a recurring order needs a card on file.
-    if (this.payAtPickup() && this.fulfillmentType() === 'PICKUP' && !this.hasSubscription()) {
-      const orderId = 'POS-' + Math.random().toString(36).substring(7).toUpperCase();
-      logger.info('Pay at pickup selected - creating order without payment...');
-
-      const newOrder: Order = {
-        id: orderId,
-        customerId: isGuest ? 'guest' : (this.authService.user()?.id || 'unknown'),
-        customerName: customerName,
-        customerPhone: customerPhone,
-        customerEmail: customerEmail,
-        notificationPreference,
-        type: this.fulfillmentType(),
-        status: 'PENDING',
-        paymentStatus: 'PENDING',
-        pickupDate: this.pickupDate(),
-        items: this.buildOrderItems(),
-        notes: this.notes(),
-        totalPrice: this.totalPrice(),
-        promoCode: this.cartService.appliedPromo()?.code,
-        discountApplied: this.cartService.promoDiscount() + this.cartService.loyaltyDiscount(),
-        shippingCost: this.shippingCost(),
-        createdAt: new Date().toISOString()
-      };
-
-      this.cartService.saveOrderToDatabase(newOrder).subscribe({
-        next: (response) => {
-          logger.info('Order synced to cloud successfully:', response);
+    // Pay at pickup: the server prices and saves the order right away.
+    // Never for subscriptions: a recurring order needs a card on file.
+    if (this.payAtPickup() && !this.hasSubscription()) {
+      this.cartService.placePayAtPickupOrder(request).subscribe({
+        next: (result) => {
+          this.submitting.set(false);
+          this.attemptKey = this.newAttemptKey();
+          const name = request.customer.name;
+          const pickup = this.formatChipDate(request.pickupDate);
+          const total = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(result.totalPrice ?? this.totalPrice());
           this.modalService.showAlert(
-            `Thank you for your order, ${customerName}!\n\nConfirmation #${orderId}\n\nPickup Date: ${this.pickupDate()}\n\nYou can pay when you pick up your order. We'll send updates based on your notification preferences.`,
+            `Thank you for your order, ${name}!\n\nConfirmation #${result.orderId}\n\nPickup: ${pickup}\nPay ${total} when you pick it up.`,
             'Order Confirmed',
             'success'
           );
@@ -487,69 +400,52 @@ export class CartComponent implements OnInit {
           this.guestEmail.set('');
         },
         error: (err) => {
-          logger.error('Cloud sync failed. Check if backend is running:', err);
-          this.modalService.showAlert('We couldn\'t place your order just now. Please try again in a moment, or give us a call.', 'Something went wrong', 'error');
+          this.submitting.set(false);
+          logger.error('Pay-at-pickup order failed:', err);
+          this.modalService.showAlert(this.serverMessage(err, 'We couldn\'t place your order just now. Please try again in a moment, or give us a call.'), 'Something went wrong', 'error');
         }
       });
       return;
     }
 
-    // For card payments: Create Stripe session FIRST (don't create order yet)
-    // Order will be created by webhook after successful payment
-    logger.info('Initiating Stripe Checkout (order will be created after payment)...');
-    const email = customerEmail || 'customer@example.com';
-
-    // Pass order details as metadata to Stripe
-    const orderId = 'ORD-' + Math.random().toString(36).substring(7).toUpperCase();
-    const orderItems = this.buildOrderItems();
-    const itemsSubtotal = this.items().reduce((sum, item) =>
-      sum + (item.quantity * (this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item))),
-    0);
-    const tenantSlug = this.tenantService.tenant()?.slug || 'thedailydough';
-
-    const orderMetadata = {
-      orderId,
-      tenantSlug,
-      customerName,
-      customerPhone,
-      customerEmail,
-      notificationPreference: notificationPreference || 'NONE',
-      customerId: isGuest ? 'guest' : (this.authService.user()?.id || 'unknown'),
-      fulfillmentType: this.fulfillmentType(),
-      pickupDate: this.fulfillmentType() === 'PICKUP' ? this.pickupDate() : this.dispatchDate(),
-      notes: this.notes(),
-      promoCode: this.cartService.appliedPromo()?.code || '',
-      discountApplied: (this.cartService.promoDiscount() + this.cartService.loyaltyDiscount()).toString(),
-      shippingCost: this.shippingCost().toString(),
-      subtotal: itemsSubtotal.toString(),
-      orderItems: JSON.stringify(orderItems)
-    };
-
-    // Prepare items for Stripe, marking subscriptions
-    const stripeItems = this.items().map(item => ({
-      name: this.itemDisplayName(item),
-      price: this.cartService.getItemUnitPrice(item) + this.cartService.getItemOptionsPrice(item),
-      quantity: item.quantity,
-      isSubscription: !!item.isSubscription,
-      recipeId: item.product.id,
-      packOptionId: item.packOption?.id
-    }));
-
-    this.cartService.createCheckoutSession(stripeItems, email, orderId, orderMetadata).subscribe({
+    // Card: the server prices the bag and starts a Stripe Checkout; the order
+    // is saved once Stripe confirms the payment.
+    this.cartService.createCheckoutSession(request).subscribe({
       next: (session) => {
-        logger.info('Stripe session created:', session);
         if (session.url) {
-          window.location.href = session.url; // Redirect to Stripe
+          window.location.href = session.url; // stays "submitting" while the browser leaves
+        } else {
+          this.submitting.set(false);
         }
       },
       error: (err) => {
+        this.submitting.set(false);
         logger.error('Stripe session creation failed:', err);
-        const serverReason: string | undefined = err?.error?.error || err?.error?.message;
-        const message = err?.status === 0
-          ? 'We couldn\'t reach the bakery\'s server to start the payment. Please check your connection and try again.'
-          : `We couldn\'t start the card payment. ${serverReason || 'Please try again in a moment.'}`;
-        this.modalService.showAlert(message, 'Payment Error', 'error');
+        this.modalService.showAlert(this.serverMessage(err, 'We couldn\'t start the card payment. Please try again in a moment.'), 'Payment Error', 'error');
       }
     });
   }
+
+  private newAttemptKey(): string {
+    return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 10 digits, or 11 starting with 1 (same as the server's normalizePhone for US numbers). */
+function isUsPhone(value: string): boolean {
+  const digits = value.replace(/\D/g, '');
+  return digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+}
+
+/** YYYY-MM-DD for today in the bakery's timezone. */
+function denverToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Denver' }).format(new Date());
+}
+
+function addDaysToDate(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }

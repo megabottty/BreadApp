@@ -384,15 +384,9 @@ export class ProfileComponent implements OnInit {
     });
   }
 
-  claimReviewPerk() {
-    this.cartService.applyPromoCode('FREELOAF');
-    this.modalService.showAlert('Your Free Loaf reward has been applied to your bag! 🥖', 'Reward Claimed', 'success');
-  }
-
-  claimLoafPerk() {
-    this.cartService.applyPromoCode('DOUGH8');
-    this.modalService.showAlert('Your $8 "Bread Addict" discount has been applied to your bag! 💸', 'Reward Claimed', 'success');
-  }
+  /** Claiming rewards is paused until they're applied (and limited) by the
+   * server; the progress bars still show. */
+  readonly rewardsClaimable: boolean = false;
 
   pauseSubscription(sub: Subscription) {
     this.runSubscriptionAction(sub.id, this.subscriptionService.pauseSubscription(sub.id), () => 'Your subscription is paused. Resume whenever you like.');

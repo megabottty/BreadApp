@@ -450,8 +450,15 @@ export function scaleRecipe(recipe: Recipe, currentUnits: number, targetUnits: n
 export interface OrderItem {
   recipeId: string;
   name: string;
+  /** Number of items baked (packs × pack size). */
   quantity: number;
   weightGrams: number;
+  /** Set on orders priced by the server (2026-11 onward). */
+  packCount?: number;
+  packSize?: number;
+  unitPrice?: number;
+  lineTotal?: number;
+  isSubscription?: boolean;
 }
 
 export interface Order {

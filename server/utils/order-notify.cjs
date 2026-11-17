@@ -74,12 +74,12 @@ const sendSms = async (to, body) => {
  * order: { id, customerName, customerPhone, customerEmail, notificationPreference,
  *          pickupDate, items, totalPrice, paymentStatus }
  */
-const sendCustomerConfirmation = async (order) => {
+const sendCustomerConfirmation = async (order, { skipSms = false } = {}) => {
   const pref = order.notificationPreference || 'NONE';
   const name = order.customerName || 'there';
   const paidLine = order.paymentStatus === 'PAID' ? 'You\'re all paid.' : 'You can pay when you pick it up.';
 
-  if (wantsSms(pref) && order.customerPhone) {
+  if (!skipSms && wantsSms(pref) && order.customerPhone) {
     await sendSms(
       order.customerPhone,
       `Hi ${name}, thanks for your order from The Daily Dough! Order #${order.id}` +
@@ -138,4 +138,15 @@ const sendBakerOrderEmail = async (supabase, tenantId, order) => {
   });
 };
 
-module.exports = { escapeHtml, sendCustomerConfirmation, sendBakerOrderEmail };
+/** The one text a new subscriber gets (instead of the plain order confirmation text). */
+const sendSubscriptionWelcome = async (order, subs, firstDateLabel) => {
+  if (!wantsSms(order.notificationPreference) || !order.customerPhone || subs.length === 0) return;
+  const what = subs.length === 1 ? `${subs[0].quantity} × ${subs[0].recipe_name}` : `${subs.length} weekly bakes`;
+  await sendSms(
+    order.customerPhone,
+    `Hi ${order.customerName || 'there'}, it's Megan at The Daily Dough 🍞 Your weekly subscription for ${what} is confirmed ` +
+    `(order #${order.id}). First pickup: ${firstDateLabel}. I'll text you each Thursday to confirm or skip.`
+  );
+};
+
+module.exports = { escapeHtml, sendCustomerConfirmation, sendBakerOrderEmail, sendSubscriptionWelcome };

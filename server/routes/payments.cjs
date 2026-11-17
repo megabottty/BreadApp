@@ -3,8 +3,14 @@ const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { normalizePhone } = require('../utils/phone.cjs');
 const bakerNotify = require('../utils/baker-notify.cjs');
-const { formatBakeDate, weekdayOf, addDays } = require('../utils/subscriptions.cjs');
+const { formatBakeDate } = require('../utils/subscriptions.cjs');
 const notificationPrefs = require('../utils/notification-prefs.cjs');
+const orderNotify = require('../utils/order-notify.cjs');
+const pricing = require('../utils/checkout-pricing.cjs');
+const stripeCheckout = require('../utils/stripe-checkout.cjs');
+const { optionalUser } = require('../utils/auth.cjs');
+
+const cents = (dollars) => Math.round((Number(dollars) || 0) * 100);
 
 // Initialize Supabase Client (for webhook order creation)
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -38,138 +44,178 @@ if (!stripeKey) {
   console.log(`[Stripe Init] Initializing with key: ${stripeKey.substring(0, 7)}...`);
 }
 const stripe = stripeKey && !stripeConfigProblem ? require('stripe')(stripeKey) : null;
-const twilio = require('twilio');
-const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-const twilioClient = (twilioAccountSid && twilioAuthToken)
-  ? twilio(twilioAccountSid, twilioAuthToken)
-  : null;
-
 const toIso = (unixTs) => (unixTs ? new Date(unixTs * 1000).toISOString() : null);
 
-// POST: Create a Stripe Checkout Session
-router.post('/create-checkout-session', async (req, res) => {
+// Where Stripe sends customers back to. Never fall back to localhost in production.
+const frontendUrlOrNull = () => {
+  const url = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4200');
+  return url ? url.replace(/\/$/, '') : null;
+};
+
+const DEFAULT_TENANT_SLUG = process.env.DEFAULT_TENANT_SLUG || 'thedailydough';
+
+const resolveCheckoutTenant = async (req, res, next) => {
+  if (!supabase) return res.status(500).json({ error: 'Database connection not configured' });
+  const slug = String(req.headers['x-tenant-slug'] || DEFAULT_TENANT_SLUG);
+  const { data: tenant } = await supabase.from('bakery_tenants').select('id, slug, name').eq('slug', slug).maybeSingle();
+  if (!tenant) return res.status(404).json({ error: 'Bakery not found' });
+  req.tenant = tenant;
+  next();
+};
+
+/** Order notices after a card order is saved (one text/email to the customer, the baker's alerts). */
+const checkoutNotify = {
+  onNewOrder: async (tenantId, order) => {
+    bakerNotify.notifyBaker(supabase, tenantId, 'newOrder', {
+      subject: `New order #${order.id} from ${order.customerName}`,
+      text: bakerNotify.newOrderText({
+        orderId: order.id,
+        customerName: order.customerName,
+        items: order.items,
+        pickupDate: order.pickupDate,
+        total: order.totalPrice,
+        paid: true
+      })
+    }).catch(err => console.warn('[BakerNotify] newOrder (card) failed:', err.message));
+    await notificationPrefs.seedFromCheckout(supabase, tenantId, order.customerId, {
+      phone: order.customerPhone,
+      email: order.customerEmail,
+      notificationPreference: order.notificationPreference
+    }).catch(err => console.warn('[Checkout] seed prefs failed:', err.message));
+    await orderNotify.sendCustomerConfirmation(order, { skipSms: !!order.subscriptionNoticeSent });
+    await orderNotify.sendBakerOrderEmail(supabase, tenantId, order);
+  },
+  onNewSubscriptions: async (tenantId, order, subs, firstDate) => {
+    await orderNotify.sendSubscriptionWelcome(order, subs, formatBakeDate(firstDate));
+  }
+};
+
+// POST: Create a Stripe Checkout Session. The browser sends what's in the bag
+// ({ lines: [{recipeId, packOptionId, quantity, addons, isSubscription}],
+// pickupDate, promoCode, customer: {...} }); prices come from the database.
+router.post('/create-checkout-session', resolveCheckoutTenant, async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ error: `Card payments are not set up yet: ${stripeConfigProblem || 'Stripe is not configured on the server.'}` });
   }
-
-  // FORCE TEST MODE CHECK
   const isLiveKey = process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_live');
   if (isLiveKey && process.env.NODE_ENV !== 'production') {
-    console.error('🛑 BLOCKING LIVE TRANSACTION: You are using a live key in a non-production environment!');
-    return res.status(403).json({
-      error: 'Live mode blocked for safety. Please use your sk_test_... key in the .env file for development.'
-    });
+    return res.status(403).json({ error: 'Live mode blocked for safety. Use your sk_test_... key in development.' });
   }
-
-  // Debug check for the current request
-  const currentKey = process.env.STRIPE_SECRET_KEY || '';
-  console.log(`[Stripe Debug] Creating session using key: ${currentKey.substring(0, 7)}...`);
-
-  const { items, customerEmail, orderId, metadata } = req.body;
-
-  // A subscription has to belong to a customer account so the recurring
-  // order can be linked, managed and cancelled; the UI never sends this for
-  // guests, but don't rely on the client.
-  const hasSubscriptionItem = Array.isArray(items) && items.some(item => item && item.isSubscription);
-  const customerId = metadata && metadata.customerId;
-  if (hasSubscriptionItem && (!customerId || customerId === 'guest' || customerId === 'unknown')) {
-    return res.status(400).json({ error: 'Subscriptions require an account. Please log in or create one, then try again.' });
+  const frontendUrl = frontendUrlOrNull();
+  if (!frontendUrl) {
+    console.error('[Checkout] FRONTEND_URL is not set; refusing to create a session that would redirect nowhere.');
+    return res.status(500).json({ error: 'Card payments are not set up yet. Please choose pay at pickup, or try again later.' });
   }
 
   try {
-    const lineItems = items.map(item => {
-      // Robustly get the price, handling different nested objects if necessary
-      const rawPrice = item.price || item.product?.price || 12;
-      const amountInCents = Math.round(Number(rawPrice) * 100);
-
-      return {
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: item.name || item.product?.name || 'Artisan Bake',
-          },
-          unit_amount: amountInCents,
-        },
-        quantity: item.quantity,
-      };
+    const user = await optionalUser(supabase, req);
+    const quote = await pricing.quoteCheckout(supabase, req.tenant.id, req.body || {}, {
+      customerId: user ? user.id : null,
+      normalizePhone
     });
+    // Card orders get a fresh random ID; Stripe sessions are never reused.
+    quote.orderId = pricing.newOrderId();
 
-    console.log(`[Stripe Debug] Line Items:`, JSON.stringify(lineItems.map(li => ({ name: li.price_data.product_data.name, qty: li.quantity }))));
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
-
-    // Build metadata for webhook (combine orderId + custom metadata)
-    const sessionMetadata = {
-      orderId: orderId || 'webhook-generated',
-      ...(metadata || {})
-    };
-
-    // The webhook creates one bakery_subscriptions row per recurring item; the
-    // generic orderItems list doesn't say which lines recur, so pass a compact
-    // list. Stripe caps each metadata value at 500 characters.
-    const subscriptionItems = items
-      .filter(item => item && item.isSubscription)
-      .map(item => ({
-        n: String(item.name || item.product?.name || 'Bread').slice(0, 60),
-        q: Number(item.quantity) || 1,
-        r: item.recipeId || item.product?.id || null,
-        p: Number(item.price || item.product?.price || 0)
-      }));
-    if (subscriptionItems.length > 0) {
-      let encoded = JSON.stringify(subscriptionItems);
-      while (encoded.length > 500 && subscriptionItems.length > 1) {
-        subscriptionItems.pop();
-        encoded = JSON.stringify(subscriptionItems);
-      }
-      if (encoded.length <= 500) sessionMetadata.subscriptionItems = encoded;
+    if (cents(quote.total) < 50) {
+      return res.status(400).json({ error: 'Card payments must be at least $0.50. Please choose pay at pickup for this order.' });
     }
 
-    // Build success URL based on whether we have orderId
-    const successUrl = orderId
-      ? `${frontendUrl}/order-success/${orderId}`
-      : `${frontendUrl}/order-success/pending`;
+    let couponId = null;
+    if (quote.discount > 0) {
+      const coupon = await stripe.coupons.create({
+        amount_off: cents(quote.discount),
+        currency: 'usd',
+        duration: 'once',
+        max_redemptions: 1,
+        name: quote.promo ? `Promo ${quote.promo.code}`.slice(0, 40) : 'Loyalty reward'
+      });
+      couponId = coupon.id;
+    }
 
-    // Determine if we need to use 'subscription' mode
-    const hasSubscription = items.some(item => item.isSubscription);
-    const mode = hasSubscription ? 'subscription' : 'payment';
-
-    const sessionOptions = {
-      payment_method_types: ['card'],
-      line_items: lineItems.map((li, index) => {
-        const item = items[index];
-        if (item.isSubscription) {
-          return {
-            ...li,
-            price_data: {
-              ...li.price_data,
-              recurring: { interval: 'week' }
-            }
-          };
-        }
-        return li;
-      }),
-      mode: mode,
-      success_url: successUrl,
-      cancel_url: `${frontendUrl}/cart?canceled=true`,
-      customer_email: customerEmail,
-      metadata: sessionMetadata,
-      payment_intent_data: mode === 'payment' ? {
-        metadata: sessionMetadata
-      } : undefined,
-      subscription_data: mode === 'subscription' ? {
-        metadata: sessionMetadata
-      } : undefined
-    };
-
-    const session = await stripe.checkout.sessions.create(sessionOptions);
-
-    console.log(`[Stripe Debug] Session created: ${session.id} with metadata:`, sessionMetadata);
-    res.json({ id: session.id, url: session.url });
+    const session = await stripe.checkout.sessions.create(stripeCheckout.buildSessionParams({
+      quote,
+      tenantId: req.tenant.id,
+      customerId: user ? user.id : null,
+      frontendUrl,
+      couponId
+    }));
+    console.log(`[Checkout] Session ${session.id} for order ${quote.orderId}: $${quote.total.toFixed(2)}`);
+    res.json({ id: session.id, url: session.url, orderId: quote.orderId, total: quote.total });
   } catch (error) {
-    console.error('[Stripe API Error]:', error.message);
-    res.status(500).json({ error: error.message });
+    if (error instanceof pricing.CheckoutError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    console.error('[Checkout] Session creation failed:', error.message);
+    res.status(500).json({ error: 'We couldn\'t start the card payment. Please try again in a moment.' });
+  }
+});
+
+// POST: Quote the bag (prices, discounts, total) without starting a payment.
+// The bag page uses this to show exactly what will be charged.
+router.post('/quote', resolveCheckoutTenant, async (req, res) => {
+  try {
+    const user = await optionalUser(supabase, req);
+    const recipesQuote = await pricing.quoteCheckout(supabase, req.tenant.id, req.body || {}, {
+      customerId: user ? user.id : null,
+      priceOnly: true
+    });
+    res.json({
+      subtotal: recipesQuote.subtotal,
+      promoDiscount: recipesQuote.promoDiscount,
+      loyaltyDiscount: recipesQuote.loyaltyDiscount,
+      discount: recipesQuote.discount,
+      total: recipesQuote.total,
+      promo: recipesQuote.promo ? { code: recipesQuote.promo.code, description: recipesQuote.promo.description } : null
+    });
+  } catch (error) {
+    if (error instanceof pricing.CheckoutError) return res.status(error.status).json({ error: error.message });
+    console.error('[Checkout] Quote failed:', error.message);
+    res.status(500).json({ error: 'Could not price your bag right now.' });
+  }
+});
+
+// GET: Is this checkout paid, and what was ordered? Used by the confirmation
+// page. Needs the Stripe session id from the success URL, so it can't be used
+// to look up someone else's order. If the webhook hasn't saved the order yet,
+// this saves it (same idempotent code path as the webhook).
+router.get('/checkout-status', async (req, res) => {
+  if (!stripe || !supabase) return res.status(500).json({ error: 'Payments are not configured' });
+  const sessionId = String(req.query.session_id || '');
+  const orderId = String(req.query.order_id || '');
+  if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return res.status(400).json({ error: 'Missing checkout session' });
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!session || (session.metadata?.orderId && session.metadata.orderId !== orderId)) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (!stripeCheckout.isPaid(session)) return res.json({ paid: false });
+
+    await stripeCheckout.fulfillCheckoutSession({ stripe, supabase, notify: checkoutNotify }, session);
+    const { data: row } = await supabase
+      .from('bakery_orders')
+      .select('order_id, customer_name, customer_phone, customer_email, notification_preference, pickup_date, items, total_price, notes, payment_status, created_at')
+      .eq('order_id', session.metadata.orderId)
+      .maybeSingle();
+    res.json({
+      paid: true,
+      order: row ? {
+        id: row.order_id,
+        customerName: row.customer_name,
+        customerPhone: row.customer_phone,
+        customerEmail: row.customer_email,
+        notificationPreference: row.notification_preference,
+        pickupDate: row.pickup_date,
+        type: 'PICKUP',
+        items: row.items || [],
+        totalPrice: Number(row.total_price) || 0,
+        notes: row.notes,
+        paymentStatus: row.payment_status,
+        createdAt: row.created_at
+      } : null
+    });
+  } catch (error) {
+    console.error('[Checkout] Status check failed:', error.message);
+    res.status(500).json({ error: 'Could not confirm the order yet' });
   }
 });
 
@@ -177,327 +223,40 @@ router.post('/create-checkout-session', async (req, res) => {
 router.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured' });
   }
 
   let event;
-
   try {
-    // Verify webhook signature
     if (webhookSecret) {
-      if (!sig) {
-        return res.status(400).send('Missing Stripe signature header');
-      }
+      if (!sig) return res.status(400).send('Missing Stripe signature header');
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } else if (process.env.NODE_ENV === 'production') {
-      // In production, reject unverified webhooks to avoid forgery
       console.error('[Stripe Webhook] No webhook secret configured in production. Rejecting unverified webhook.');
       return res.status(500).send('Webhook secret not configured');
     } else {
-      // For development without webhook secret (NOT RECOMMENDED in production)
       console.warn('[Stripe Webhook] No webhook secret configured - accepting unverified webhook (development only)');
-      const payload = Buffer.isBuffer(req.body)
-        ? req.body.toString('utf8')
-        : JSON.stringify(req.body || {});
+      const payload = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body || {});
       event = JSON.parse(payload);
     }
   } catch (err) {
     console.error(`[Stripe Webhook Error] ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    return res.status(400).send('Webhook Error: invalid signature');
   }
 
-  // Handle the event
-  console.log(`[Stripe Webhook] Received event: ${event.type}`);
+  console.log(`[Stripe Webhook] ${event.type} ${event.id}`);
 
-  if (event.type === 'checkout.session.completed') {
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
     const session = event.data.object;
-    console.log(`[Stripe Webhook] Payment successful for session: ${session.id}`);
-    console.log(`[Stripe Webhook] Metadata:`, session.metadata);
-
-    // Create order from metadata
-    const metadata = session.metadata;
-    const orderId = metadata.orderId || ('ORD-' + Math.random().toString(36).substring(7).toUpperCase());
-    const tenantSlug = metadata.tenantSlug || 'the-daily-dough';
-    let tenantId = null;
-    if (supabase && tenantSlug) {
-      const { data: tenant, error } = await supabase
-        .from('bakery_tenants')
-        .select('id, slug')
-        .eq('slug', tenantSlug)
-        .single();
-      if (error || !tenant) {
-        console.warn(`[Stripe Webhook] Tenant not found for slug: ${tenantSlug}`);
-      } else {
-        tenantId = tenant.id;
-      }
-    }
-
-    let parsedItems = [];
-    if (metadata.orderItems) {
-      try {
-        parsedItems = JSON.parse(metadata.orderItems);
-      } catch (err) {
-        console.warn('[Stripe Webhook] Failed to parse orderItems metadata:', err);
-      }
-    }
-
-    // Construct order from metadata
-    const newOrder = {
-      id: orderId,
-      customerId: metadata.customerId || 'guest',
-      customerName: metadata.customerName || 'Customer',
-      customerPhone: metadata.customerPhone || 'UNKNOWN',
-      customerEmail: metadata.customerEmail || '',
-      notificationPreference: metadata.notificationPreference || 'NONE',
-      type: metadata.fulfillmentType || 'PICKUP',
-      orderSource: metadata.orderSource || 'ONLINE',
-      status: 'PENDING',
-      paymentStatus: 'PAID',
-      pickupDate: metadata.pickupDate,
-      tableNumber: metadata.tableNumber,
-      notes: metadata.notes,
-      subtotal: parseFloat(metadata.subtotal || '0'),
-      taxAmount: parseFloat(metadata.taxAmount || '0'),
-      totalPrice: session.amount_total / 100, // Stripe amount is in cents
-      promoCode: metadata.promoCode,
-      discountApplied: parseFloat(metadata.discountApplied || '0'),
-      shippingCost: parseFloat(metadata.shippingCost || '0'),
-      paymentMethod: {
-        brand: session.payment_method_details?.card?.brand || 'card',
-        last4: session.payment_method_details?.card?.last4 || '****'
-      },
-      createdAt: new Date().toISOString()
-    };
-
-    console.log(`[Stripe Webhook] Order created:`, newOrder);
-    if (supabase && tenantId) {
-      // Create one subscription row per recurring item in a subscription-mode session
-      if (session.mode === 'subscription' && session.subscription) {
-        try {
-          let subscriptionItems = [];
-          if (metadata.subscriptionItems) {
-            try { subscriptionItems = JSON.parse(metadata.subscriptionItems); } catch { subscriptionItems = []; }
-          }
-          if (subscriptionItems.length === 0) {
-            // Older sessions (no subscriptionItems metadata): fall back to the first order line.
-            const first = parsedItems[0] || {};
-            subscriptionItems = [{ n: first.name || 'Weekly bread', q: Number(first.quantity) || 1, r: first.recipeId || null, p: newOrder.totalPrice }];
-          }
-
-          const today = new Date().toISOString().split('T')[0];
-          const chosenDate = /^\d{4}-\d{2}-\d{2}$/.test(metadata.pickupDate || '') ? metadata.pickupDate : addDays(today, 7);
-          const weekday = weekdayOf(chosenDate);
-          const normalizedPhone = normalizePhone(newOrder.customerPhone);
-          const customerEmail = newOrder.customerEmail || session.customer_details?.email || session.customer_email || null;
-
-          const created = [];
-          for (const item of subscriptionItems) {
-            const { data: sub, error: subErr } = await supabase
-              .from('bakery_subscriptions')
-              .insert({
-                tenant_id: tenantId,
-                customer_id: newOrder.customerId,
-                recipe_id: item.r || null,
-                recipe_name: item.n || 'Weekly bread',
-                quantity: item.q || 1,
-                frequency: 'WEEKLY',
-                price: Number(((item.p || 0) * (item.q || 1)).toFixed(2)),
-                start_date: today,
-                next_bake_date: chosenDate,
-                pickup_weekday: weekday === 1 || weekday === 2 ? weekday : null,
-                customer_name: newOrder.customerName,
-                customer_email: customerEmail,
-                customer_phone: normalizedPhone,
-                stripe_subscription_id: session.subscription,
-                skipped_dates: [],
-                status: 'ACTIVE'
-              })
-              .select()
-              .single();
-            if (subErr) console.error('[Stripe Webhook] Failed to create subscription record:', subErr.message);
-            else created.push(sub);
-          }
-          console.log(`[Stripe Webhook] Subscription records created: ${created.map(s => s.id).join(', ') || 'none'}`);
-
-          await notificationPrefs.seedFromCheckout(supabase, tenantId, newOrder.customerId, {
-            phone: normalizedPhone,
-            email: customerEmail,
-            notificationPreference: newOrder.notificationPreference
-          });
-
-          const wantsSms = newOrder.notificationPreference === 'SMS' || newOrder.notificationPreference === 'BOTH';
-          if (created.length > 0 && twilioClient && wantsSms && normalizedPhone) {
-            const first = created[0];
-            const what = created.length === 1
-              ? `${first.quantity} × ${first.recipe_name}`
-              : `${created.length} weekly bakes`;
-            twilioClient.messages.create({
-              body: `Hi ${newOrder.customerName}, it's Megan at The Daily Dough 🍞 Your weekly subscription for ${what} is confirmed. First pickup: ${formatBakeDate(chosenDate)}. I'll text you each Thursday to confirm or skip.`,
-              from: twilioPhoneNumber,
-              to: normalizedPhone
-            }).catch(e => console.error('[Twilio Subscription Error]', e.message));
-          }
-        } catch (subCatch) {
-          console.error('[Stripe Webhook] Subscription creation catch:', subCatch);
-        }
-      }
-
-      const buildOrderInsert = (includeNotificationFields = true) => ({
-        tenant_id: tenantId,
-        order_id: newOrder.id,
-        customer_name: newOrder.customerName,
-        customer_phone: newOrder.customerPhone,
-        ...(includeNotificationFields ? {
-          customer_email: newOrder.customerEmail,
-          notification_preference: newOrder.notificationPreference
-        } : {}),
-        customer_id: newOrder.customerId,
-        total_price: newOrder.totalPrice,
-        fulfillment_type: newOrder.type,
-        items: parsedItems,
-        notes: newOrder.notes,
-        pickup_date: newOrder.pickupDate,
-        order_source: newOrder.orderSource || 'ONLINE',
-        status: newOrder.status || 'PENDING',
-        payment_status: newOrder.paymentStatus || 'PAID',
-        table_number: newOrder.tableNumber,
-        promo_code: newOrder.promoCode,
-        discount_applied: newOrder.discountApplied,
-        payment_method: newOrder.paymentMethod
-      });
-
-      const insertOrder = async (includeNotificationFields = true) => (
-        supabase
-          .from('bakery_orders')
-          .insert([buildOrderInsert(includeNotificationFields)])
-          .select()
-      );
-
-      let { data, error } = await insertOrder(true);
-
-      if (error && error.code === 'PGRST204') {
-        console.warn('[Stripe Webhook] Missing customer_email/notification_preference columns. Retrying insert without them.');
-        ({ data, error } = await insertOrder(false));
-      }
-
-      if (error) {
-        console.error('[Stripe Webhook] Failed to save order to database:', error.message, error.details);
-      } else {
-        console.log('[Stripe Webhook] Order saved successfully:', data?.[0]?.id);
-
-        bakerNotify.notifyBaker(supabase, tenantId, 'newOrder', {
-          subject: `New order #${newOrder.id} from ${newOrder.customerName}`,
-          text: bakerNotify.newOrderText({
-            orderId: newOrder.id,
-            customerName: newOrder.customerName,
-            items: parsedItems,
-            pickupDate: newOrder.pickupDate,
-            total: newOrder.totalPrice,
-            paid: true
-          })
-        }).catch(err => console.warn('[BakerNotify] newOrder (webhook) failed:', err.message));
-
-        // Send customer confirmation SMS
-        const shouldSendSms = (newOrder.notificationPreference === 'SMS' || newOrder.notificationPreference === 'BOTH');
-        const normalizedPhone = normalizePhone(newOrder.customerPhone);
-        if (twilioClient && shouldSendSms && normalizedPhone) {
-          console.log(`[Twilio] Sending SMS to normalized number: ${normalizedPhone}`);
-          twilioClient.messages.create({
-            body: `Hi ${newOrder.customerName}, thanks for your order #${newOrder.id}! We'll notify you when it's ready.`,
-            from: twilioPhoneNumber,
-            to: normalizedPhone
-          }).then(message => console.log(`[Twilio] SMS sent: ${message.sid}`))
-            .catch(e => console.error('[Twilio Error]', e.message));
-        }
-
-        try {
-          const { data: tenant } = await supabase
-            .from('bakery_tenants')
-            .select('name, email')
-            .eq('id', tenantId)
-            .single();
-
-          const recipient = process.env.ORDER_NOTIFICATION_EMAIL
-            || tenant?.email
-            || process.env.DEFAULT_CONTACT_EMAIL
-            || 'meganmuirhead@gmail.com';
-
-        const { sendEmail } = require('../utils/email.cjs');
-        const itemsHtml = (parsedItems || []).map(item => `
-          <tr>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.name || 'Item'}</td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${item.quantity || 0}</td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">$${(item.price || 0).toFixed(2)}</td>
-          </tr>
-        `).join('');
-
-        await sendEmail({
-          to: recipient,
-          subject: `New Order: ${newOrder.id}`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
-              <h2 style="color: #7D8F69;">New Order Received</h2>
-              <p><strong>Bakery:</strong> ${tenant?.name || 'Your Bakery'}</p>
-              <p><strong>Order ID:</strong> ${newOrder.id}</p>
-              <p><strong>Customer:</strong> ${newOrder.customerName || 'Guest'}</p>
-              <p><strong>Fulfillment:</strong> ${newOrder.type || 'Pickup'}</p>
-              <p><strong>Pickup Date:</strong> ${newOrder.pickupDate || 'N/A'}</p>
-              <hr>
-              <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                  <tr style="background: #f9f9f9;">
-                    <th style="text-align: left; padding: 6px 8px;">Item</th>
-                    <th style="text-align: left; padding: 6px 8px;">Qty</th>
-                    <th style="text-align: left; padding: 6px 8px;">Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${itemsHtml || '<tr><td colspan="3" style="padding: 6px 8px;">No items</td></tr>'}
-                </tbody>
-              </table>
-              <p style="margin-top: 16px;"><strong>Total:</strong> $${(newOrder.totalPrice || 0).toFixed(2)}</p>
-            </div>
-          `
-        });
-
-        const preference = newOrder.notificationPreference || 'NONE';
-        const shouldSendEmail = preference === 'EMAIL' || preference === 'BOTH';
-
-        if (shouldSendEmail && newOrder.customerEmail) {
-          await sendEmail({
-            to: newOrder.customerEmail,
-            subject: `Order Confirmation #${newOrder.id}`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px;">
-                <h2 style="color: #7D8F69;">Thanks for your order!</h2>
-                <p>Hi ${newOrder.customerName || 'there'},</p>
-                <p>We received your order. Your confirmation number is <strong>#${newOrder.id}</strong>.</p>
-                <p>We'll let you know as soon as it's ready.</p>
-              </div>
-            `
-          });
-        }
-
-        const shouldSendSms = preference === 'SMS' || preference === 'BOTH';
-        if (shouldSendSms && newOrder.customerPhone) {
-          if (twilioClient && twilioPhoneNumber) {
-            await twilioClient.messages.create({
-              body: `Hi ${newOrder.customerName || 'there'}, thanks for your order from The Daily Dough! Your order ID is #${newOrder.id}. We'll notify you when it's ready.`,
-              from: twilioPhoneNumber,
-              to: newOrder.customerPhone
-            });
-          } else {
-            console.warn('[Order SMS] Twilio not configured. Skipping SMS notification.');
-          }
-        }
-        } catch (emailError) {
-          console.error('[Order Email] Failed to send notification:', emailError);
-        }
-      }
-    } else {
-      console.warn('[Stripe Webhook] Skipping order save (Supabase not configured or tenant missing).');
+    if (!supabase) return res.status(500).json({ error: 'Database connection not configured' });
+    try {
+      const result = await stripeCheckout.fulfillCheckoutSession({ stripe, supabase, notify: checkoutNotify }, session);
+      console.log(`[Stripe Webhook] Session ${session.id}: order ${result.orderId} ${result.created ? 'saved' : (result.unpaid ? 'not paid yet' : 'already saved')}`);
+    } catch (err) {
+      // A paid order we couldn't save: answer 500 so Stripe retries (for up to 3 days).
+      console.error(`[Stripe Webhook] FAILED to save paid session ${session.id}:`, err.message);
+      return res.status(500).json({ error: 'Order could not be saved; please retry' });
     }
   }
 

@@ -25,7 +25,9 @@
       <div class="customer-info">
         <h3>Details</h3>
         <p><strong>Name:</strong> {{ o.customerName || 'Friend' }}</p>
-        <p><strong>Fulfillment:</strong> {{ o.type || 'Pickup' }}</p>
+        @if (o.pickupDate) {
+          <p><strong>Pickup:</strong> {{ o.pickupDate | date:'EEEE, MMMM d':'UTC' }}</p>
+        }
         @if (o.notes) {
           <p><strong>Notes:</strong> {{ o.notes }}</p>
         }
@@ -33,10 +35,13 @@
 
       <div class="order-items">
         <h3>Items</h3>
-        @for (item of o.items; track item.name) {
+        @for (item of o.items; track $index) {
           <div class="item-row">
-            <span class="item-qty">{{ item.quantity }}x</span>
+            <span class="item-qty">{{ item.packCount ?? item.quantity }}x</span>
             <span class="item-name">{{ item.name }}</span>
+            @if (item.lineTotal != null) {
+              <span class="item-price">{{ item.lineTotal | currency }}</span>
+            }
           </div>
         } @empty {
           <p>Handcrafted Artisan Bakes</p>

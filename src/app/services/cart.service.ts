@@ -1,9 +1,7 @@
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { CalculatedRecipe, Order, PromoCode, PackOption } from '../logic/bakers-math';
+import { CalculatedRecipe, Order, PackOption } from '../logic/bakers-math';
 import { resolvePackOptions } from '../logic/pack-options';
-import { SubscriptionService } from './subscription.service';
-import { AuthService } from './auth.service';
 import { ModalService } from './modal.service';
 import { TenantService } from './tenant.service';
 
@@ -36,6 +34,51 @@ export interface CartItem {
   packOption?: PackOption;
 }
 
+/** One bag line as the server prices it. */
+export interface CheckoutLine {
+  recipeId: string;
+  packOptionId: string | null;
+  quantity: number;
+  addons: string[];
+  isSubscription: boolean;
+}
+
+export interface CheckoutCustomer {
+  name: string;
+  phone: string;
+  email: string;
+  notes: string;
+  notificationPreference: 'SMS' | 'EMAIL' | 'BOTH';
+}
+
+export interface CheckoutRequest {
+  lines: CheckoutLine[];
+  pickupDate: string;
+  promoCode?: string;
+  customer: CheckoutCustomer;
+  /** Same key for retries of one attempt, so a double tap can't place two orders. */
+  attemptKey: string;
+}
+
+export interface CheckoutQuote {
+  subtotal: number;
+  promoDiscount: number;
+  loyaltyDiscount: number;
+  discount: number;
+  total: number;
+  promo: { code: string; description: string | null } | null;
+}
+
+export interface AppliedPromo {
+  code: string;
+  description: string;
+}
+
+export interface CheckoutStatus {
+  paid: boolean;
+  order?: Order | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -47,9 +90,6 @@ export class CartService {
   private apiUrl = environment.apiUrl + '/orders';
   private paymentUrl = environment.apiUrl + '/payments';
   private recipeUrl = environment.apiUrl + '/orders/recipes';
-  private promoUrl = environment.apiUrl + '/orders/promos';
-
-  private availablePromos = signal<PromoCode[]>([]);
 
   private tenantService = inject(TenantService);
 
@@ -58,15 +98,23 @@ export class CartService {
     return new HttpHeaders().set('x-tenant-slug', slug);
   }
 
-  getOrderById(orderId: string) {
-    return this.http.get<Order>(`${this.apiUrl}/${orderId}`, { headers: this.headers });
+  /** Confirmation page: is this card checkout paid, and what was ordered. */
+  getCheckoutStatus(orderId: string, sessionId: string) {
+    return this.http.get<CheckoutStatus>(`${this.paymentUrl}/checkout-status`, {
+      params: { order_id: orderId, session_id: sessionId }
+    });
   }
 
   fulfillmentType = signal<FulfillmentType>('PICKUP');
   zipCode = signal<string>('');
   notes = signal<string>('');
 
-  appliedPromo = signal<PromoCode | null>(null);
+  /** A promo code the server accepted for this bag. */
+  appliedPromo = signal<AppliedPromo | null>(null);
+
+  /** The server's price for the current bag (null until fetched, or if it failed). */
+  serverQuote = signal<CheckoutQuote | null>(null);
+  private quoteRequestId = 0;
 
   // Perks / Loyalty
   totalLoavesPurchased = signal<number>(0);
@@ -84,41 +132,9 @@ export class CartService {
     this.cartItems().reduce((acc, item) => acc + (item.quantity * this.getPackSize(item)), 0)
   );
 
-  /**
-   * Off until the server applies discounts to the actual charge (launch plan,
-   * Phase 1). While off, the bag never shows a price lower than what Stripe
-   * or the pay-at-pickup order records.
-   */
-  readonly discountsEnabled: boolean = false;
-
-  promoDiscount = computed((): number => {
-    const promo = this.appliedPromo();
-    if (!this.discountsEnabled || !promo) return 0;
-
-    const subtotal = this.cartItems().reduce((acc, item) => acc + (item.quantity * this.getItemUnitPrice(item)), 0);
-
-    if (promo.type === 'FIXED') {
-      return promo.value;
-    } else if (promo.type === 'PERCENT') {
-      return subtotal * (promo.value / 100);
-    } else if (promo.type === 'FREE_LOAF') {
-      // Subtract the price of one loaf (assumed standard price or cheapest loaf in cart)
-      if (this.cartItems().length === 0) return 0;
-      const prices = this.cartItems().map(i => i.product.price || 12);
-      return Math.max(...prices);
-    }
-    return 0;
-  });
-
-  loyaltyDiscount = computed((): number => {
-    if (!this.discountsEnabled) return 0;
-    const qualifiesForLoaves = this.totalLoavesPurchased() >= 10;
-    const qualifiesForOrders = this.totalOrders() >= 10 && this.qualifyingOrders() >= 10;
-    if (qualifiesForLoaves || qualifiesForOrders) {
-      return 8;
-    }
-    return 0;
-  });
+  /** Discounts are decided by the server (promo codes from the dashboard). */
+  promoDiscount = computed((): number => this.serverQuote()?.promoDiscount ?? 0);
+  loyaltyDiscount = computed((): number => this.serverQuote()?.loyaltyDiscount ?? 0);
 
   totalWeight = computed(() =>
     this.cartItems().reduce((acc, item) => {
@@ -141,12 +157,13 @@ export class CartService {
       const optionsPrice = (item.selectedOptions || []).reduce((sum, opt) => sum + opt.price, 0);
       return acc + (item.quantity * (this.getItemUnitPrice(item) + optionsPrice));
     }, 0);
-    const total = itemsTotal + this.shippingCost() - this.promoDiscount() - this.loyaltyDiscount();
-    return Math.max(0, total);
+    // The server's total is what gets charged; the local sum is only a
+    // placeholder while the quote loads (and matches it when prices are current).
+    const quote = this.serverQuote();
+    if (quote) return quote.total;
+    return Math.max(0, itemsTotal + this.shippingCost());
   });
 
-  private subscriptionService = inject(SubscriptionService);
-  private authService = inject(AuthService);
 
   /** Chosen pickup day. Lives here (not in the cart page) so it is saved
    * with the bag and survives creating an account mid-checkout. */
@@ -159,11 +176,12 @@ export class CartService {
     this.loadCart();
     this.isInitialLoad = false;
 
-    // Automatically load promos once tenant is identified
+    // Ask the server what this bag costs whenever its contents or promo change.
     effect(() => {
-      if (this.tenantService.tenant()) {
-        this.loadPromos();
-      }
+      const lines = this.checkoutLines();
+      const promoCode = this.appliedPromo()?.code;
+      this.tenantService.tenant();
+      this.refreshQuote(lines, promoCode);
     });
 
     // Save the bag whenever any of its signals change.
@@ -172,77 +190,65 @@ export class CartService {
     });
   }
 
-  loadPromos() {
-    const slug = this.tenantService.tenant()?.slug;
-    if (!slug) {
-      // If tenant isn't loaded yet, don't fire the request.
-      // The constructor/effect or component will trigger this once tenant is identified.
+  /** What the server needs to price the bag: no prices, just choices. */
+  checkoutLines = computed<CheckoutLine[]>(() => this.cartItems()
+    .filter(item => !!item.product.id)
+    .map(item => ({
+      recipeId: item.product.id as string,
+      packOptionId: this.resolvePackOption(item)?.id ?? null,
+      quantity: item.quantity,
+      addons: (item.selectedOptions || []).map(option => option.name),
+      isSubscription: !!item.isSubscription
+    })));
+
+  private refreshQuote(lines: CheckoutLine[], promoCode: string | undefined): void {
+    const requestId = ++this.quoteRequestId;
+    if (lines.length === 0) {
+      this.serverQuote.set(null);
       return;
     }
-
-    this.http.get<any[]>(`${this.apiUrl}/promos/all`, { headers: this.headers }).subscribe({
-      next: (data) => {
-        const mapped: PromoCode[] = data.map(p => ({
-          id: p.id,
-          code: p.code,
-          type: p.type,
-          value: p.value,
-          description: p.description,
-          isActive: p.is_active
-        }));
-        this.availablePromos.set(mapped);
+    this.http.post<CheckoutQuote>(`${this.paymentUrl}/quote`, { lines, promoCode }, { headers: this.headers }).subscribe({
+      next: (quote) => {
+        if (requestId === this.quoteRequestId) this.serverQuote.set(quote);
       },
-      error: (err) => {
-        if (err.status !== 404) {
-          console.error('Failed to load promos', err);
-        } else {
-          console.warn('[CartService] No promos found for this bakery (404).');
-        }
+      error: () => {
+        if (requestId === this.quoteRequestId) this.serverQuote.set(null);
       }
     });
   }
 
-  applyPromoCode(code: string): boolean {
-    const normalized = code.toUpperCase().trim();
-
-    const match = this.availablePromos().find(p => p.code === normalized && p.isActive !== false);
-    if (match) {
-      this.appliedPromo.set(match);
-      return true;
-    }
-
-    // Fallback/Legacy codes for loyalty if not in DB yet
-    const fallbackPromos: PromoCode[] = [
-      { code: 'BREADFRIEND', type: 'FIXED', value: 5, description: '$5 Off for Friends' },
-      { code: 'FREELOAF', type: 'FREE_LOAF', value: 0, description: 'One Free Loaf' },
-      { code: 'DOUGH8', type: 'FIXED', value: 8, description: 'Bread Addict Reward' }
-    ];
-
-    const fallbackMatch = fallbackPromos.find(p => p.code === normalized);
-    if (fallbackMatch) {
-      this.appliedPromo.set(fallbackMatch);
-      return true;
-    }
-
-    return false;
+  /** Checks a promo code with the server; resolves to an error message, or null when applied. */
+  applyPromoCode(code: string): Promise<string | null> {
+    const promoCode = code.toUpperCase().trim();
+    if (!promoCode) return Promise.resolve('Enter a promo code.');
+    return new Promise(resolve => {
+      this.http.post<CheckoutQuote>(`${this.paymentUrl}/quote`, { lines: this.checkoutLines(), promoCode }, { headers: this.headers }).subscribe({
+        next: (quote) => {
+          if (!quote.promo) {
+            resolve('That promo code isn\'t valid.');
+            return;
+          }
+          this.serverQuote.set(quote);
+          this.appliedPromo.set({ code: quote.promo.code, description: quote.promo.description || '' });
+          resolve(null);
+        },
+        error: (err: { error?: { error?: string } }) => resolve(err?.error?.error || 'That promo code isn\'t valid.')
+      });
+    });
   }
 
   removePromo() {
     this.appliedPromo.set(null);
   }
 
-  saveOrderToDatabase(order: Order) {
-    return this.http.post(this.apiUrl, order, { headers: this.headers });
+  /** Pay at pickup: the server prices the bag and returns the new order's ID. */
+  placePayAtPickupOrder(request: CheckoutRequest) {
+    return this.http.post<{ orderId: string; totalPrice: number; duplicate?: boolean }>(this.apiUrl, request, { headers: this.headers });
   }
 
-  createCheckoutSession(items: any[], customerEmail: string, orderId?: string, metadata?: any) {
-    const payload = {
-      items,
-      customerEmail,
-      orderId,
-      metadata
-    };
-    return this.http.post<{ id: string, url: string }>(`${this.paymentUrl}/create-checkout-session`, payload);
+  createCheckoutSession(request: CheckoutRequest) {
+    return this.http.post<{ id: string; url: string; orderId: string; total: number }>(
+      `${this.paymentUrl}/create-checkout-session`, request, { headers: this.headers });
   }
 
   private loadLoyalty() {
@@ -486,17 +492,9 @@ export class CartService {
   }
 
   clearCart() {
-    // Process subscriptions before clearing
-    const user = this.authService.user();
-    if (user) {
-      this.cartItems().forEach(item => {
-        if (item.isSubscription) {
-          this.subscriptionService.createSubscription(user.id, item.product, item.quantity);
-        }
-      });
-    }
-
+    // Weekly subscriptions are created by the server when Stripe confirms payment.
     this.cartItems.set([]);
+    this.serverQuote.set(null);
     this.notes.set('');
     this.appliedPromo.set(null);
     this.saveCart();

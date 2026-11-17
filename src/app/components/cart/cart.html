@@ -255,9 +255,7 @@
               <button type="button" class="inline-add" (click)="noteOpen.set(true)">+ Add a note</button>
             }
 
-            @if (!cartService.discountsEnabled) {
-              <!-- Promo codes are paused until the server applies them to the charge. -->
-            } @else if (cartService.appliedPromo(); as promo) {
+            @if (cartService.appliedPromo(); as promo) {
               <div class="applied-promo" role="status">
                 <span class="promo-info"><strong>{{promo.code}}</strong> · {{promo.description}}</span>
                 <button class="btn-remove-promo" (click)="removePromo()" aria-label="Remove promo code">×</button>
@@ -300,7 +298,7 @@
         </ul>
         <div class="summary-row">
           <span>Subtotal</span>
-          <span>{{ itemsSubtotal() | currency }}</span>
+          <span>{{ (cartService.serverQuote()?.subtotal ?? itemsSubtotal()) | currency }}</span>
         </div>
         <div class="summary-row">
           <span>Local pickup</span>
@@ -308,13 +306,13 @@
         </div>
         @if (cartService.promoDiscount() > 0) {
           <div class="summary-row discount">
-            <span>Promo Discount ({{cartService.appliedPromo()?.code}})</span>
+            <span>Promo ({{cartService.appliedPromo()?.code}})</span>
             <span>-{{cartService.promoDiscount() | currency}}</span>
           </div>
         }
         @if (cartService.loyaltyDiscount() > 0) {
           <div class="summary-row discount">
-            <span>Loyalty Discount ($8 Off!)</span>
+            <span>Loyalty reward</span>
             <span>-{{cartService.loyaltyDiscount() | currency}}</span>
           </div>
         }
@@ -338,20 +336,24 @@
           </div>
         }
 
-        <button class="btn-checkout" [disabled]="!isComplete()" (click)="checkout()">
-          {{ checkoutLabel() }}
+        <button class="btn-checkout" [disabled]="!isComplete() || submitting()" (click)="checkout()">
+          {{ submitting() ? 'Placing your order…' : checkoutLabel() }}
         </button>
       </div>
     </div>
 
     <!-- Phones: the total and the one button stay in reach while scrolling -->
-    <div class="checkout-bar" [class.blocked]="!isComplete()" (click)="!isComplete() && revealBlockedSection(missingItems()[0].section)">
+    <!-- Not [disabled]: a disabled button swallows the tap, and on phones the
+         tap is how you get taken to whatever is still missing. -->
+    <div class="checkout-bar" [class.blocked]="!isComplete()" (click)="onCheckoutBarTap()">
       <div class="checkout-bar-total">
         <span>{{ isComplete() ? 'Total' : (missingItems().length + ' to do') }}</span>
         <strong>{{ totalPrice() | currency }}</strong>
       </div>
-      <button class="btn-checkout btn-checkout-bar" [disabled]="!isComplete()" (click)="checkout()">
-        {{ isComplete() ? checkoutLabel() : missingItems()[0].message }}
+      <button type="button" class="btn-checkout btn-checkout-bar"
+              [attr.aria-disabled]="!isComplete() || submitting()"
+              (click)="$event.stopPropagation(); onCheckoutBarTap()">
+        {{ submitting() ? 'Placing your order…' : (firstMissing()?.message ?? checkoutLabel()) }}
       </button>
     </div>
   }

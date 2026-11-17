@@ -111,8 +111,8 @@
         </div>
         <div class="perk-footer">
           <span class="progress-text">{{reviewsCount() % 10}} / 10 Reviews</span>
-          @if (reviewsCount() >= 10 && (reviewsCount() % 10 === 0 || reviewsCount() > 0)) {
-            <button class="btn-claim" (click)="claimReviewPerk()">Claim Free Loaf</button>
+          @if (rewardsClaimable && reviewsCount() >= 10) {
+            <button class="btn-claim" disabled>Claim Free Loaf</button>
           }
         </div>
       </div>
@@ -128,8 +128,8 @@
         <div class="perk-footer">
           <span class="progress-text">{{loavesPurchased() % 10}} / 10 Loaves</span>
           <span class="progress-text">{{qualifyingOrders() % 10}} / 10 Orders over $10</span>
-          @if (loavesPurchased() >= 10 || (totalOrders() >= 10 && qualifyingOrders() >= 10)) {
-            <button class="btn-claim" (click)="claimLoafPerk()">Claim $8 Off</button>
+          @if (rewardsClaimable && (loavesPurchased() >= 10 || (totalOrders() >= 10 && qualifyingOrders() >= 10))) {
+            <button class="btn-claim" disabled>Claim $8 Off</button>
           }
         </div>
       </div>

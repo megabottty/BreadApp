@@ -5,7 +5,9 @@ const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 const { searchFoods } = require('../utils/usda.cjs');
 const pantry = require('../utils/pantry.cjs');
 const ssrCache = require('../utils/ssr-cache.cjs');
-const { requireCustomer, requireBaker, isBakerOf } = require('../utils/auth.cjs');
+const { requireCustomer, requireBaker, isBakerOf, optionalUser } = require('../utils/auth.cjs');
+const pricing = require('../utils/checkout-pricing.cjs');
+const { normalizePhone } = require('../utils/phone.cjs');
 const bakerNotify = require('../utils/baker-notify.cjs');
 const subscriptions = require('../utils/subscriptions.cjs');
 const notificationPrefs = require('../utils/notification-prefs.cjs');
@@ -164,18 +166,41 @@ router.post('/', async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
-  const orderData = req.body || {};
+  if (!req.tenantId) return res.status(400).json({ error: 'Bakery not identified' });
+  let orderData = req.body || {};
 
   try {
-    // Only the baker's own till/dashboard may record a payment, a status or
-    // an in-person order source. Storefront orders are always unpaid + pending.
+    // The baker's own till/dashboard sends a complete order (it may record a
+    // payment). A storefront pay-at-pickup order sends only what's in the bag;
+    // the server prices it, picks the ID, and it's always unpaid + pending.
     const fromBaker = await isBakerOf(supabase, req, req.tenantId);
     if (!fromBaker) {
-      orderData.paymentStatus = 'PENDING';
-      orderData.status = 'PENDING';
-      orderData.orderSource = 'ONLINE';
-      orderData.paymentMethod = null;
-      orderData.tableNumber = null;
+      const user = await optionalUser(supabase, req);
+      const quote = await pricing.quoteCheckout(supabase, req.tenantId, orderData, {
+        customerId: user ? user.id : null,
+        normalizePhone
+      });
+      if (quote.hasSubscription) {
+        return res.status(400).json({ error: 'Weekly subscriptions are paid by card. Please choose card payment.' });
+      }
+      orderData = {
+        id: quote.orderId,
+        customerId: user ? user.id : 'guest',
+        customerName: quote.customer.name,
+        customerPhone: quote.customer.phone,
+        customerEmail: quote.customer.email,
+        notificationPreference: quote.customer.notificationPreference,
+        type: 'PICKUP',
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
+        orderSource: 'ONLINE',
+        pickupDate: quote.pickupDate,
+        items: quote.lines.map(({ addons, ...line }) => line),
+        notes: quote.customer.notes,
+        totalPrice: quote.total,
+        promoCode: quote.promo ? quote.promo.code : null,
+        discountApplied: quote.discount
+      };
     }
     console.log('[Orders] Saving order', orderData.id, fromBaker ? '(baker)' : '(storefront)');
     const buildOrderInsert = (includeNotificationFields = true) => ({
@@ -216,11 +241,16 @@ router.post('/', async (req, res) => {
       ({ data, error } = await insertOrder(false));
     }
 
+    if (error && error.code === '23505' && !fromBaker) {
+      // Same checkout attempt sent twice (double tap / retry): it's already placed.
+      const { data: already } = await supabase.from('bakery_orders').select('*')
+        .eq('tenant_id', req.tenantId).eq('order_id', orderData.id).maybeSingle();
+      if (already) return res.status(200).json({ message: 'Order already placed', order: already, orderId: orderData.id, duplicate: true });
+    }
     if (error) {
       console.error('[Supabase Error] Order Insert Failed:', error.message, error.details);
       throw error;
     }
-    console.log('[Supabase Debug] Order saved successfully:', data[0].id);
 
     // Tell the baker (text/email per her settings); never blocks the order.
     bakerNotify.notifyBaker(supabase, req.tenantId, 'newOrder', {
@@ -254,10 +284,15 @@ router.post('/', async (req, res) => {
 
     res.status(201).json({
       message: 'Order saved to the cloud! ☁️🥖',
-      order: data[0]
+      order: data[0],
+      orderId: orderData.id,
+      totalPrice: orderData.totalPrice
     });
   } catch (error) {
-    console.error('Error saving order:', error);
+    if (error instanceof pricing.CheckoutError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    console.error('Error saving order:', error.message);
     res.status(500).json({ error: 'Failed to save order to database' });
   }
 });
