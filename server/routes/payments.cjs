@@ -8,7 +8,7 @@ const notificationPrefs = require('../utils/notification-prefs.cjs');
 const orderNotify = require('../utils/order-notify.cjs');
 const pricing = require('../utils/checkout-pricing.cjs');
 const stripeCheckout = require('../utils/stripe-checkout.cjs');
-const { optionalUser } = require('../utils/auth.cjs');
+const { optionalUser, requireBaker } = require('../utils/auth.cjs');
 
 const cents = (dollars) => Math.round((Number(dollars) || 0) * 100);
 
@@ -25,6 +25,14 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = (supabaseUrl && supabaseKey)
   ? createClient(supabaseUrl, supabaseKey)
   : null;
+// Platform billing (the bakery paying for the software). Baker only, and the
+// Stripe customer is always the one saved on the baker's own bakery -- never an
+// id from the URL or body, which would let anyone read or manage any customer.
+const bakerOnly = requireBaker(supabase);
+const bakeryStripeCustomer = async (tenantId) => {
+  const { data } = await supabase.from('bakery_tenants').select('stripe_account_id').eq('id', tenantId).maybeSingle();
+  return data?.stripe_account_id || null;
+};
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 // Why checkout can't run, in words a person can act on. Surfaced by
 // create-checkout-session so the storefront never has to guess.
@@ -291,12 +299,13 @@ router.post('/webhook', async (req, res) => {
 });
 
 // POST: Create Setup Session (for adding payment method)
-router.post('/create-setup-session', async (req, res) => {
+router.post('/create-setup-session', bakerOnly, async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured' });
   }
 
-  const { tenantId, email } = req.body;
+  const tenantId = req.bakerTenantId;
+  const email = req.authUser.email;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
 
   try {
@@ -320,7 +329,7 @@ router.post('/create-setup-session', async (req, res) => {
 });
 
 // POST: Confirm setup session and persist Stripe customer on tenant
-router.post('/confirm-setup-session', async (req, res) => {
+router.post('/confirm-setup-session', bakerOnly, async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured' });
   }
@@ -328,7 +337,7 @@ router.post('/confirm-setup-session', async (req, res) => {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
 
-  const { sessionId, tenantId } = req.body;
+  const { sessionId } = req.body;
   if (!sessionId) {
     return res.status(400).json({ error: 'sessionId is required' });
   }
@@ -339,9 +348,9 @@ router.post('/confirm-setup-session', async (req, res) => {
       return res.status(400).json({ error: 'Invalid setup session' });
     }
 
-    const resolvedTenantId = tenantId || session.metadata?.tenantId;
-    if (!resolvedTenantId) {
-      return res.status(400).json({ error: 'tenantId is required' });
+    const resolvedTenantId = req.bakerTenantId;
+    if (session.metadata?.tenantId !== resolvedTenantId) {
+      return res.status(403).json({ error: 'That setup session belongs to a different bakery' });
     }
 
     if (session.status !== 'complete') {
@@ -382,12 +391,15 @@ router.post('/confirm-setup-session', async (req, res) => {
 });
 
 // POST: Create Customer Portal Session (for managing payment methods)
-router.post('/create-portal-session', async (req, res) => {
+router.post('/create-portal-session', bakerOnly, async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured' });
   }
 
-  const { customerId } = req.body;
+  const customerId = await bakeryStripeCustomer(req.bakerTenantId);
+  if (!customerId) {
+    return res.status(400).json({ error: 'No billing profile set up yet' });
+  }
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
 
   try {
@@ -405,14 +417,15 @@ router.post('/create-portal-session', async (req, res) => {
 });
 
 // GET: Billing summary (payment method, invoices, next billing)
-router.get('/billing-summary/:customerId', async (req, res) => {
+router.get('/billing-summary/:customerId', bakerOnly, async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured' });
   }
 
-  const { customerId } = req.params;
+  // The :customerId in the URL is ignored; kept so older dashboards still match the route.
+  const customerId = await bakeryStripeCustomer(req.bakerTenantId);
   if (!customerId) {
-    return res.status(400).json({ error: 'customerId is required' });
+    return res.json({ paymentMethod: null, invoices: [], nextBillingDate: null, subscriptionStatus: null });
   }
 
   try {
@@ -471,6 +484,10 @@ router.get('/billing-summary/:customerId', async (req, res) => {
 
 // POST: Create Subscription with 14-day trial
 router.post('/create-subscription', async (req, res) => {
+  // Self-serve signup for new bakeries is off unless explicitly enabled.
+  if (process.env.ALLOW_BAKERY_SIGNUP !== 'true') {
+    return res.status(403).json({ error: 'New bakery sign-ups are closed' });
+  }
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured' });
   }

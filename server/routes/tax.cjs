@@ -7,6 +7,24 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY
 );
 
+const { requireBaker } = require('../utils/auth.cjs');
+
+// Every route here is the baker's own books. The bakery is always the signed-in
+// baker's (from their login), whatever x-tenant-id the browser sends.
+router.use(requireBaker(supabase), (req, _res, next) => {
+  req.headers['x-tenant-id'] = req.bakerTenantId;
+  next();
+});
+
+/** Copies only the named fields that were sent. */
+const pick = (body, fields) => {
+  const out = {};
+  for (const f of fields) if (body && body[f] !== undefined) out[f] = body[f];
+  return out;
+};
+
+const TAX_SETTING_FIELDS = ['sales_tax_rate', 'collect_sales_tax', 'state', 'locality', 'tax_exempt_categories'];
+
 const buildDefaultTaxSettings = (tenantId = null) => ({
   tenant_id: tenantId,
   sales_tax_rate: 0,
@@ -88,7 +106,7 @@ router.patch('/settings', async (req, res) => {
 
     const settings = {
       tenant_id: tenantId,
-      ...req.body,
+      ...pick(req.body, TAX_SETTING_FIELDS),
       updated_at: new Date().toISOString()
     };
 

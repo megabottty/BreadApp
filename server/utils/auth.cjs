@@ -37,17 +37,31 @@ const requireCustomer = (supabase) => async (req, res, next) => {
   next();
 };
 
-/** A signed-in BAKER, and (when the route resolved a tenant) the baker of that tenant. */
+/**
+ * Who the baker is comes ONLY from app_metadata ({ role: 'BAKER', tenant_id }),
+ * which can be set by the server (service key) but not by the user. Never
+ * from user_metadata: any signed-in user can edit that about themselves.
+ * Set it with server/scripts/set-baker.cjs.
+ */
+const bakerTenantOf = (user) => {
+  const meta = (user && user.app_metadata) || {};
+  return meta.role === 'BAKER' && typeof meta.tenant_id === 'string' && meta.tenant_id ? meta.tenant_id : null;
+};
+
+/**
+ * A signed-in BAKER. Sets req.bakerTenantId (the bakery they run) -- routes
+ * must scope reads/writes to that, never to a header or body value. When the
+ * route already resolved a tenant (req.tenantId from x-tenant-slug), it must match.
+ */
 const requireBaker = (supabase) => async (req, res, next) => {
   const result = await resolveUser(supabase, req);
   if (result.error) return res.status(result.status).json({ error: result.error });
-  const meta = result.user.user_metadata || {};
-  if (meta.role !== 'BAKER') {
+  const tenantId = bakerTenantOf(result.user);
+  if (!tenantId || (req.tenantId && req.tenantId !== tenantId)) {
     return res.status(403).json({ error: 'Only the baker can do that' });
   }
-  if (req.tenantId && meta.tenant_id && meta.tenant_id !== req.tenantId) {
-    return res.status(403).json({ error: 'Only the baker can do that' });
-  }
+  req.bakerTenantId = tenantId;
+  req.tenantId = req.tenantId || tenantId;
   req.customerId = result.user.id;
   req.authUser = result.user;
   next();
@@ -62,8 +76,8 @@ const isBakerOf = async (supabase, req, tenantId) => {
   if (!readBearer(req)) return false;
   const result = await resolveUser(supabase, req);
   if (result.error) return false;
-  const meta = result.user.user_metadata || {};
-  return meta.role === 'BAKER' && (!meta.tenant_id || !tenantId || meta.tenant_id === tenantId);
+  const bakerTenant = bakerTenantOf(result.user);
+  return !!bakerTenant && (!tenantId || bakerTenant === tenantId);
 };
 
 /** The verified signed-in user, or null for a guest (never throws). */
@@ -73,4 +87,4 @@ const optionalUser = async (supabase, req) => {
   return result.error ? null : result.user;
 };
 
-module.exports = { requireCustomer, requireBaker, readBearer, isBakerOf, optionalUser };
+module.exports = { requireCustomer, requireBaker, readBearer, isBakerOf, optionalUser, bakerTenantOf };

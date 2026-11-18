@@ -16,6 +16,21 @@ export interface User {
   tenant_id?: string;
 }
 
+/**
+ * The account's role. The server only trusts app_metadata (which users cannot
+ * edit); user_metadata is a display fallback for accounts not yet migrated.
+ */
+function roleOf(user: SupabaseUser): UserRole {
+  const role: unknown = user.app_metadata?.['role'] ?? user.user_metadata?.['role'];
+  return role === 'BAKER' ? 'BAKER' : 'CUSTOMER';
+}
+
+/** The bakery a baker runs, preferring the server-set app_metadata. */
+function tenantIdOf(user: SupabaseUser): string | undefined {
+  const id: unknown = user.app_metadata?.['tenant_id'] ?? user.user_metadata?.['tenant_id'];
+  return typeof id === 'string' && id ? id : undefined;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -124,7 +139,7 @@ export class AuthService {
     if (supabaseUser) {
       logger.debug('[Auth Debug] Supabase User Metadata:', supabaseUser.user_metadata);
 
-      const role = supabaseUser.user_metadata['role'] || 'CUSTOMER';
+      const role: UserRole = roleOf(supabaseUser);
       const onboardingCompleted = supabaseUser.user_metadata['onboarding_completed'];
       const bakerySlug = supabaseUser.user_metadata['bakery_slug'];
       const theme = supabaseUser.user_metadata['theme'];
@@ -134,7 +149,7 @@ export class AuthService {
         name: supabaseUser.user_metadata['full_name'] || supabaseUser.email?.split('@')[0] || 'User',
         email: supabaseUser.email || '',
         role: role,
-        tenant_id: supabaseUser.user_metadata['tenant_id']
+        tenant_id: tenantIdOf(supabaseUser)
       };
 
       logger.debug('[Auth Debug] Final User Object with Role:', user);
@@ -186,7 +201,7 @@ export class AuthService {
 
     if (data.user) {
       logger.info('[Auth Debug] Login successful, user metadata:', data.user.user_metadata);
-      const role = data.user.user_metadata['role'] as UserRole;
+      const role: UserRole = roleOf(data.user);
 
       // Update the currentUser signal immediately
       this.handleAuthChange(data.user);

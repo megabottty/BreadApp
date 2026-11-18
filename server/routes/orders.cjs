@@ -5,7 +5,7 @@ const { externalizeRecipeImages } = require('../utils/image-storage.cjs');
 const { searchFoods } = require('../utils/usda.cjs');
 const pantry = require('../utils/pantry.cjs');
 const ssrCache = require('../utils/ssr-cache.cjs');
-const { requireCustomer, requireBaker, isBakerOf, optionalUser } = require('../utils/auth.cjs');
+const { requireCustomer, requireBaker, isBakerOf, optionalUser, bakerTenantOf } = require('../utils/auth.cjs');
 const pricing = require('../utils/checkout-pricing.cjs');
 const { normalizePhone } = require('../utils/phone.cjs');
 const bakerNotify = require('../utils/baker-notify.cjs');
@@ -358,7 +358,7 @@ router.get('/recipes', async (req, res) => {
 // GET: Ingredient nutrition search (proxies USDA FoodData Central so the
 // browser never calls it directly — avoids CSP/CORS failures and keeps the key
 // server-side). No tenant required; results are the same for everyone.
-router.get('/ingredients/search', async (req, res) => {
+router.get('/ingredients/search', requireBaker(supabase), async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (q.length < 2 || q.length > 80) {
     return res.status(400).json({ error: 'Search term must be between 2 and 80 characters' });
@@ -387,7 +387,7 @@ router.get('/ingredients/search', async (req, res) => {
 // doesn't break; new frontend code should use /ingredients/pantry.
 
 // GET: Ingredient cost defaults
-router.get('/ingredients/costs', async (req, res) => {
+router.get('/ingredients/costs', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -422,7 +422,7 @@ router.get('/ingredients/costs', async (req, res) => {
 });
 
 // POST: Upsert ingredient cost defaults
-router.post('/ingredients/costs', async (req, res) => {
+router.post('/ingredients/costs', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -470,7 +470,7 @@ router.post('/ingredients/costs', async (req, res) => {
 
 // GET: The baker's pantry -- every ingredient she's priced, with its unit,
 // density and nutrition. Active (non-archived) items only.
-router.get('/ingredients/pantry', async (req, res) => {
+router.get('/ingredients/pantry', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -490,7 +490,7 @@ router.get('/ingredients/pantry', async (req, res) => {
 // PUT: Create or merge one pantry item by name. Single-item, not a batch
 // upsert -- see the comment on savePantryItem for why: a batch upsert would
 // blank out fields a partial patch didn't mean to touch.
-router.put('/ingredients/pantry', async (req, res) => {
+router.put('/ingredients/pantry', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -511,7 +511,7 @@ router.put('/ingredients/pantry', async (req, res) => {
 // DELETE: Soft-delete (archive) one pantry item. Never a hard delete -- a
 // recipe that still name-matches this ingredient would silently show $0
 // cost for it the next time it's opened.
-router.delete('/ingredients/pantry/:id', async (req, res) => {
+router.delete('/ingredients/pantry/:id', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -561,11 +561,9 @@ router.patch('/info', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
-  // The bakery being edited is the signed-in baker's own. requireBaker has
-  // already checked it matches the bakery named by x-tenant-slug (req.tenantId),
-  // so fall back to that for baker accounts without a tenant_id recorded.
-  const tenantId = req.authUser.user_metadata?.tenant_id || req.tenantId;
-  if (!tenantId || (req.headers['x-tenant-id'] && req.headers['x-tenant-id'] !== tenantId)) {
+  // The bakery being edited is always the signed-in baker's own.
+  const tenantId = req.bakerTenantId;
+  if (req.headers['x-tenant-id'] && req.headers['x-tenant-id'] !== tenantId) {
     return res.status(403).json({ error: 'Only the baker can do that' });
   }
   const updates = {};
@@ -613,7 +611,10 @@ router.patch('/info', requireBaker(supabase), async (req, res) => {
 
 // POST: Register a new bakery
 router.post('/register-bakery', async (req, res) => {
-  console.log('[DEBUG LOG] POST /api/orders/register-bakery hit with body:', req.body);
+  // Self-serve signup for new bakeries is off unless explicitly enabled.
+  if (process.env.ALLOW_BAKERY_SIGNUP !== 'true') {
+    return res.status(403).json({ error: 'New bakery sign-ups are closed' });
+  }
   if (!supabase) {
     console.error('[Supabase Error] Database connection not configured');
     return res.status(500).json({ error: 'Database connection not configured' });
@@ -657,7 +658,7 @@ router.post('/register-bakery', async (req, res) => {
 });
 
 // POST: Save/Update recipe
-router.post('/recipes', async (req, res) => {
+router.post('/recipes', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -702,12 +703,12 @@ router.post('/recipes', async (req, res) => {
     res.json(formatRecipeRow(data[0]));
   } catch (error) {
     console.error('Error saving recipe:', error);
-    res.status(500).json({ error: 'Failed to save recipe', details: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to save recipe' });
   }
 });
 
 // DELETE: Remove a recipe
-router.delete('/recipes/:id', async (req, res) => {
+router.delete('/recipes/:id', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -717,7 +718,8 @@ router.delete('/recipes/:id', async (req, res) => {
     const { error } = await supabase
       .from('bakery_recipes')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', req.bakerTenantId);
 
     if (error) {
       console.error('[Supabase Error] Recipe Deletion Failed:', error.message);
@@ -735,7 +737,7 @@ router.delete('/recipes/:id', async (req, res) => {
 // --- INVENTORY ROUTES ---
 
 // GET: All inventory for tenant
-router.get('/inventory', async (req, res) => {
+router.get('/inventory', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -756,8 +758,7 @@ router.get('/inventory', async (req, res) => {
 });
 
 // POST: Update inventory stock
-router.post('/inventory', async (req, res) => {
-  console.log('[Inventory Debug] POST /api/orders/inventory hit with body:', req.body);
+router.post('/inventory', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     console.error('[Inventory Error] Database connection not configured');
     return res.status(500).json({ error: 'Database connection not configured' });
@@ -796,7 +797,7 @@ router.post('/inventory', async (req, res) => {
 // --- ANALYTICS & FORECASTING ROUTES ---
 
 // GET: Forecast (30-day horizon)
-router.get('/analytics/forecast', async (req, res) => {
+router.get('/analytics/forecast', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -936,7 +937,7 @@ router.get('/analytics/forecast', async (req, res) => {
 });
 
 // GET: Top Sellers (last 30 days)
-router.get('/analytics/top-sellers', async (req, res) => {
+router.get('/analytics/top-sellers', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1023,7 +1024,7 @@ router.get('/analytics/top-sellers', async (req, res) => {
 });
 
 // GET: Supply Plan (30-day forecast)
-router.get('/analytics/supply-plan', async (req, res) => {
+router.get('/analytics/supply-plan', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1142,29 +1143,49 @@ router.get('/analytics/supply-plan', async (req, res) => {
 });
 
 // GET: Retrieve a specific order by public order_id
-router.get('/:orderId', async (req, res) => {
+// GET: The signed-in customer's own orders (newest first). Registered before
+// '/:orderId' so "mine" is not read as an order id.
+router.get('/mine', requireCustomer(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   try {
-    console.log('[Supabase Debug] Fetching order:', req.params.orderId, 'for tenant:', req.tenantId);
-    let query = supabase
+    let query = supabase.from('bakery_orders').select('*').eq('customer_id', req.customerId);
+    if (req.tenantId) query = query.eq('tenant_id', req.tenantId);
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(200);
+    if (error) throw error;
+    res.json((data || []).map(formatOrderRow));
+  } catch (error) {
+    console.error('[Supabase Error] Fetch My Orders Failed:', error.message);
+    res.status(500).json({ error: 'Failed to fetch your orders' });
+  }
+});
+
+// GET: One order -- for the bakery's baker, or the customer who placed it.
+router.get('/:orderId', requireCustomer(supabase), async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Database connection not configured' });
+  }
+  try {
+    const { data, error } = await supabase
       .from('bakery_orders')
       .select('*')
-      .eq('order_id', req.params.orderId);
+      .eq('order_id', req.params.orderId)
+      .maybeSingle();
 
-    if (req.tenantId) {
-      query = query.eq('tenant_id', req.tenantId);
+    const bakerTenant = bakerTenantOf(req.authUser);
+    const allowed = data && (data.customer_id === req.customerId || (bakerTenant && data.tenant_id === bakerTenant));
+    if (error || !allowed) {
+      return res.status(404).json({ error: 'Order not found' });
     }
+    res.json(formatOrderRow(data));
+  } catch (error) {
+    res.status(404).json({ error: 'Order not found' });
+  }
+});
 
-    const { data, error } = await query.single();
-
-    if (error) {
-      console.error('[Supabase Error] Fetch Order Failed:', error.message, 'Order ID:', req.params.orderId, 'Tenant ID:', req.tenantId);
-      return res.status(404).json({ error: 'Order not found', message: error.message });
-    }
-
-    // Map Supabase snake_case to Frontend camelCase
+/** Supabase snake_case order row -> the camelCase shape the app uses. */
+function formatOrderRow(data) {
     const formattedOrder = {
       id: data.order_id,
       customerName: data.customer_name,
@@ -1184,14 +1205,11 @@ router.get('/:orderId', async (req, res) => {
       paymentMethod: data.payment_method || null,
       createdAt: data.created_at
     };
-    res.json(formattedOrder);
-  } catch (error) {
-    res.status(404).json({ error: 'Order not found' });
-  }
-});
+    return formattedOrder;
+}
 
 // GET: Retrieve all orders (for the Baker)
-router.get('/', async (req, res) => {
+router.get('/', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1298,7 +1316,7 @@ router.get('/recipes/:recipeId/reviews', async (req, res) => {
 });
 
 // POST: Add a new review
-router.post('/reviews', async (req, res) => {
+router.post('/reviews', requireCustomer(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1310,7 +1328,7 @@ router.post('/reviews', async (req, res) => {
         {
           tenant_id: req.tenantId,
           recipe_id: review.recipeId,
-          customer_id: review.customerId,
+          customer_id: req.customerId,
           customer_name: review.customer_name,
           rating: review.rating,
           comment: review.comment
@@ -1339,16 +1357,17 @@ router.post('/reviews', async (req, res) => {
 });
 
 // DELETE: Remove a review
-router.delete('/reviews/:id', async (req, res) => {
+router.delete('/reviews/:id', requireCustomer(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
   const { id } = req.params;
   try {
-    const { error } = await supabase
-      .from('bakery_reviews')
-      .delete()
-      .eq('id', id);
+    // The reviewer can delete their own review; the baker can remove any on their bakery.
+    const bakerTenant = bakerTenantOf(req.authUser);
+    let query = supabase.from('bakery_reviews').delete().eq('id', id);
+    query = bakerTenant ? query.eq('tenant_id', bakerTenant) : query.eq('customer_id', req.customerId);
+    const { error } = await query;
 
     if (error) throw error;
     res.json({ message: 'Review deleted' });
@@ -1358,7 +1377,7 @@ router.delete('/reviews/:id', async (req, res) => {
 });
 
 // PATCH: Update a review (comment/rating)
-router.patch('/reviews/:id', async (req, res) => {
+router.patch('/reviews/:id', requireCustomer(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1369,6 +1388,7 @@ router.patch('/reviews/:id', async (req, res) => {
       .from('bakery_reviews')
       .update({ rating, comment })
       .eq('id', id)
+      .eq('customer_id', req.customerId)
       .select()
       .single();
 
@@ -1380,7 +1400,7 @@ router.patch('/reviews/:id', async (req, res) => {
 });
 
 // PATCH: Reply to a review
-router.patch('/reviews/:id/reply', async (req, res) => {
+router.patch('/reviews/:id/reply', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1391,6 +1411,7 @@ router.patch('/reviews/:id/reply', async (req, res) => {
       .from('bakery_reviews')
       .update({ reply })
       .eq('id', id)
+      .eq('tenant_id', req.bakerTenantId)
       .select()
       .single();
 
@@ -1436,7 +1457,10 @@ router.post('/baker-notifications/test', requireBaker(supabase), async (req, res
 });
 
 // GET: Subscriptions for a user
-router.get('/subscriptions/:customerId', async (req, res) => {
+router.get('/subscriptions/:customerId', requireCustomer(supabase), async (req, res) => {
+  if (req.params.customerId !== req.customerId) {
+    return res.status(403).json({ error: 'Those subscriptions belong to someone else' });
+  }
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1450,38 +1474,6 @@ router.get('/subscriptions/:customerId', async (req, res) => {
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch subscriptions' });
-  }
-});
-
-// POST: Create a new subscription
-router.post('/subscriptions', async (req, res) => {
-  if (!supabase) {
-    return res.status(500).json({ error: 'Database connection not configured' });
-  }
-  const sub = req.body;
-  try {
-    const { data, error } = await supabase
-      .from('bakery_subscriptions')
-      .insert([
-        {
-          tenant_id: req.tenantId,
-          customer_id: sub.customerId,
-          recipe_id: sub.recipeId,
-          recipe_name: sub.recipeName,
-          quantity: sub.quantity,
-          frequency: sub.frequency,
-          price: sub.price,
-          start_date: sub.startDate,
-          next_bake_date: sub.nextBakeDate,
-          status: sub.status
-        }
-      ])
-      .select();
-
-    if (error) throw error;
-    res.status(201).json(data[0]);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create subscription' });
   }
 });
 
@@ -1558,7 +1550,7 @@ router.post('/subscriptions/:subId/unskip', requireCustomer(supabase), async (re
 });
 
 // PATCH: Update order notes
-router.patch('/:orderId/notes', async (req, res) => {
+router.patch('/:orderId/notes', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1581,7 +1573,7 @@ router.patch('/:orderId/notes', async (req, res) => {
 });
 
 // PATCH: Update order status
-router.patch('/:orderId/status', async (req, res) => {
+router.patch('/:orderId/status', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1606,7 +1598,7 @@ router.patch('/:orderId/status', async (req, res) => {
 // --- PROMO CODES ROUTES ---
 
 // GET: All promo codes
-router.get('/promos/all', async (req, res) => {
+router.get('/promos/all', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1637,7 +1629,7 @@ router.get('/promos/all', async (req, res) => {
 });
 
 // POST: Create or update promo code
-router.post('/promos', async (req, res) => {
+router.post('/promos', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1664,7 +1656,7 @@ router.post('/promos', async (req, res) => {
 });
 
 // DELETE: Remove a promo code
-router.delete('/promos/:id', async (req, res) => {
+router.delete('/promos/:id', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }
@@ -1686,7 +1678,7 @@ router.delete('/promos/:id', async (req, res) => {
 });
 
 // POST: Generate and Email PO
-router.post('/generate-po', async (req, res) => {
+router.post('/generate-po', requireBaker(supabase), async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection not configured' });
   }

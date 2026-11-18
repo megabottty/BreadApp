@@ -45,12 +45,6 @@ export interface SubscriptionRow {
   last_reply?: string | null;
 }
 
-type SubscriptionProduct = {
-  id?: string;
-  name: string;
-  price?: number;
-};
-
 @Injectable({
   providedIn: 'root'
 })
@@ -109,34 +103,6 @@ export class SubscriptionService {
     } catch (e) {
       console.warn('Failed to save subscriptions to localStorage (quota exceeded)', e);
     }
-  }
-
-  createSubscription(customerId: string, product: SubscriptionProduct, quantity: number): void {
-    const nextMonday = this.getNextMonday();
-    const newSub = {
-      customerId,
-      recipeId: product.id || '',
-      recipeName: product.name,
-      quantity,
-      frequency: 'WEEKLY' as const,
-      price: product.price || 12,
-      startDate: new Date().toISOString().split('T')[0],
-      nextBakeDate: nextMonday.toISOString().split('T')[0],
-      status: 'ACTIVE' as const
-    };
-
-    this.http.post<SubscriptionRow>(this.apiUrl, newSub, { headers: this.headers }).subscribe({
-      next: (saved) => {
-        this.subscriptions.update(prev => [...prev, this.mapRow(saved)]);
-        this.saveSubscriptions();
-      },
-      error: (err) => {
-        console.error('Failed to create subscription in DB, saving locally', err);
-        const localSub: Subscription = { ...newSub, id: 'LOCAL_' + Math.random().toString(36).substring(7), skippedDates: [] };
-        this.subscriptions.update(prev => [...prev, localSub]);
-        this.saveSubscriptions();
-      }
-    });
   }
 
   cancelSubscription(subId: string): Observable<Subscription> {
@@ -199,11 +165,5 @@ export class SubscriptionService {
       ? prev.map(s => (s.id === updated.id ? updated : s))
       : [...prev, updated]);
     this.saveSubscriptions();
-  }
-
-  private getNextMonday(): Date {
-    const d = new Date();
-    d.setDate(d.getDate() + ((1 + 7 - d.getDay()) % 7 || 7));
-    return d;
   }
 }

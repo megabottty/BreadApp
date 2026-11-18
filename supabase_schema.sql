@@ -405,20 +405,20 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can insert their own recipes' AND tablename = 'bakery_recipes') THEN
-        CREATE POLICY "Bakers can insert their own recipes" ON bakery_recipes FOR INSERT WITH CHECK ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can insert their own recipes" ON bakery_recipes FOR INSERT WITH CHECK ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can update their own recipes' AND tablename = 'bakery_recipes') THEN
-        CREATE POLICY "Bakers can update their own recipes" ON bakery_recipes FOR UPDATE USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can update their own recipes" ON bakery_recipes FOR UPDATE USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can delete their own recipes' AND tablename = 'bakery_recipes') THEN
-        CREATE POLICY "Bakers can delete their own recipes" ON bakery_recipes FOR DELETE USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can delete their own recipes" ON bakery_recipes FOR DELETE USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 9.3 bakery_orders Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can see their own bakery orders' AND tablename = 'bakery_orders') THEN
-        CREATE POLICY "Bakers can see their own bakery orders" ON bakery_orders FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can see their own bakery orders" ON bakery_orders FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Customers can see their own orders' AND tablename = 'bakery_orders') THEN
@@ -435,12 +435,12 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage reviews for their bakery' AND tablename = 'bakery_reviews') THEN
-        CREATE POLICY "Bakers can manage reviews for their bakery" ON bakery_reviews FOR UPDATE USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage reviews for their bakery" ON bakery_reviews FOR UPDATE USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 9.5 bakery_subscriptions Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can see their own bakery subscriptions' AND tablename = 'bakery_subscriptions') THEN
-        CREATE POLICY "Bakers can see their own bakery subscriptions" ON bakery_subscriptions FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can see their own bakery subscriptions" ON bakery_subscriptions FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Customers can see their own subscriptions' AND tablename = 'bakery_subscriptions') THEN
@@ -453,7 +453,7 @@ BEGIN
 
     -- 9.5b bakery_notification_preferences Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their bakery notification preferences' AND tablename = 'bakery_notification_preferences') THEN
-        CREATE POLICY "Bakers can manage their bakery notification preferences" ON bakery_notification_preferences FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their bakery notification preferences" ON bakery_notification_preferences FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Customers can see their own notification preferences' AND tablename = 'bakery_notification_preferences') THEN
@@ -466,62 +466,62 @@ BEGIN
 
     -- 9.6 bakery_promos Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own promos' AND tablename = 'bakery_promos') THEN
-        CREATE POLICY "Bakers can manage their own promos" ON bakery_promos FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own promos" ON bakery_promos FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.7 bakery_inventory Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own inventory' AND tablename = 'bakery_inventory') THEN
-        CREATE POLICY "Bakers can manage their own inventory" ON bakery_inventory FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own inventory" ON bakery_inventory FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.8 bakery_audit_logs Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can see their own audit logs' AND tablename = 'bakery_audit_logs') THEN
-        CREATE POLICY "Bakers can see their own audit logs" ON bakery_audit_logs FOR SELECT USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can see their own audit logs" ON bakery_audit_logs FOR SELECT USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.9 bakery_forecasts Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own forecasts' AND tablename = 'bakery_forecasts') THEN
-        CREATE POLICY "Bakers can manage their own forecasts" ON bakery_forecasts FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own forecasts" ON bakery_forecasts FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.10 bakery_forecast_items Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own forecast items' AND tablename = 'bakery_forecast_items') THEN
-        CREATE POLICY "Bakers can manage their own forecast items" ON bakery_forecast_items FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own forecast items" ON bakery_forecast_items FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.11 bakery_top_sellers Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own top seller snapshots' AND tablename = 'bakery_top_sellers') THEN
-        CREATE POLICY "Bakers can manage their own top seller snapshots" ON bakery_top_sellers FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own top seller snapshots" ON bakery_top_sellers FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.12 bakery_top_seller_items Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own top seller items' AND tablename = 'bakery_top_seller_items') THEN
-        CREATE POLICY "Bakers can manage their own top seller items" ON bakery_top_seller_items FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own top seller items" ON bakery_top_seller_items FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.13 bakery_supply_plans Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own supply plans' AND tablename = 'bakery_supply_plans') THEN
-        CREATE POLICY "Bakers can manage their own supply plans" ON bakery_supply_plans FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own supply plans" ON bakery_supply_plans FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.14 bakery_supply_plan_items Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own supply plan items' AND tablename = 'bakery_supply_plan_items') THEN
-        CREATE POLICY "Bakers can manage their own supply plan items" ON bakery_supply_plan_items FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own supply plan items" ON bakery_supply_plan_items FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.15 bakery_ingredient_costs Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own ingredient costs' AND tablename = 'bakery_ingredient_costs') THEN
-        CREATE POLICY "Bakers can manage their own ingredient costs" ON bakery_ingredient_costs FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own ingredient costs" ON bakery_ingredient_costs FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.16 bakery_tax_settings Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own tax settings' AND tablename = 'bakery_tax_settings') THEN
-        CREATE POLICY "Bakers can manage their own tax settings" ON bakery_tax_settings FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own tax settings" ON bakery_tax_settings FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 
     -- 10.17 bakery_expenses Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own expenses' AND tablename = 'bakery_expenses') THEN
-        CREATE POLICY "Bakers can manage their own expenses" ON bakery_expenses FOR ALL USING ((auth.jwt()->'user_metadata'->>'tenant_id')::uuid = tenant_id);
+        CREATE POLICY "Bakers can manage their own expenses" ON bakery_expenses FOR ALL USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
     END IF;
 END $$;
 
@@ -537,3 +537,104 @@ DROP POLICY IF EXISTS "Allow anonymous order placement" ON bakery_orders;
 DROP POLICY IF EXISTS "Promos are viewable by everyone" ON bakery_promos;
 DROP POLICY IF EXISTS "Authenticated users can create reviews" ON bakery_reviews;
 
+-- ---------------------------------------------------------------------------
+-- Baker policies trust app_metadata, not user_metadata (2026-11).
+-- user_metadata can be edited by the signed-in user themselves, so a policy
+-- reading tenant_id from it let any account claim any bakery. app_metadata is
+-- set only with the service key (server/scripts/set-baker.cjs). Safe to re-run.
+-- ---------------------------------------------------------------------------
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can insert their own recipes' AND tablename = 'bakery_recipes') THEN
+        ALTER POLICY "Bakers can insert their own recipes" ON bakery_recipes WITH CHECK ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can update their own recipes' AND tablename = 'bakery_recipes') THEN
+        ALTER POLICY "Bakers can update their own recipes" ON bakery_recipes USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can delete their own recipes' AND tablename = 'bakery_recipes') THEN
+        ALTER POLICY "Bakers can delete their own recipes" ON bakery_recipes USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can see their own bakery orders' AND tablename = 'bakery_orders') THEN
+        ALTER POLICY "Bakers can see their own bakery orders" ON bakery_orders USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage reviews for their bakery' AND tablename = 'bakery_reviews') THEN
+        ALTER POLICY "Bakers can manage reviews for their bakery" ON bakery_reviews USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can see their own bakery subscriptions' AND tablename = 'bakery_subscriptions') THEN
+        ALTER POLICY "Bakers can see their own bakery subscriptions" ON bakery_subscriptions USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their bakery notification preferences' AND tablename = 'bakery_notification_preferences') THEN
+        ALTER POLICY "Bakers can manage their bakery notification preferences" ON bakery_notification_preferences USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own promos' AND tablename = 'bakery_promos') THEN
+        ALTER POLICY "Bakers can manage their own promos" ON bakery_promos USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own inventory' AND tablename = 'bakery_inventory') THEN
+        ALTER POLICY "Bakers can manage their own inventory" ON bakery_inventory USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can see their own audit logs' AND tablename = 'bakery_audit_logs') THEN
+        ALTER POLICY "Bakers can see their own audit logs" ON bakery_audit_logs USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own forecasts' AND tablename = 'bakery_forecasts') THEN
+        ALTER POLICY "Bakers can manage their own forecasts" ON bakery_forecasts USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own forecast items' AND tablename = 'bakery_forecast_items') THEN
+        ALTER POLICY "Bakers can manage their own forecast items" ON bakery_forecast_items USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own top seller snapshots' AND tablename = 'bakery_top_sellers') THEN
+        ALTER POLICY "Bakers can manage their own top seller snapshots" ON bakery_top_sellers USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own top seller items' AND tablename = 'bakery_top_seller_items') THEN
+        ALTER POLICY "Bakers can manage their own top seller items" ON bakery_top_seller_items USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own supply plans' AND tablename = 'bakery_supply_plans') THEN
+        ALTER POLICY "Bakers can manage their own supply plans" ON bakery_supply_plans USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own supply plan items' AND tablename = 'bakery_supply_plan_items') THEN
+        ALTER POLICY "Bakers can manage their own supply plan items" ON bakery_supply_plan_items USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own ingredient costs' AND tablename = 'bakery_ingredient_costs') THEN
+        ALTER POLICY "Bakers can manage their own ingredient costs" ON bakery_ingredient_costs USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own tax settings' AND tablename = 'bakery_tax_settings') THEN
+        ALTER POLICY "Bakers can manage their own tax settings" ON bakery_tax_settings USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Bakers can manage their own expenses' AND tablename = 'bakery_expenses') THEN
+        ALTER POLICY "Bakers can manage their own expenses" ON bakery_expenses USING ((auth.jwt()->'app_metadata'->>'tenant_id')::uuid = tenant_id);
+    END IF;
+END $$;

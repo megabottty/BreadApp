@@ -20,6 +20,9 @@ const createTransporter = () => {
  * replyTo: where a reply goes. Defaults to EMAIL_REPLY_TO, so customers who
  * hit Reply reach a real inbox even when the From address can't receive mail.
  */
+/** a***@example.com -- enough to tell messages apart in logs without storing addresses. */
+const maskEmail = (to) => String(to || '').replace(/^(.)[^@]*(@.*)?$/, (_m, first, domain) => `${first}***${domain || ''}`);
+
 const sendEmail = async ({ to, subject, html, text, replyTo }) => {
     const transporter = createTransporter();
 
@@ -29,7 +32,7 @@ const sendEmail = async ({ to, subject, html, text, replyTo }) => {
     }
 
     try {
-      console.log(`[Email Utility] Attempting to send email to ${to}...`);
+      console.log(`[Email Utility] Attempting to send email to ${maskEmail(to)}...`);
       const info = await transporter.sendMail({
         from: process.env.CONTACT_EMAIL_FROM || '"The Daily Dough" <noreply@thedailydough.store>',
         to,

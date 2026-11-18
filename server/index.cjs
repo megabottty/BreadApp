@@ -146,13 +146,17 @@ app.use('/api/payments/create-setup-session', sensitiveLimiter);
 const paymentRoutes = require('./routes/payments.cjs');
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-const jsonParser = bodyParser.json({ limit: '50mb' });
+// Small bodies everywhere, except saving a recipe, which carries its photos
+// (resized to <=800px JPEG in the browser) and is baker-only.
+const jsonParser = bodyParser.json({ limit: '1mb' });
+const recipeJsonParser = bodyParser.json({ limit: '15mb' });
 app.use((req, res, next) => {
   if (req.path === '/api/payments/webhook') return next();
+  if (req.method === 'POST' && req.path === '/api/orders/recipes') return recipeJsonParser(req, res, next);
   return jsonParser(req, res, next);
 });
 
-const urlencodedParser = bodyParser.urlencoded({ limit: '50mb', extended: true });
+const urlencodedParser = bodyParser.urlencoded({ limit: '1mb', extended: true });
 app.use((req, res, next) => {
   if (req.path === '/api/payments/webhook') return next();
   return urlencodedParser(req, res, next);
@@ -340,7 +344,7 @@ app.use((req, res, next) => {
  * overrides it, KEEP_ALIVE=off disables it.
  */
 function startKeepAlive() {
-  if (process.env.KEEP_ALIVE === 'off') return;
+  if (['off', 'false', '0'].includes(String(process.env.KEEP_ALIVE || '').toLowerCase())) return;
   const base = process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL;
   if (!base || typeof fetch !== 'function') return;
   const url = `${base.replace(/\/$/, '')}/api/ping`;
@@ -357,6 +361,17 @@ function startKeepAlive() {
   timer.unref();
   console.log(`[KeepAlive] Self-ping every ${intervalMs / 60000} min -> ${url}`);
 }
+
+// Last-resort error handler: log the detail here, never send stack traces or
+// internal messages to the browser.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status === 413) return res.status(413).json({ error: 'That request is too large.' });
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON.' });
+  console.error(`[Server Error] ${req.method} ${req.path}:`, err.message);
+  if (!res.headersSent) res.status(status >= 400 && status < 600 ? status : 500).json({ error: 'Something went wrong. Please try again.' });
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

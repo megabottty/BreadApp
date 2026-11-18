@@ -7,6 +7,24 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY
 );
 
+const { requireBaker } = require('../utils/auth.cjs');
+
+// Every route here is the baker's own books. The bakery is always the signed-in
+// baker's (from their login), whatever x-tenant-id the browser sends.
+router.use(requireBaker(supabase), (req, _res, next) => {
+  req.headers['x-tenant-id'] = req.bakerTenantId;
+  next();
+});
+
+/** Copies only the named fields that were sent. */
+const pick = (body, fields) => {
+  const out = {};
+  for (const f of fields) if (body && body[f] !== undefined) out[f] = body[f];
+  return out;
+};
+
+const EXPENSE_FIELDS = ['amount', 'category', 'date', 'description', 'is_deductible', 'payment_method', 'receipt_url'];
+
 /**
  * POST /api/expenses
  * Add a new expense
@@ -19,7 +37,7 @@ router.post('/', async (req, res) => {
     }
 
     const expense = {
-      ...req.body,
+      ...pick(req.body, EXPENSE_FIELDS),
       tenant_id: tenantId,
       created_at: new Date().toISOString()
     };
@@ -91,7 +109,7 @@ router.patch('/:id', async (req, res) => {
 
     const { data, error } = await supabase
       .from('bakery_expenses')
-      .update(req.body)
+      .update(pick(req.body, EXPENSE_FIELDS))
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()

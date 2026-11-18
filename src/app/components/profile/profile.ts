@@ -143,10 +143,8 @@ export class ProfileComponent implements OnInit {
     if (user) {
       const slug = this.tenantService.tenant()?.slug || 'thedailydough';
       const headers = new HttpHeaders().set('x-tenant-slug', slug);
-      this.http.get<Order[]>(`${environment.apiUrl}/orders`, { headers }).subscribe({
-        next: (orders) => {
-          // Filter orders for this specific customer
-          const myOrders = orders.filter(o => o.customerId === user.id);
+      this.http.get<Order[]>(`${environment.apiUrl}/orders/mine`, { headers }).subscribe({
+        next: (myOrders: Order[]) => {
           if (myOrders.length > 0) {
             this.pastOrders.set(myOrders);
             localStorage.setItem('bakery_orders', JSON.stringify(myOrders));
